@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import type { Schema, SchemaDiagnostic } from "@schemalens/schema-core";
+import { currentLocale, t } from "../i18n.js";
 import type { ExtensionToWebview, WebviewToExtension } from "./protocol.js";
 import { findSourceLocation } from "./sourceNavigation.js";
 
@@ -75,6 +76,11 @@ export class PreviewPanel {
     this.post({ type: "schema", schema, diagnostics, label: basename(uri.fsPath) });
   }
 
+  /** 把目前語系推給 Webview（開啟時與設定變更時）。 */
+  pushLocale(): void {
+    void this.panel.webview.postMessage({ type: "locale", locale: currentLocale() } satisfies ExtensionToWebview);
+  }
+
   run(command: "fitView" | "resetFocus"): void {
     this.post({ type: "command", command });
   }
@@ -92,6 +98,8 @@ export class PreviewPanel {
     switch (message.type) {
       case "ready": {
         this.ready = true;
+        // 語系要先於 schema 送達，Toolbar 才不會先閃一次預設語言。
+        this.pushLocale();
         if (this.pending) {
           void this.panel.webview.postMessage(this.pending);
           this.pending = null;
@@ -120,13 +128,13 @@ export class PreviewPanel {
    */
   private async openSource(tableId: string, column?: string): Promise<void> {
     if (!this.source || !this.schema) {
-      void vscode.window.showWarningMessage("目前的 Preview 沒有對應的原始檔（合成 Schema）");
+      void vscode.window.showWarningMessage(t().noSourceForPreview);
       return;
     }
 
     const location = findSourceLocation(this.schema, { tableId, column });
     if (!location) {
-      void vscode.window.showWarningMessage(`找不到 ${column ? `${tableId}.${column}` : tableId} 的定義位置`);
+      void vscode.window.showWarningMessage(t().definitionNotFound(column ? `${tableId}.${column}` : tableId));
       return;
     }
 

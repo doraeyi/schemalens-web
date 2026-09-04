@@ -6,6 +6,7 @@ import {
   type PositionedGraph,
 } from "@schemalens/schema-layout";
 import { buildCardModels, toLayoutNodes, type CardModel } from "./cardModel.js";
+import { stringsFor, type Locale, type RendererStrings } from "./i18n.js";
 import { describeRelation, renderEdge, routeRelation } from "./relationRenderer.js";
 import { RENDERER_CSS } from "./styles.js";
 import { renderCard, type CardElements } from "./tableRenderer.js";
@@ -26,6 +27,8 @@ export interface RendererEvents {
 export interface RendererOptions {
   layoutEngine?: LayoutEngine;
   events?: Partial<RendererEvents>;
+  /** 介面語系；Extension 端依設定決定後傳進來。 */
+  locale?: Locale;
 }
 
 const MIN_SCALE = 0.08;
@@ -47,6 +50,7 @@ export class SchemaRenderer {
   private readonly errorLayer: HTMLElement;
   private readonly layoutEngine: LayoutEngine;
   private readonly events: Partial<RendererEvents>;
+  private strings: RendererStrings;
 
   private schema: Schema | null = null;
   private graph: SchemaGraph | null = null;
@@ -65,6 +69,7 @@ export class SchemaRenderer {
     this.host = host;
     this.layoutEngine = options.layoutEngine ?? layeredLayout;
     this.events = options.events ?? {};
+    this.strings = stringsFor(options.locale);
 
     const style = document.createElement("style");
     style.textContent = RENDERER_CSS;
@@ -107,6 +112,19 @@ export class SchemaRenderer {
   }
 
   /**
+   * 切換介面語系。
+   * 卡片內的 "+N more" 也會跟著換，所以要重建；純 class 切換不夠。
+   */
+  setLocale(locale: Locale): void {
+    this.strings = stringsFor(locale);
+    if (this.schema) this.rebuild();
+  }
+
+  getStrings(): RendererStrings {
+    return this.strings;
+  }
+
+  /**
    * 更新檢視狀態。
    *
    * 只有會改變卡片幾何的欄位（detailLevel / collapsed）需要重排版；
@@ -133,7 +151,7 @@ export class SchemaRenderer {
       return;
     }
     const title = document.createElement("div");
-    title.textContent = `${diagnostics.length} 個 Schema 問題（Preview 顯示的是可解析的部分）`;
+    title.textContent = this.strings.diagnosticsTitle(diagnostics.length);
     title.style.fontWeight = "600";
     this.errorLayer.append(title);
 
@@ -245,7 +263,7 @@ export class SchemaRenderer {
       const card = this.cards.get(table.id);
       const position = this.positioned.positionById.get(table.id);
       if (!card || !position) continue;
-      const elements = renderCard(card, position);
+      const elements = renderCard(card, position, this.strings);
       this.cardElements.set(table.id, elements);
       fragment.append(elements.root);
     }

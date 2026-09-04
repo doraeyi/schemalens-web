@@ -1,5 +1,6 @@
 import type { PositionedNode } from "@schemalens/schema-layout";
 import { CARD_METRICS, type CardModel } from "./cardModel.js";
+import { stringsFor, type RendererStrings } from "./i18n.js";
 
 export interface CardElements {
   root: HTMLElement;
@@ -21,7 +22,11 @@ function el(tag: string, className: string, text?: string): HTMLElement {
  * 而且每個欄位 Row 都是真實元素，Column 級的 hover / 高亮 / 雙擊回跳
  * 才不用自己重做命中測試。
  */
-export function renderCard(card: CardModel, position: PositionedNode): CardElements {
+export function renderCard(
+  card: CardModel,
+  position: PositionedNode,
+  strings: RendererStrings = stringsFor(undefined),
+): CardElements {
   const root = el("div", "dbs-card");
   root.dataset.tableId = card.table.id;
   root.style.left = `${position.x}px`;
@@ -70,7 +75,7 @@ export function renderCard(card: CardModel, position: PositionedNode): CardEleme
     }
 
     if (card.hiddenColumnCount > 0) {
-      const more = el("div", "dbs-row dbs-row-more", `+${card.hiddenColumnCount} more columns`);
+      const more = el("div", "dbs-row dbs-row-more", strings.moreColumns(card.hiddenColumnCount));
       more.dataset.action = "expand-detail";
       body.append(more);
     }

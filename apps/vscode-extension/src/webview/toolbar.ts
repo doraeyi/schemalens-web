@@ -1,6 +1,6 @@
 import type { Schema } from "@schemalens/schema-core";
 import { search, type SearchHit } from "@schemalens/schema-graph";
-import type { DetailLevel, UnrelatedMode } from "@schemalens/schema-renderer";
+import type { DetailLevel, RendererStrings, UnrelatedMode } from "@schemalens/schema-renderer";
 import type { TraversalDirection } from "@schemalens/schema-graph";
 
 export const TOOLBAR_CSS = `
@@ -144,7 +144,10 @@ export class Toolbar {
   private hits: SearchHit[] = [];
   private cursor = -1;
 
-  constructor(private readonly handlers: ToolbarHandlers) {
+  constructor(
+    private readonly handlers: ToolbarHandlers,
+    private strings: RendererStrings,
+  ) {
     this.element = document.createElement("div");
     this.element.className = "dbs-toolbar";
 
@@ -152,44 +155,44 @@ export class Toolbar {
     searchWrap.className = "dbs-group dbs-search";
     this.input = document.createElement("input");
     this.input.type = "search";
-    this.input.placeholder = "搜尋 Table 或 Column…";
+    this.input.placeholder = this.strings.searchPlaceholder;
     this.results = document.createElement("div");
     this.results.className = "dbs-results";
     this.results.hidden = true;
     searchWrap.append(this.input, this.results);
 
     this.detailGroup = buttonGroup<DetailLevel>(
-      "View",
+      this.strings.viewGroup,
       [
-        { label: "Overview", value: "overview" },
-        { label: "Keys", value: "keys" },
-        { label: "Full", value: "full" },
+        { label: this.strings.viewOverview, value: "overview" },
+        { label: this.strings.viewKeys, value: "keys" },
+        { label: this.strings.viewFull, value: "full" },
       ],
       handlers.onDetailLevel,
     );
     this.depthGroup = buttonGroup<1 | 2 | null>(
-      "Depth",
+      this.strings.depthGroup,
       [
-        { label: "All", value: null },
-        { label: "1-Hop", value: 1 },
-        { label: "2-Hop", value: 2 },
+        { label: this.strings.depthAll, value: null },
+        { label: this.strings.depth1Hop, value: 1 },
+        { label: this.strings.depth2Hop, value: 2 },
       ],
       handlers.onDepth,
     );
     this.directionGroup = buttonGroup<TraversalDirection>(
-      "Direction",
+      this.strings.directionGroup,
       [
-        { label: "All", value: "all" },
-        { label: "Upstream", value: "upstream" },
-        { label: "Downstream", value: "downstream" },
+        { label: this.strings.directionAll, value: "all" },
+        { label: this.strings.directionUpstream, value: "upstream" },
+        { label: this.strings.directionDownstream, value: "downstream" },
       ],
       handlers.onDirection,
     );
     this.unrelatedGroup = buttonGroup<UnrelatedMode>(
-      "Unrelated",
+      this.strings.unrelatedGroup,
       [
-        { label: "Dim", value: "dim" },
-        { label: "Hide", value: "hide" },
+        { label: this.strings.unrelatedDim, value: "dim" },
+        { label: this.strings.unrelatedHide, value: "hide" },
       ],
       handlers.onUnrelated,
     );
@@ -198,11 +201,11 @@ export class Toolbar {
     actions.className = "dbs-group";
     const reset = document.createElement("button");
     reset.className = "dbs-btn";
-    reset.textContent = "Reset Focus";
+    reset.textContent = this.strings.resetFocus;
     reset.addEventListener("click", () => handlers.onResetFocus());
     const fit = document.createElement("button");
     fit.className = "dbs-btn";
-    fit.textContent = "Fit View";
+    fit.textContent = this.strings.fitView;
     fit.addEventListener("click", () => handlers.onFitView());
     actions.append(reset, fit);
 
@@ -297,7 +300,7 @@ export class Toolbar {
       item.className = "dbs-result";
       const kind = document.createElement("span");
       kind.className = "dbs-result-kind";
-      kind.textContent = hit.kind === "table" ? "TABLE" : "COLUMN";
+      kind.textContent = hit.kind === "table" ? this.strings.resultTable : this.strings.resultColumn;
       const label = document.createElement("span");
       label.className = "dbs-result-label";
       label.textContent = hit.label;

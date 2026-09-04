@@ -1,4 +1,5 @@
 import type { Schema, SchemaDiagnostic } from "@schemalens/schema-core";
+import type { Locale } from "@schemalens/schema-renderer";
 
 /**
  * Extension ⇄ Webview 的訊息契約。
@@ -8,6 +9,8 @@ import type { Schema, SchemaDiagnostic } from "@schemalens/schema-core";
  */
 export type ExtensionToWebview =
   | { type: "schema"; schema: Schema; diagnostics: SchemaDiagnostic[]; label: string }
+  /** 介面語系；Extension 端依 `dbschema.language` 設定決定後推給 Webview。 */
+  | { type: "locale"; locale: Locale }
   | { type: "diagnostics"; diagnostics: SchemaDiagnostic[] }
   | { type: "command"; command: "fitView" | "resetFocus" };
 
