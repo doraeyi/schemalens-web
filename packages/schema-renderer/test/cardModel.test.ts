@@ -7,6 +7,7 @@ import {
   columnBadges,
   formatType,
   rowCenterOffset,
+  textWidth,
   visibleColumns,
   wrapComment,
   type ViewState,
@@ -235,5 +236,70 @@ describe("備註展開", () => {
     const truncated = buildCardModel(table, state());
     const expanded = buildCardModel(table, state({ expandComments: true }));
     expect(expanded.width).toBeLessThan(truncated.width);
+  });
+});
+
+describe("textWidth（全形字寬度）", () => {
+  it("半形字算 1", () => {
+    expect(textWidth("Email")).toBe(5);
+  });
+
+  it("中文字算 2", () => {
+    expect(textWidth("留言者")).toBe(6);
+  });
+
+  it("中英混排逐字累加", () => {
+    // 作者指向 4 字 + 全形逗號 = 5 個全形字（10）+ 半形空格（1）+ Users（5）
+    expect(textWidth("作者，指向 Users")).toBe(5 * 2 + 1 + 5);
+  });
+
+  it("全形標點也算 2", () => {
+    expect(textWidth("，。！")).toBe(6);
+  });
+
+  it("空字串為 0", () => {
+    expect(textWidth("")).toBe(0);
+  });
+});
+
+describe("中文備註的卡片寬度", () => {
+  const chineseTable: Table = {
+    id: "dbo.Comments",
+    schema: "dbo",
+    name: "Comments",
+    comment: "留言",
+    columns: [
+      column({ name: "Id", primaryKey: true, comment: "留言 ID" }),
+      column({ name: "PostId", foreignKey: true, comment: "所屬文章" }),
+      column({ name: "AuthorId", foreignKey: true, comment: "留言者" }),
+      column({ name: "CreatedAt", type: "datetime2", comment: "留言時間" }),
+    ],
+    indexes: [],
+  };
+
+  it("短中文備註不會被低估，卡片寬到放得下", () => {
+    const card = buildCardModel(chineseTable, state());
+    // 最寬的一列：AuthorId(8) + bigint(6) + 留言者(6) + null(5) + 間隔
+    const needed =
+      (textWidth("AuthorId") + textWidth("bigint") + textWidth("留言者") + 5 + 3) *
+        CARD_METRICS.charWidth +
+      CARD_METRICS.badgeColumnWidth +
+      CARD_METRICS.columnGaps +
+      CARD_METRICS.horizontalPadding;
+    expect(card.width).toBeGreaterThanOrEqual(Math.min(needed, CARD_METRICS.maxWidth));
+  });
+
+  it("同樣字數的中文備註，卡片比英文備註寬", () => {
+    const english: Table = {
+      ...chineseTable,
+      columns: chineseTable.columns.map((c) => ({ ...c, comment: "abc" })),
+    };
+    const chinese: Table = {
+      ...chineseTable,
+      columns: chineseTable.columns.map((c) => ({ ...c, comment: "中文字" })),
+    };
+    expect(buildCardModel(chinese, state()).width).toBeGreaterThan(
+      buildCardModel(english, state()).width,
+    );
   });
 });
