@@ -12,23 +12,22 @@ import type { DetailLevel, ViewState } from "./viewState.js";
  *   2. 欄位級 Relation 錨點可以被單元測試（plan §20、約束 #17）。
  */
 export const CARD_METRICS = {
-  /** 標題列（Table 名稱 + schema）高度 */
+  /** 標題列（Table 名稱 + schema + Table 備註，同一行）高度 */
   headerHeight: 34,
-  /** Table Comment 那一行的高度（Full 才顯示） */
-  commentHeight: 18,
   /** 欄位列高度 */
   rowHeight: 22,
   /** 卡片上下內距（欄位區） */
   bodyPaddingY: 4,
   /** 摺疊或 Overview 時的卡片高度 */
   compactHeight: 34,
-  minWidth: 200,
-  maxWidth: 420,
+  minWidth: 220,
+  // Full 檢視要放得下欄位備註，因此上限比純欄位卡片寬。
+  maxWidth: 560,
   /** 用來估算文字寬度的每字元寬（等寬字型 12px 左右） */
   charWidth: 6.8,
   horizontalPadding: 20,
-  /** 欄位標記欄（PK/FK/UQ/IDX）固定寬度 */
-  badgeColumnWidth: 34,
+  /** 欄位標記欄（PK/FK/UQ/IDX）固定寬度；要放得下兩個帶框的標記 */
+  badgeColumnWidth: 50,
 } as const;
 
 export interface CardRow {
@@ -47,6 +46,7 @@ export interface CardModel {
   rows: CardRow[];
   /** 因 detailLevel 被隱藏的欄位數，顯示成 "+N more"。 */
   hiddenColumnCount: number;
+  /** Table 備註是否要顯示；它與 schema 名稱同一行，不佔額外高度。 */
   showComment: boolean;
   width: number;
   height: number;
@@ -84,14 +84,17 @@ export function visibleColumns(table: Table, detailLevel: DetailLevel): Column[]
 
 function estimateWidth(table: Table, rows: CardRow[], detailLevel: DetailLevel): number {
   const { charWidth, horizontalPadding, badgeColumnWidth, minWidth, maxWidth } = CARD_METRICS;
-  let widest = (table.name.length + table.schema.length + 1) * charWidth + 24;
-  if (detailLevel === "full" && table.comment) {
-    widest = Math.max(widest, table.comment.length * charWidth);
-  }
+
+  // 標題列：名稱 + schema + Table 備註都在同一行。
+  const headerChars =
+    table.name.length + table.schema.length + 2 + (table.comment ? table.comment.length + 3 : 0);
+  let widest = headerChars * charWidth + 24;
+
   for (const row of rows) {
-    // 名稱 + 型別 + 標記欄，再加上 nullable/default 的尾註空間。
+    // 名稱 + 型別 + 標記欄，再加上 nullable/default 與欄位備註的空間。
     const suffix = detailLevel === "full" ? (row.column.nullable ? 5 : 0) + (row.column.defaultValue ? 6 : 0) : 0;
-    const text = (row.column.name.length + row.typeLabel.length + suffix + 3) * charWidth;
+    const comment = detailLevel === "full" && row.column.comment ? row.column.comment.length + 3 : 0;
+    const text = (row.column.name.length + row.typeLabel.length + suffix + comment + 3) * charWidth;
     widest = Math.max(widest, text + badgeColumnWidth);
   }
   return Math.round(Math.min(maxWidth, Math.max(minWidth, widest + horizontalPadding)));
@@ -106,33 +109,24 @@ export function buildCardModel(table: Table, state: ViewState): CardModel {
     badges: columnBadges(column),
     typeLabel: formatType(column),
   }));
-  const showComment = !collapsed && detailLevel === "full" && Boolean(table.comment);
+  // Table 備註與 schema 名稱同一行，不再自成一列，所以任何檢視層級都顯示得起。
+  const showComment = Boolean(table.comment);
   // Overview / Collapse 是刻意的降噪模式，連 "+N more" 都不該出現；
   // 只有 Keys 需要提示「還有欄位沒顯示」。
   const compact = collapsed || detailLevel === "overview";
   const hiddenColumnCount = compact ? 0 : table.columns.length - columns.length;
 
   const width = estimateWidth(table, rows, detailLevel);
-  const height = computeCardHeight(rows.length, showComment, hiddenColumnCount > 0, compact);
+  const height = computeCardHeight(rows.length, hiddenColumnCount > 0, compact);
 
   return { table, detailLevel, collapsed, rows, hiddenColumnCount, showComment, width, height };
 }
 
-export function computeCardHeight(
-  rowCount: number,
-  showComment: boolean,
-  showMoreRow: boolean,
-  compact: boolean,
-): number {
+export function computeCardHeight(rowCount: number, showMoreRow: boolean, compact: boolean): number {
   const m = CARD_METRICS;
-  if (compact) return m.compactHeight + (showComment ? m.commentHeight : 0);
+  if (compact) return m.compactHeight;
   const bodyRows = rowCount + (showMoreRow ? 1 : 0);
-  return (
-    m.headerHeight +
-    (showComment ? m.commentHeight : 0) +
-    m.bodyPaddingY * 2 +
-    bodyRows * m.rowHeight
-  );
+  return m.headerHeight + m.bodyPaddingY * 2 + bodyRows * m.rowHeight;
 }
 
 /**
@@ -145,7 +139,7 @@ export function rowCenterOffset(card: CardModel, columnName: string): number {
   const m = CARD_METRICS;
   const index = card.rows.findIndex((row) => row.column.name === columnName);
   if (index < 0) return card.height / 2;
-  const top = m.headerHeight + (card.showComment ? m.commentHeight : 0) + m.bodyPaddingY;
+  const top = m.headerHeight + m.bodyPaddingY;
   return top + index * m.rowHeight + m.rowHeight / 2;
 }
 

@@ -9,31 +9,31 @@ table Users "系統使用者" {
 }
 
 table Posts "文章" {
-  PK Id        bigint         not null
-  FK AuthorId  bigint         not null "作者"
-     Title     nvarchar(200)  not null
-     Content   nvarchar(4000) null
-     Status    nvarchar(20)   not null default "draft"
-     CreatedAt datetime2      not null
+  PK Id        bigint         not null "文章 ID"
+  FK AuthorId  bigint         not null "作者，指向 Users"
+     Title     nvarchar(200)  not null "文章標題"
+     Content   nvarchar(4000) null     "內文"
+     Status    nvarchar(20)   not null default "draft" "draft / published"
+     CreatedAt datetime2      not null "發表時間"
 }
 
 table Comments "留言" {
-  PK Id        bigint    not null
-  FK PostId    bigint    not null
-  FK AuthorId  bigint    not null
-     Body      nvarchar(2000) not null
-     CreatedAt datetime2 not null
+  PK Id        bigint         not null "留言 ID"
+  FK PostId    bigint         not null "所屬文章"
+  FK AuthorId  bigint         not null "留言者"
+     Body      nvarchar(2000) not null "留言內容"
+     CreatedAt datetime2      not null "留言時間"
 }
 
 table Tags "標籤" {
-  PK Id   bigint       not null
-  UQ Name nvarchar(50) not null
+  PK Id   bigint       not null "標籤 ID"
+  UQ Name nvarchar(50) not null "標籤名稱"
 }
 
 table PostTags "文章標籤" {
-  PK Id     bigint not null
-  FK PostId bigint not null
-  FK TagId  bigint not null
+  PK Id     bigint not null "關聯 ID"
+  FK PostId bigint not null "文章"
+  FK TagId  bigint not null "標籤"
 }
 
 index IX_Posts_Author_CreatedAt on Posts(AuthorId, CreatedAt)

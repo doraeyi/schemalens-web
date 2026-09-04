@@ -56,6 +56,11 @@ export function renderEdge(relation: Relation, routed: RoutedEdge): EdgeElements
   hit.setAttribute("class", "dbs-edge-hit");
   hit.setAttribute("d", d);
 
+  // 背景色的粗底線：線經過卡片時會留下一圈空隙，兩者才都看得清楚。
+  const halo = document.createElementNS(SVG_NS, "path");
+  halo.setAttribute("class", "dbs-edge-halo");
+  halo.setAttribute("d", d);
+
   const path = document.createElementNS(SVG_NS, "path");
   path.setAttribute("class", "dbs-edge-path");
   path.setAttribute("d", d);
@@ -75,7 +80,7 @@ export function renderEdge(relation: Relation, routed: RoutedEdge): EdgeElements
   targetLabel.setAttribute("text-anchor", routed.toSide === "right" ? "start" : "end");
   targetLabel.textContent = ends.target;
 
-  root.append(hit, path, sourceLabel, targetLabel);
+  root.append(hit, halo, path, sourceLabel, targetLabel);
   return { root, path };
 }
 

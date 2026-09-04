@@ -26,11 +26,29 @@ export const RENDERER_CSS = `
   will-change: transform;
 }
 
+/* 關聯線畫在卡片「之上」。
+   否則長距離的線會被中間的卡片整條蓋掉，使用者根本看不到關聯。
+   .dbs-edges 本身 pointer-events: none，只有線本身接受點擊，卡片照常可按。 */
 .dbs-edges {
   position: absolute;
   top: 0;
   left: 0;
   overflow: visible;
+  pointer-events: none;
+  z-index: 2;
+}
+.dbs-nodes {
+  position: relative;
+  z-index: 1;
+}
+/* 與線同形的底線，用背景色描粗一點，
+   讓線經過卡片時有一圈「空隙」，兩者都還看得清楚。 */
+.dbs-edge-halo {
+  fill: none;
+  stroke: var(--vscode-editor-background, #1e1e1e);
+  stroke-width: 4;
+  stroke-linecap: round;
+  opacity: 0.75;
   pointer-events: none;
 }
 .dbs-edge-path {
@@ -106,16 +124,17 @@ export const RENDERER_CSS = `
   font-size: 10px;
   flex: none;
 }
+/* Table 備註與 schema 名稱同一行，不再自成一列。 */
 .dbs-card-comment {
-  height: 18px;
-  line-height: 18px;
-  padding: 0 8px;
-  box-sizing: border-box;
   color: var(--vscode-descriptionForeground, #9d9d9d);
   font-size: 10px;
+  min-width: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+.dbs-card-comment::before {
+  content: "· ";
 }
 .dbs-card-body { padding: 4px 0; }
 
@@ -135,13 +154,21 @@ export const RENDERER_CSS = `
 }
 .dbs-row-badges {
   flex: none;
-  width: 34px;
+  width: 50px;
   display: flex;
-  gap: 2px;
+  gap: 3px;
   font-size: 9px;
   font-weight: 700;
 }
-.dbs-badge { color: var(--vscode-descriptionForeground, #9d9d9d); }
+/* 每個標記各自一個框：PK 與 FK 同時存在時才不會黏成 "PKFK"。 */
+.dbs-badge {
+  color: var(--vscode-descriptionForeground, #9d9d9d);
+  border: 1px solid currentColor;
+  border-radius: 3px;
+  padding: 0 3px;
+  line-height: 14px;
+  opacity: 0.9;
+}
 .dbs-badge.pk { color: var(--vscode-charts-yellow, #e2c08d); }
 .dbs-badge.fk { color: var(--vscode-charts-blue, #4daafc); }
 .dbs-badge.uq { color: var(--vscode-charts-purple, #c586c0); }
@@ -151,6 +178,21 @@ export const RENDERER_CSS = `
   color: var(--vscode-symbolIcon-typeParameterForeground, #75beff);
   margin-left: auto;
   font-size: 11px;
+  flex: none;
+}
+/* 欄位用途說明（plan §19：Column Comment 必須直接看得到，不能只放 tooltip）。 */
+.dbs-row-comment {
+  color: var(--vscode-descriptionForeground, #9d9d9d);
+  font-size: 10px;
+  font-style: italic;
+  max-width: 45%;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dbs-row-comment::before {
+  content: "— ";
 }
 .dbs-row-flags {
   flex: none;

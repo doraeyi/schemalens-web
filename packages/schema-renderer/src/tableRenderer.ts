@@ -34,16 +34,18 @@ export function renderCard(
   root.style.width = `${card.width}px`;
   root.style.height = `${card.height}px`;
 
+  // 標題列：▾ 名稱 / schema / Table 備註全部同一行，備註不佔額外高度。
   const header = el("div", "dbs-card-header");
   const toggle = el("span", "dbs-card-toggle", card.collapsed ? "▸" : "▾");
   toggle.dataset.action = "toggle-collapse";
   header.append(toggle, el("span", "dbs-card-name", card.table.name));
   header.append(el("span", "dbs-card-schema", card.table.schema));
-  root.append(header);
-
   if (card.showComment && card.table.comment) {
-    root.append(el("div", "dbs-card-comment", card.table.comment));
+    const comment = el("span", "dbs-card-comment", card.table.comment);
+    comment.title = card.table.comment;
+    header.append(comment);
   }
+  root.append(header);
 
   const rowByColumn = new Map<string, HTMLElement>();
   if (card.rows.length > 0 || card.hiddenColumnCount > 0) {
@@ -59,15 +61,22 @@ export function renderCard(
       }
       rowEl.append(badges, el("span", "dbs-row-name", row.column.name));
 
+      rowEl.append(el("span", "dbs-row-type", row.typeLabel));
+
       if (card.detailLevel === "full") {
         const flags: string[] = [];
         if (row.column.nullable) flags.push("null");
         if (row.column.defaultValue) flags.push(`= ${row.column.defaultValue}`);
         if (flags.length) rowEl.append(el("span", "dbs-row-flags", flags.join(" ")));
-      }
-      rowEl.append(el("span", "dbs-row-type", row.typeLabel));
 
-      // Column Comment 放在 title，避免卡片被撐爆但資訊仍拿得到。
+        // 欄位用途說明直接畫出來（plan §19）。只放 tooltip 的話，
+        // 使用者必須逐欄 hover 才知道欄位是做什麼的。
+        if (row.column.comment) {
+          rowEl.append(el("span", "dbs-row-comment", row.column.comment));
+        }
+      }
+
+      // 卡片寬度有上限，過長的備註會被截斷，因此 tooltip 仍保留完整內容。
       if (row.column.comment) rowEl.title = `${row.column.name} — ${row.column.comment}`;
 
       body.append(rowEl);

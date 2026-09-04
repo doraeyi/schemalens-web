@@ -20,7 +20,7 @@ const blogSchema: Schema = {
       comment: "系統使用者",
       columns: [
         { name: "Id", type: "bigint", nullable: false, primaryKey: true, foreignKey: false, unique: false, indexed: false },
-        { name: "Email", type: "nvarchar", length: 255, nullable: false, primaryKey: false, foreignKey: false, unique: true, indexed: false },
+        { name: "Email", type: "nvarchar", length: 255, nullable: false, primaryKey: false, foreignKey: false, unique: true, indexed: false, comment: "登入帳號" },
       ],
       indexes: [],
     },
@@ -31,7 +31,7 @@ const blogSchema: Schema = {
       comment: "文章",
       columns: [
         { name: "Id", type: "bigint", nullable: false, primaryKey: true, foreignKey: false, unique: false, indexed: false },
-        { name: "AuthorId", type: "bigint", nullable: false, primaryKey: false, foreignKey: true, unique: false, indexed: false },
+        { name: "AuthorId", type: "bigint", nullable: false, primaryKey: false, foreignKey: true, unique: false, indexed: false, comment: "作者，指向 Users" },
         { name: "Title", type: "nvarchar", length: 200, nullable: false, primaryKey: false, foreignKey: false, unique: false, indexed: false },
       ],
       indexes: [],
@@ -85,9 +85,88 @@ describe("SchemaRenderer 預設畫面", () => {
     expect(users.querySelector('[data-column="Email"] .dbs-badge.uq')?.textContent).toBe("UQ");
   });
 
-  it("顯示 Table Comment", () => {
+  it("Table 備註顯示在標題列上（與 schema 同一行），不另外佔一列", () => {
     const users = host.querySelector('[data-table-id="dbo.Users"]')!;
-    expect(users.querySelector(".dbs-card-comment")?.textContent).toBe("系統使用者");
+    const header = users.querySelector(".dbs-card-header")!;
+    expect(header.querySelector(".dbs-card-comment")?.textContent).toBe("系統使用者");
+    // 備註必須在 header 內，不能是卡片下的獨立區塊。
+    expect(users.querySelector(":scope > .dbs-card-comment")).toBeNull();
+  });
+
+  it("欄位備註直接畫在該列上，不必 hover 才看得到（plan §19）", () => {
+    const users = host.querySelector('[data-table-id="dbo.Users"]')!;
+    const emailRow = users.querySelector('[data-column="Email"]')!;
+    expect(emailRow.querySelector(".dbs-row-comment")?.textContent).toBe("登入帳號");
+
+    const posts = host.querySelector('[data-table-id="dbo.Posts"]')!;
+    expect(posts.querySelector('[data-column="AuthorId"] .dbs-row-comment')?.textContent).toBe(
+      "作者，指向 Users",
+    );
+  });
+
+  it("同時有兩個標記時各自成為獨立的框，不會黏在一起", () => {
+    document.body.replaceChildren();
+    const { host: host2, renderer: r } = mount();
+    r.setSchema({
+      version: SCHEMA_VERSION,
+      metadata: { defaultSchema: "dbo" },
+      tables: [
+        {
+          id: "dbo.PostTags",
+          schema: "dbo",
+          name: "PostTags",
+          columns: [
+            {
+              name: "PostId",
+              type: "bigint",
+              nullable: false,
+              primaryKey: true,
+              foreignKey: true,
+              unique: false,
+              indexed: false,
+            },
+          ],
+          indexes: [],
+        },
+      ],
+      relations: [],
+    });
+
+    const badges = host2.querySelectorAll('[data-column="PostId"] .dbs-badge');
+    expect([...badges].map((b) => b.textContent)).toEqual(["PK", "FK"]);
+    // 每個標記是獨立元素且有自己的框線樣式類別。
+    expect(badges).toHaveLength(2);
+    expect(host2.querySelector("style")!.textContent).toMatch(/\.dbs-badge\s*{[^}]*border:/);
+  });
+
+  it("沒有備註的欄位不會多出空的備註節點", () => {
+    const posts = host.querySelector('[data-table-id="dbo.Posts"]')!;
+    expect(posts.querySelector('[data-column="Title"] .dbs-row-comment')).toBeNull();
+  });
+
+  it("備註過長會被截斷，但 tooltip 仍保留完整內容", () => {
+    const users = host.querySelector<HTMLElement>('[data-table-id="dbo.Users"]')!;
+    const emailRow = users.querySelector<HTMLElement>('[data-column="Email"]')!;
+    expect(emailRow.title).toContain("登入帳號");
+  });
+
+  it("關聯線畫在卡片之上，才不會被卡片蓋住", () => {
+    const viewport = host.querySelector(".dbs-viewport")!;
+    const children = [...viewport.children].map((node) => node.getAttribute("class"));
+    // 兩層都在，且線層帶有 z-index 讓它疊在卡片上（見 RENDERER_CSS）。
+    expect(children).toContain("dbs-edges");
+    expect(children).toContain("dbs-nodes");
+    expect(host.querySelector("style")!.textContent).toMatch(/\.dbs-edges\s*{[^}]*z-index:\s*2/);
+    expect(host.querySelector("style")!.textContent).toMatch(/\.dbs-nodes\s*{[^}]*z-index:\s*1/);
+  });
+
+  it("每條線都有背景色底線（halo），經過卡片時仍看得清楚", () => {
+    const edge = host.querySelector('[data-relation="FK_Posts_Users"]')!;
+    const halo = edge.querySelector(".dbs-edge-halo")!;
+    const path = edge.querySelector(".dbs-edge-path")!;
+    expect(halo).not.toBeNull();
+    // halo 與線同形，才不會露出邊緣。
+    expect(halo.getAttribute("d")).toBe(path.getAttribute("d"));
   });
 
   it("Relation 畫出來，且標了 cardinality 的兩端（AC-06）", () => {
@@ -131,6 +210,12 @@ describe("SchemaRenderer 探索行為", () => {
     renderer.setViewState({ detailLevel: "overview" });
     expect(host.querySelectorAll(".dbs-row")).toHaveLength(0);
     expect(host.querySelectorAll(".dbs-card").length).toBeGreaterThan(0);
+  });
+
+  it("Keys 檢視不顯示欄位備註（降噪）", () => {
+    renderer.setSchema(blogSchema);
+    renderer.setViewState({ detailLevel: "keys" });
+    expect(host.querySelectorAll(".dbs-row-comment")).toHaveLength(0);
   });
 
   it("Keys 的欄位數少於 Full", () => {
