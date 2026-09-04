@@ -1,3 +1,4 @@
+export * from "./i18n.js";
 export * from "./viewState.js";
 export * from "./cardModel.js";
 export * from "./visibility.js";

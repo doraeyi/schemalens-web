@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import { FIXTURE_SIZES, generateSchema } from "@schemalens/schema-fixtures";
 import { DBSCHEMA_LANGUAGE_ID, DiagnosticsProvider } from "./diagnostics/DiagnosticsProvider.js";
 import { toJson } from "@schemalens/schema-serializer";
+import { t } from "./i18n.js";
 import { PreviewPanel } from "./preview/PreviewPanel.js";
 import { isSupportedSchemaFile, jsonExportUri, loadSchemaFromDocument } from "./schema/documentSchema.js";
 
@@ -25,11 +26,18 @@ export function activate(context: vscode.ExtensionContext): void {
   });
   context.subscriptions.push(diagnostics);
 
+  // 語系設定變更時，立刻把新語系推給已開啟的 Preview。
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeConfiguration((event) => {
+      if (event.affectsConfiguration("dbschema.language")) PreviewPanel.active?.pushLocale();
+    }),
+  );
+
   context.subscriptions.push(
     vscode.commands.registerCommand("dbschema.openPreview", () => {
       const document = activeSchemaDocument();
       if (!document) {
-        void vscode.window.showWarningMessage("請先開啟 .dbschema、*.schema.md 或 *.schema.json 檔案");
+        void vscode.window.showWarningMessage(t().openSchemaFileFirst);
         return;
       }
       const result = loadSchemaFromDocument(document);
@@ -39,7 +47,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand("dbschema.exportJson", async () => {
       const document = activeSchemaDocument();
       if (!document) {
-        void vscode.window.showWarningMessage("請先開啟 .dbschema、*.schema.md 或 *.schema.json 檔案");
+        void vscode.window.showWarningMessage(t().openSchemaFileFirst);
         return;
       }
       const result = loadSchemaFromDocument(document);
@@ -48,21 +56,21 @@ export function activate(context: vscode.ExtensionContext): void {
 
       const opened = await vscode.workspace.openTextDocument(target);
       await vscode.window.showTextDocument(opened, { preview: false });
-      void vscode.window.showInformationMessage(`已匯出 ${result.schema.tables.length} 張 Table 到 ${target.fsPath}`);
+      void vscode.window.showInformationMessage(t().exported(result.schema.tables.length, target.fsPath));
     }),
 
     vscode.commands.registerCommand("dbschema.validateSchema", () => {
       const document = activeDbschemaDocument();
       if (!document) {
-        void vscode.window.showWarningMessage("請先開啟一個 .dbschema 檔案");
+        void vscode.window.showWarningMessage(t().openDbschemaFileFirst);
         return;
       }
       const result = diagnostics.refresh(document);
       const count = result?.diagnostics.length ?? 0;
       void vscode.window.showInformationMessage(
         count === 0
-          ? `Schema 驗證通過：${result?.schema.tables.length ?? 0} 張 Table`
-          : `Schema 有 ${count} 個問題，詳見 Problems Panel`,
+          ? t().validationPassed(result?.schema.tables.length ?? 0)
+          : t().validationFailed(count),
       );
     }),
 
@@ -78,11 +86,11 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand("dbschema.openSpikePreview", async () => {
       const picked = await vscode.window.showQuickPick(
         FIXTURE_SIZES.map((size) => ({
-          label: `${size} Tables`,
-          description: size === 100 ? "MVP 必須可用" : size === 200 ? "Stress Test" : undefined,
+          label: t().spikeSizeLabel(size),
+          description: size === 100 ? t().spikeRequired : size === 200 ? t().spikeStress : undefined,
           size,
         })),
-        { title: "DBSchema Spike — 選擇 Schema 規模" },
+        { title: t().spikePickerTitle },
       );
       if (!picked) return;
       PreviewPanel.show(context, generateSchema({ tableCount: picked.size }), undefined, []);

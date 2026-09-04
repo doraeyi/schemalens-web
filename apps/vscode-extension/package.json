@@ -40,6 +40,26 @@
         "path": "./language/dbschema.tmLanguage.json"
       }
     ],
+    "configuration": {
+      "title": "DBSchema",
+      "properties": {
+        "dbschema.language": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "en",
+            "zh-hant"
+          ],
+          "enumDescriptions": [
+            "Follow the VS Code display language",
+            "English",
+            "繁體中文"
+          ],
+          "default": "auto",
+          "description": "DBSchema 介面語言 / Interface language for DBSchema."
+        }
+      }
+    },
     "commands": [
       {
         "command": "dbschema.openPreview",
