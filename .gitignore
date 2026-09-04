@@ -8,3 +8,28 @@ coverage/
 .DS_Store
 Thumbs.db
 docs/
+
+# 金鑰與憑證：一律不進版控。
+# Release 流程只使用 GitHub Actions 內建的 GITHUB_TOKEN，
+# 本機與 CI 都不需要把任何 token 寫進檔案。
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.pfx
+*.p12
+*.jks
+*.keystore
+*.cer
+*.crt
+id_rsa*
+id_ed25519*
+secrets.json
+secrets.*.json
+.npmrc
+.vsce
+.vsce-token
+*.token
+credentials.json
+gha-creds-*.json

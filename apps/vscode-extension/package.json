@@ -1,0 +1,116 @@
+{
+  "name": "dbschema",
+  "displayName": "DBSchema",
+  "description": "Database Schema Visualization for VS Code",
+  "version": "0.1.0",
+  "private": true,
+  "publisher": "kaikaizhen",
+  "license": "SEE LICENSE IN LICENSE",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kaikaizhen/schemaLen.git"
+  },
+  "type": "module",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Visualization",
+    "Programming Languages"
+  ],
+  "main": "./out/extension.cjs",
+  "contributes": {
+    "languages": [
+      {
+        "id": "dbschema",
+        "aliases": [
+          "DBSchema",
+          "dbschema"
+        ],
+        "extensions": [
+          ".dbschema"
+        ],
+        "configuration": "./language/language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "dbschema",
+        "scopeName": "source.dbschema",
+        "path": "./language/dbschema.tmLanguage.json"
+      }
+    ],
+    "configuration": {
+      "title": "DBSchema",
+      "properties": {
+        "dbschema.language": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "en",
+            "zh-hant"
+          ],
+          "enumDescriptions": [
+            "Follow the VS Code display language",
+            "English",
+            "繁體中文"
+          ],
+          "default": "auto",
+          "description": "DBSchema 介面語言 / Interface language for DBSchema."
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "dbschema.openPreview",
+        "title": "DBSchema: Open Preview",
+        "icon": "$(graph)"
+      },
+      {
+        "command": "dbschema.validateSchema",
+        "title": "DBSchema: Validate Schema"
+      },
+      {
+        "command": "dbschema.exportJson",
+        "title": "DBSchema: Export JSON"
+      },
+      {
+        "command": "dbschema.fitView",
+        "title": "DBSchema: Fit View"
+      },
+      {
+        "command": "dbschema.resetFocus",
+        "title": "DBSchema: Reset Focus"
+      },
+      {
+        "command": "dbschema.openSpikePreview",
+        "title": "DBSchema: Open Spike Preview (Synthetic Schema)"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "dbschema.openPreview",
+          "when": "resourceLangId == dbschema || resourceFilename =~ /\\.schema\\.(md|json)$/",
+          "group": "navigation"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "watch": "node scripts/build.mjs --watch",
+    "package:vsix": "node scripts/package.mjs"
+  },
+  "devDependencies": {
+    "@schemalens/schema-core": "*",
+    "@schemalens/schema-fixtures": "*",
+    "@schemalens/schema-graph": "*",
+    "@schemalens/schema-layout": "*",
+    "@schemalens/schema-parser": "*",
+    "@schemalens/schema-renderer": "*",
+    "@schemalens/schema-serializer": "*",
+    "@types/vscode": "^1.90.0",
+    "@vscode/vsce": "^3.2.1"
+  }
+}
