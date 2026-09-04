@@ -17,6 +17,7 @@
     "noEmit": true,
     "paths": {
       "@schemalens/schema-core": ["./packages/schema-core/src/index.ts"],
+      "@schemalens/schema-parser": ["./packages/schema-parser/src/index.ts"],
       "@schemalens/schema-graph": ["./packages/schema-graph/src/index.ts"],
       "@schemalens/schema-layout": ["./packages/schema-layout/src/index.ts"],
       "@schemalens/schema-renderer": ["./packages/schema-renderer/src/index.ts"],
