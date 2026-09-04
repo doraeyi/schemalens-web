@@ -71,6 +71,9 @@ const handlers: ToolbarHandlers = {
   onSearchResults: (hits: SearchHit[]) => {
     renderer.setSearchMatches([...new Set(hits.map((hit) => hit.tableId))]);
   },
+  // 交給 Extension 寫回設定，再由設定變更事件推回來；
+  // 這樣 Toolbar 的選擇會被記住，而不是只影響當下這個 Preview。
+  onLocale: (next: Locale) => post({ type: "setLocale", locale: next }),
 };
 
 function buildToolbar(h: ToolbarHandlers): Toolbar {
@@ -79,6 +82,7 @@ function buildToolbar(h: ToolbarHandlers): Toolbar {
 
 let toolbar = buildToolbar(handlers);
 app.append(toolbar.element, canvas);
+syncToolbar();
 
 /**
  * 換語系。
@@ -114,6 +118,7 @@ function syncToolbar(): void {
     depth: state.focus.depth,
     direction: state.focus.direction,
     unrelated: state.unrelated,
+    locale,
   });
 }
 

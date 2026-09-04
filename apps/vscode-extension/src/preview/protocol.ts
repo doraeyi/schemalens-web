@@ -18,4 +18,6 @@ export type WebviewToExtension =
   /** US9：Preview → Source。Extension 端依 Schema 的 SourceLocation 跳轉。 */
   | { type: "openSource"; tableId: string; column?: string }
   | { type: "ready" }
+  /** Toolbar 上的語系切換：由 Extension 寫回 dbschema.language 設定。 */
+  | { type: "setLocale"; locale: Locale }
   | { type: "metrics"; tableCount: number; relationCount: number; layoutMs: number; renderMs: number };

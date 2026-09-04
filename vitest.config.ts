@@ -22,6 +22,9 @@ export default defineConfig({
     globals: true,
     include: ["packages/*/test/**/*.test.ts", "apps/*/test/**/*.test.ts"],
     environment: "node",
-    environmentMatchGlobs: [["packages/schema-renderer/test/**", "jsdom"]],
+    environmentMatchGlobs: [
+      ["packages/schema-renderer/test/**", "jsdom"],
+      ["apps/vscode-extension/test/**/*.dom.test.ts", "jsdom"],
+    ],
   },
 });
