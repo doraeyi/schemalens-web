@@ -9,10 +9,15 @@ import type { ExtensionToWebview, WebviewToExtension } from "./protocol.js";
 export class PreviewPanel {
   private static current: PreviewPanel | undefined;
 
-  static show(context: vscode.ExtensionContext, schema: Schema, label: string, diagnostics: SchemaDiagnostic[] = []): PreviewPanel {
+  static show(
+    context: vscode.ExtensionContext,
+    schema: Schema,
+    source: vscode.Uri | undefined,
+    diagnostics: SchemaDiagnostic[] = [],
+  ): PreviewPanel {
     if (PreviewPanel.current) {
       PreviewPanel.current.panel.reveal(vscode.ViewColumn.Beside, true);
-      PreviewPanel.current.setSchema(schema, label, diagnostics);
+      PreviewPanel.current.setSchema(schema, source, diagnostics);
       return PreviewPanel.current;
     }
     const panel = vscode.window.createWebviewPanel(
@@ -26,7 +31,7 @@ export class PreviewPanel {
       },
     );
     PreviewPanel.current = new PreviewPanel(context, panel);
-    PreviewPanel.current.setSchema(schema, label, diagnostics);
+    PreviewPanel.current.setSchema(schema, source, diagnostics);
     return PreviewPanel.current;
   }
 
@@ -36,6 +41,7 @@ export class PreviewPanel {
 
   private pending: ExtensionToWebview | null = null;
   private ready = false;
+  private source: vscode.Uri | undefined;
 
   private constructor(
     private readonly context: vscode.ExtensionContext,
@@ -48,12 +54,20 @@ export class PreviewPanel {
     panel.webview.onDidReceiveMessage((message: WebviewToExtension) => this.onMessage(message));
   }
 
-  setSchema(schema: Schema, label: string, diagnostics: SchemaDiagnostic[]): void {
+  setSchema(schema: Schema, source: vscode.Uri | undefined, diagnostics: SchemaDiagnostic[]): void {
+    this.source = source;
+    const label = source ? basename(source.fsPath) : "Synthetic Schema";
+    this.panel.title = `DBSchema — ${label}`;
     this.post({ type: "schema", schema, diagnostics, label });
   }
 
-  setDiagnostics(diagnostics: SchemaDiagnostic[]): void {
-    this.post({ type: "diagnostics", diagnostics });
+  /**
+   * 來源檔案存檔／編輯後重繪（plan §39）。
+   * 只有正在預覽的那一份檔案會觸發，避免切到別的檔案時畫面被蓋掉。
+   */
+  updateIfSameDocument(uri: vscode.Uri, schema: Schema, diagnostics: SchemaDiagnostic[]): void {
+    if (!this.source || this.source.toString() !== uri.toString()) return;
+    this.post({ type: "schema", schema, diagnostics, label: basename(uri.fsPath) });
   }
 
   run(command: "fitView" | "resetFocus"): void {
@@ -80,16 +94,15 @@ export class PreviewPanel {
         return;
       }
       case "openSource": {
-        // Stage 0 尚無 DSL Parser / SourceLocation，先讓使用者看到目標，
-        // Stage 9 會換成真正的 Jump to Definition。
+        // Stage 9 會改成依 SourceLocation 精準跳轉。
         const target = message.column ? `${message.tableId}.${message.column}` : message.tableId;
-        void vscode.window.showInformationMessage(`Open Source: ${target}（Stage 9 接上 DSL 位置）`);
+        void vscode.window.showInformationMessage(`Open Source: ${target}`);
         return;
       }
       case "metrics": {
-        this.panel.title = `DBSchema Preview — ${message.tableCount} tables / ${message.relationCount} relations`;
         console.log(
-          `[dbschema] layout ${message.layoutMs.toFixed(1)}ms, render ${message.renderMs.toFixed(1)}ms`,
+          `[dbschema] ${message.tableCount} tables / ${message.relationCount} relations, ` +
+            `layout ${message.layoutMs.toFixed(1)}ms`,
         );
         return;
       }
@@ -120,6 +133,10 @@ export class PreviewPanel {
 </body>
 </html>`;
   }
+}
+
+function basename(fsPath: string): string {
+  return fsPath.split(/[\\/]/).pop() ?? fsPath;
 }
 
 function createNonce(): string {

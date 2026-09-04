@@ -13,6 +13,8 @@ export default defineConfig({
       "@schemalens/schema-layout": pkg("schema-layout"),
       "@schemalens/schema-renderer": pkg("schema-renderer"),
       "@schemalens/schema-fixtures": pkg("schema-fixtures"),
+      // Extension 端的測試用 stub 取代真實 VS Code API（只有 Extension Host 才有）。
+      vscode: fileURLToPath(new URL("./apps/vscode-extension/test/vscodeStub.ts", import.meta.url)),
     },
   },
   test: {

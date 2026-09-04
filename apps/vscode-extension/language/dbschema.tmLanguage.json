@@ -1,0 +1,49 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "DBSchema",
+  "scopeName": "source.dbschema",
+  "patterns": [
+    { "include": "#comment" },
+    { "include": "#string" },
+    { "include": "#declaration" },
+    { "include": "#keyFlag" },
+    { "include": "#keyword" },
+    { "include": "#cardinality" },
+    { "include": "#number" }
+  ],
+  "repository": {
+    "comment": {
+      "name": "comment.line.double-slash.dbschema",
+      "match": "//.*$"
+    },
+    "string": {
+      "name": "string.quoted.double.dbschema",
+      "begin": "\"",
+      "end": "\"",
+      "patterns": [{ "name": "constant.character.escape.dbschema", "match": "\\." }]
+    },
+    "declaration": {
+      "match": "\b(?i:table|index|relation)\b\s+([A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)?)",
+      "captures": {
+        "0": { "name": "keyword.control.dbschema" },
+        "1": { "name": "entity.name.type.dbschema" }
+      }
+    },
+    "keyFlag": {
+      "name": "storage.modifier.dbschema",
+      "match": "\b(PK|FK|UQ|IDX)\b"
+    },
+    "keyword": {
+      "name": "keyword.control.dbschema",
+      "match": "\b(?i:table|index|relation|unique|on|not|null|default)\b"
+    },
+    "cardinality": {
+      "name": "keyword.operator.dbschema",
+      "match": "(->|\b[NM]\b)"
+    },
+    "number": {
+      "name": "constant.numeric.dbschema",
+      "match": "\b[0-9]+\b"
+    }
+  }
+}

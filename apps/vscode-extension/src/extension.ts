@@ -1,16 +1,59 @@
 import * as vscode from "vscode";
 import { FIXTURE_SIZES, generateSchema } from "@schemalens/schema-fixtures";
+import {
+  DBSCHEMA_LANGUAGE_ID,
+  DiagnosticsProvider,
+  loadDocumentSchema,
+} from "./diagnostics/DiagnosticsProvider.js";
 import { PreviewPanel } from "./preview/PreviewPanel.js";
 
-/**
- * Stage 0 — Technical Spike。
- *
- * 這個階段只驗證「大型 Schema Viewer 在 VS Code Webview 裡跑不跑得動」，
- * 因此 Preview 的資料來源是合成 Schema，不是 DSL（約束 #11）。
- * Parser / Diagnostics 會在 Stage 3、4 接進同一個 PreviewPanel。
- */
+function activeDbschemaDocument(): vscode.TextDocument | undefined {
+  const document = vscode.window.activeTextEditor?.document;
+  return document?.languageId === DBSCHEMA_LANGUAGE_ID ? document : undefined;
+}
+
 export function activate(context: vscode.ExtensionContext): void {
+  // 存檔或編輯後重新驗證；若該檔案正開著 Preview，順便重繪（plan §39）。
+  const diagnostics = new DiagnosticsProvider((document, result) => {
+    PreviewPanel.active?.updateIfSameDocument(document.uri, result.schema, result.diagnostics);
+  });
+  context.subscriptions.push(diagnostics);
+
   context.subscriptions.push(
+    vscode.commands.registerCommand("dbschema.openPreview", () => {
+      const document = activeDbschemaDocument();
+      if (!document) {
+        void vscode.window.showWarningMessage("請先開啟一個 .dbschema 檔案");
+        return;
+      }
+      const result = loadDocumentSchema(document);
+      PreviewPanel.show(context, result.schema, document.uri, result.diagnostics);
+    }),
+
+    vscode.commands.registerCommand("dbschema.validateSchema", () => {
+      const document = activeDbschemaDocument();
+      if (!document) {
+        void vscode.window.showWarningMessage("請先開啟一個 .dbschema 檔案");
+        return;
+      }
+      const result = diagnostics.refresh(document);
+      const count = result?.diagnostics.length ?? 0;
+      void vscode.window.showInformationMessage(
+        count === 0
+          ? `Schema 驗證通過：${result?.schema.tables.length ?? 0} 張 Table`
+          : `Schema 有 ${count} 個問題，詳見 Problems Panel`,
+      );
+    }),
+
+    vscode.commands.registerCommand("dbschema.fitView", () => {
+      PreviewPanel.active?.run("fitView");
+    }),
+
+    vscode.commands.registerCommand("dbschema.resetFocus", () => {
+      PreviewPanel.active?.run("resetFocus");
+    }),
+
+    // Stage 0 的壓測入口保留下來：改動 Renderer 時可以立刻用 100 / 200 張表回歸。
     vscode.commands.registerCommand("dbschema.openSpikePreview", async () => {
       const picked = await vscode.window.showQuickPick(
         FIXTURE_SIZES.map((size) => ({
@@ -21,17 +64,7 @@ export function activate(context: vscode.ExtensionContext): void {
         { title: "DBSchema Spike — 選擇 Schema 規模" },
       );
       if (!picked) return;
-
-      const schema = generateSchema({ tableCount: picked.size });
-      PreviewPanel.show(context, schema, `Synthetic ${picked.size} Tables`);
-    }),
-
-    vscode.commands.registerCommand("dbschema.fitView", () => {
-      PreviewPanel.active?.run("fitView");
-    }),
-
-    vscode.commands.registerCommand("dbschema.resetFocus", () => {
-      PreviewPanel.active?.run("resetFocus");
+      PreviewPanel.show(context, generateSchema({ tableCount: picked.size }), undefined, []);
     }),
   );
 }
