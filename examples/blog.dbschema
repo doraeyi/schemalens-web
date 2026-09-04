@@ -1,0 +1,61 @@
+// 部落格系統 —— 用來手動驗證 Preview 的最小範例
+// 開啟後執行：DBSchema: Open Preview
+
+table Users "系統使用者" {
+  PK Id          bigint        not null "使用者 ID"
+  UQ Email       nvarchar(255) not null "登入 Email"
+     DisplayName nvarchar(100) null     "顯示名稱"
+     CreatedAt   datetime2     not null default "sysutcdatetime()"
+}
+
+table Posts "文章" {
+  PK Id        bigint         not null
+  FK AuthorId  bigint         not null "作者"
+     Title     nvarchar(200)  not null
+     Content   nvarchar(4000) null
+     Status    nvarchar(20)   not null default "draft"
+     CreatedAt datetime2      not null
+}
+
+table Comments "留言" {
+  PK Id        bigint    not null
+  FK PostId    bigint    not null
+  FK AuthorId  bigint    not null
+     Body      nvarchar(2000) not null
+     CreatedAt datetime2 not null
+}
+
+table Tags "標籤" {
+  PK Id   bigint       not null
+  UQ Name nvarchar(50) not null
+}
+
+table PostTags "文章標籤" {
+  PK Id     bigint not null
+  FK PostId bigint not null
+  FK TagId  bigint not null
+}
+
+index IX_Posts_Author_CreatedAt on Posts(AuthorId, CreatedAt)
+index IX_Comments_Post on Comments(PostId)
+unique index UX_PostTags on PostTags(PostId, TagId)
+
+relation FK_Posts_Users {
+  Posts.AuthorId N -> 1 Users.Id
+}
+
+relation FK_Comments_Posts {
+  Comments.PostId N -> 1 Posts.Id
+}
+
+relation FK_Comments_Users {
+  Comments.AuthorId N -> 1 Users.Id
+}
+
+relation FK_PostTags_Posts {
+  PostTags.PostId N -> 1 Posts.Id
+}
+
+relation FK_PostTags_Tags {
+  PostTags.TagId N -> 1 Tags.Id
+}
