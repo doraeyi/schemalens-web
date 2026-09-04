@@ -21,9 +21,9 @@ export const CARD_METRICS = {
   /** 摺疊或 Overview 時的卡片高度 */
   compactHeight: 34,
   minWidth: 220,
-  // Full 檢視要放得下欄位備註，因此上限比純欄位卡片寬。
-  maxWidth: 560,
-  /** 用來估算文字寬度的每字元寬（等寬字型 12px 左右） */
+  // Full 檢視要放得下欄位備註（中文備註的實際寬度是字數的兩倍），因此上限較寬。
+  maxWidth: 680,
+  /** 半形字元的寬度（等寬字型 12px 左右）；全形字以兩倍計 */
   charWidth: 6.8,
   horizontalPadding: 20,
   /** 欄位標記欄（PK/FK/UQ/IDX）固定寬度；要放得下兩個帶框的標記 */
@@ -66,6 +66,27 @@ export interface CardModel {
   commentsExpanded: boolean;
   width: number;
   height: number;
+}
+
+/**
+ * 全形字元（中日韓、全形標點）在等寬字型下約為半形的兩倍寬。
+ *
+ * 這個範圍涵蓋 CJK 統一表意文字、假名、諺文與全形標點，
+ * 已足夠涵蓋 Schema 註解會出現的文字。
+ */
+const FULL_WIDTH =
+  /[ᄀ-ᅟ⺀-〾ぁ-㏿㐀-䶿一-鿿ꀀ-꓏가-힣豈-﫿︐-︙︰-﹯＀-｠￠-￦]/;
+
+/**
+ * 以「半形字元」為單位量文字寬度。
+ *
+ * 直接用 text.length 會讓中文備註被低估近一半，
+ * 卡片因此不夠寬，備註就算很短也會被截斷成 …。
+ */
+export function textWidth(text: string): number {
+  let width = 0;
+  for (const char of text) width += FULL_WIDTH.test(char) ? 2 : 1;
+  return width;
 }
 
 export function formatType(column: Column): string {
@@ -128,20 +149,25 @@ function estimateWidth(
 
   // 標題列：名稱 + schema + Table 備註都在同一行。
   const headerChars =
-    table.name.length + table.schema.length + 2 + (table.comment ? table.comment.length + 3 : 0);
+    textWidth(table.name) +
+    textWidth(table.schema) +
+    2 +
+    (table.comment ? textWidth(table.comment) + 3 : 0);
   let widest = headerChars * charWidth + 24;
 
   for (const row of rows) {
     // 名稱 + 型別 + 標記欄，再加上 nullable/default 與欄位備註的空間。
     const suffix = detailLevel === "full" ? (row.column.nullable ? 5 : 0) + (row.column.defaultValue ? 6 : 0) : 0;
-    // 展開時備註欄固定為 commentWrapChars 寬；截斷時才需要預留原文長度。
+    // 展開時備註欄固定為 commentWrapChars 寬（以全形計，中英文都放得下）；
+    // 截斷時才需要預留原文長度。
     const comment =
       detailLevel === "full" && row.column.comment
         ? commentsExpanded
-          ? CARD_METRICS.commentWrapChars + 2
-          : row.column.comment.length + 3
+          ? CARD_METRICS.commentWrapChars * 2 + 2
+          : textWidth(row.column.comment) + 3
         : 0;
-    const text = (row.column.name.length + row.typeLabel.length + suffix + comment) * charWidth;
+    const text =
+      (textWidth(row.column.name) + textWidth(row.typeLabel) + suffix + comment) * charWidth;
     widest = Math.max(widest, text + badgeColumnWidth + columnGaps);
   }
   return Math.round(Math.min(maxWidth, Math.max(minWidth, widest + horizontalPadding)));
