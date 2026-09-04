@@ -3,19 +3,19 @@ import { FIXTURE_SIZES, generateSchema } from "@schemalens/schema-fixtures";
 import { DBSCHEMA_LANGUAGE_ID, DiagnosticsProvider } from "./diagnostics/DiagnosticsProvider.js";
 import { toJson } from "@schemalens/schema-serializer";
 import { PreviewPanel } from "./preview/PreviewPanel.js";
-import { isSchemaJson, jsonExportUri, loadSchemaFromDocument } from "./schema/documentSchema.js";
+import { isSupportedSchemaFile, jsonExportUri, loadSchemaFromDocument } from "./schema/documentSchema.js";
 
 function activeDbschemaDocument(): vscode.TextDocument | undefined {
   const document = vscode.window.activeTextEditor?.document;
   return document?.languageId === DBSCHEMA_LANGUAGE_ID ? document : undefined;
 }
 
-/** Preview / Export 也接受 `*.schema.json`（JSON Import，AC-18）。 */
+/** Preview / Export 也接受 `*.schema.json` 與 `*.schema.md`（AC-18、plan §57）。 */
 function activeSchemaDocument(): vscode.TextDocument | undefined {
   const document = vscode.window.activeTextEditor?.document;
   if (!document) return undefined;
   if (document.languageId === DBSCHEMA_LANGUAGE_ID) return document;
-  return isSchemaJson(document.uri.fsPath) ? document : undefined;
+  return isSupportedSchemaFile(document.uri.fsPath) ? document : undefined;
 }
 
 export function activate(context: vscode.ExtensionContext): void {
@@ -29,7 +29,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand("dbschema.openPreview", () => {
       const document = activeSchemaDocument();
       if (!document) {
-        void vscode.window.showWarningMessage("請先開啟 .dbschema 或 *.schema.json 檔案");
+        void vscode.window.showWarningMessage("請先開啟 .dbschema、*.schema.md 或 *.schema.json 檔案");
         return;
       }
       const result = loadSchemaFromDocument(document);
@@ -39,7 +39,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand("dbschema.exportJson", async () => {
       const document = activeSchemaDocument();
       if (!document) {
-        void vscode.window.showWarningMessage("請先開啟 .dbschema 或 *.schema.json 檔案");
+        void vscode.window.showWarningMessage("請先開啟 .dbschema、*.schema.md 或 *.schema.json 檔案");
         return;
       }
       const result = loadSchemaFromDocument(document);
