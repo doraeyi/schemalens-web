@@ -37,6 +37,18 @@ export class Range {
   }
 }
 
+export class Selection extends Range {
+  constructor(start: Position, end: Position) {
+    super(start.line, start.character, end.line, end.character);
+  }
+}
+
+export enum TextEditorRevealType {
+  Default = 0,
+  InCenter = 1,
+  InCenterIfOutsideViewport = 2,
+}
+
 export class Diagnostic {
   code?: string | number;
   source?: string;
@@ -114,8 +126,14 @@ export const commands = {
   },
 };
 
+export const openedDocuments: string[] = [];
+
 export const workspace = {
   textDocuments: [] as TextDocument[],
+  openTextDocument(uri: Uri): Promise<TextDocument> {
+    openedDocuments.push(uri.toString());
+    return Promise.resolve(makeDocument("", uri.fsPath));
+  },
   onDidOpenTextDocument: () => noopDisposable,
   onDidSaveTextDocument: () => noopDisposable,
   onDidCloseTextDocument: () => noopDisposable,
@@ -137,6 +155,19 @@ export const window = {
   showQuickPick(items: unknown[]) {
     return Promise.resolve(items[0]);
   },
+  shownEditors: [] as Array<{ document: TextDocument; selection?: Range }>,
+  showTextDocument(document: TextDocument) {
+    const editor = {
+      document,
+      selection: undefined as Range | undefined,
+      revealedRange: undefined as Range | undefined,
+      revealRange(range: Range) {
+        editor.revealedRange = range;
+      },
+    };
+    window.shownEditors.push(editor);
+    return Promise.resolve(editor);
+  },
   createWebviewPanel() {
     throw new Error("createWebviewPanel 未在 stub 中實作");
   },
@@ -146,6 +177,8 @@ export function resetStub(): void {
   collections.length = 0;
   registeredCommands.clear();
   shownMessages.length = 0;
+  openedDocuments.length = 0;
+  window.shownEditors.length = 0;
   workspace.textDocuments = [];
   window.activeTextEditor = undefined;
 }

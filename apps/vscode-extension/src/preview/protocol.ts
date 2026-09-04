@@ -12,7 +12,7 @@ export type ExtensionToWebview =
   | { type: "command"; command: "fitView" | "resetFocus" };
 
 export type WebviewToExtension =
-  /** US9：Preview → Source。Stage 0 尚無 parser，location 由後續 stage 補上。 */
+  /** US9：Preview → Source。Extension 端依 Schema 的 SourceLocation 跳轉。 */
   | { type: "openSource"; tableId: string; column?: string }
   | { type: "ready" }
   | { type: "metrics"; tableCount: number; relationCount: number; layoutMs: number; renderMs: number };
