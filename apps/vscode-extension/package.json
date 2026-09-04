@@ -8,13 +8,33 @@
   "engines": {
     "vscode": "^1.90.0"
   },
-  "categories": ["Visualization"],
+  "categories": ["Visualization", "Programming Languages"],
   "main": "./out/extension.cjs",
   "contributes": {
+    "languages": [
+      {
+        "id": "dbschema",
+        "aliases": ["DBSchema", "dbschema"],
+        "extensions": [".dbschema"],
+        "configuration": "./language/language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "dbschema",
+        "scopeName": "source.dbschema",
+        "path": "./language/dbschema.tmLanguage.json"
+      }
+    ],
     "commands": [
       {
-        "command": "dbschema.openSpikePreview",
-        "title": "DBSchema: Open Spike Preview (Synthetic Schema)"
+        "command": "dbschema.openPreview",
+        "title": "DBSchema: Open Preview",
+        "icon": "$(graph)"
+      },
+      {
+        "command": "dbschema.validateSchema",
+        "title": "DBSchema: Validate Schema"
       },
       {
         "command": "dbschema.fitView",
@@ -23,8 +43,21 @@
       {
         "command": "dbschema.resetFocus",
         "title": "DBSchema: Reset Focus"
+      },
+      {
+        "command": "dbschema.openSpikePreview",
+        "title": "DBSchema: Open Spike Preview (Synthetic Schema)"
       }
-    ]
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "dbschema.openPreview",
+          "when": "resourceLangId == dbschema",
+          "group": "navigation"
+        }
+      ]
+    }
   },
   "scripts": {
     "build": "node scripts/build.mjs",
@@ -35,6 +68,7 @@
     "@schemalens/schema-fixtures": "*",
     "@schemalens/schema-graph": "*",
     "@schemalens/schema-layout": "*",
+    "@schemalens/schema-parser": "*",
     "@schemalens/schema-renderer": "*"
   },
   "devDependencies": {
