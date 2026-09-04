@@ -1,13 +1,21 @@
 import type { Relation, Schema, SchemaDiagnostic, TableId } from "@schemalens/schema-core";
 import { buildGraph, type SchemaGraph } from "@schemalens/schema-graph";
 import {
+  computeBounds,
   layeredLayout,
   type LayoutEngine,
   type PositionedGraph,
+  type Point,
 } from "@schemalens/schema-layout";
 import { buildCardModels, toLayoutNodes, type CardModel } from "./cardModel.js";
 import { stringsFor, type Locale, type RendererStrings } from "./i18n.js";
-import { describeRelation, renderEdge, routeRelation } from "./relationRenderer.js";
+import {
+  describeRelation,
+  renderEdge,
+  routeRelation,
+  updateEdgeGeometry,
+  type EdgeElements,
+} from "./relationRenderer.js";
 import { RENDERER_CSS } from "./styles.js";
 import { renderCard, type CardElements } from "./tableRenderer.js";
 import { DEFAULT_VIEW_STATE, type ViewState } from "./viewState.js";
@@ -19,6 +27,8 @@ export interface RendererEvents {
   /** 雙擊 Table / Column：回跳 DSL Source（US9）。 */
   openSource(target: { tableId: TableId; column?: string }): void;
   relationSelected(relation: Relation): void;
+  /** 使用者拖曳過卡片，版面已偏離 Auto Layout。 */
+  layoutChanged(): void;
   /** 使用者在卡片上按了展開 / 摺疊。 */
   viewStateChanged(state: ViewState): void;
   diagnosticSelected(diagnostic: SchemaDiagnostic): void;
@@ -58,7 +68,10 @@ export class SchemaRenderer {
   private cards: Map<TableId, CardModel> = new Map();
   private positioned: PositionedGraph | null = null;
   private cardElements = new Map<TableId, CardElements>();
-  private edgeElements = new Map<string, SVGGElement>();
+  private edgeElements = new Map<string, { elements: EdgeElements; relation: Relation }>();
+  private edgesByTable = new Map<TableId, string[]>();
+  /** 使用者手動拖曳過的卡片位置，覆寫 Auto Layout 的結果。 */
+  private manualPositions = new Map<TableId, Point>();
   private selectedRelation: string | null = null;
 
   private tx = 0;
@@ -234,6 +247,19 @@ export class SchemaRenderer {
     this.applyTransform();
   }
 
+  /** 是否有手動調整過的位置，供 Toolbar 決定要不要顯示「還原版面」。 */
+  hasManualPositions(): boolean {
+    return this.manualPositions.size > 0;
+  }
+
+  /** 丟掉所有手動位置，回到 Auto Layout 的結果。 */
+  resetLayout(): void {
+    if (this.manualPositions.size === 0) return;
+    this.manualPositions.clear();
+    this.rebuild();
+    this.fitView();
+  }
+
   dispose(): void {
     this.root.remove();
     this.errorLayer.remove();
@@ -249,6 +275,7 @@ export class SchemaRenderer {
       nodes: toLayoutNodes(this.cards),
       edges: this.graph.edges.map((e) => ({ id: e.id, source: e.source, target: e.target })),
     });
+    this.applyManualPositions();
     this.renderNodes();
     this.renderEdges();
     this.applyEmphasis();
@@ -278,10 +305,12 @@ export class SchemaRenderer {
 
     const fragment = document.createDocumentFragment();
     this.edgeElements.clear();
+    this.edgesByTable.clear();
     for (const relation of this.schema.relations) {
       const routed = routeRelation(relation, this.cards, this.positioned.positionById);
       if (!routed) continue;
-      const { root } = renderEdge(relation, routed);
+      const elements = renderEdge(relation, routed);
+      const root = elements.root;
       root.addEventListener("click", (event) => {
         event.stopPropagation();
         this.selectedRelation = relation.name;
@@ -291,7 +320,14 @@ export class SchemaRenderer {
       const title = document.createElementNS("http://www.w3.org/2000/svg", "title");
       title.textContent = describeRelation(relation);
       root.append(title);
-      this.edgeElements.set(relation.name, root);
+      this.edgeElements.set(relation.name, { elements, relation });
+
+      // 拖曳時只需要更新相鄰的線，先建好索引。
+      for (const tableId of [relation.sourceTable, relation.targetTable]) {
+        const list = this.edgesByTable.get(tableId);
+        if (list) list.push(relation.name);
+        else this.edgesByTable.set(tableId, [relation.name]);
+      }
       fragment.append(root);
     }
     this.edgeLayer.replaceChildren(fragment);
@@ -319,12 +355,54 @@ export class SchemaRenderer {
       }
     }
 
-    for (const [relationName, edgeEl] of this.edgeElements) {
+    for (const [relationName, edge] of this.edgeElements) {
       const emphasis = visibility.edges.get(relationName) ?? "normal";
-      edgeEl.classList.toggle("is-highlight", emphasis === "highlight");
-      edgeEl.classList.toggle("is-dimmed", emphasis === "dimmed");
-      edgeEl.classList.toggle("is-hidden", emphasis === "hidden");
-      edgeEl.classList.toggle("is-selected", this.selectedRelation === relationName);
+      const root = edge.elements.root;
+      root.classList.toggle("is-highlight", emphasis === "highlight");
+      root.classList.toggle("is-dimmed", emphasis === "dimmed");
+      root.classList.toggle("is-hidden", emphasis === "hidden");
+      root.classList.toggle("is-selected", this.selectedRelation === relationName);
+    }
+  }
+
+  /**
+   * 套用使用者拖曳過的位置。
+   *
+   * Auto Layout 仍然是每次重排的基礎（切換檢視層級、Collapse 都會重排），
+   * 手動位置只是覆寫在上面，因此「一開始用預設版面、之後自己微調」兩者不衝突。
+   */
+  private applyManualPositions(): void {
+    if (!this.positioned || this.manualPositions.size === 0) return;
+    for (const [tableId, point] of this.manualPositions) {
+      const node = this.positioned.positionById.get(tableId);
+      if (!node) continue;
+      node.x = point.x;
+      node.y = point.y;
+    }
+    this.positioned = {
+      ...this.positioned,
+      bounds: computeBounds(this.positioned.nodes),
+    };
+  }
+
+  /** 把某張卡片移到新的圖座標，並即時更新相鄰的關聯線。 */
+  private moveCard(tableId: TableId, x: number, y: number): void {
+    const node = this.positioned?.positionById.get(tableId);
+    const card = this.cardElements.get(tableId);
+    if (!node || !card) return;
+
+    node.x = x;
+    node.y = y;
+    this.manualPositions.set(tableId, { x, y });
+    card.root.style.left = `${x}px`;
+    card.root.style.top = `${y}px`;
+
+    // 只重算這張表相鄰的線；整層重建在 200 張表時會掉幀。
+    for (const relationName of this.edgesByTable.get(tableId) ?? []) {
+      const edge = this.edgeElements.get(relationName);
+      if (!edge || !this.positioned) continue;
+      const routed = routeRelation(edge.relation, this.cards, this.positioned.positionById);
+      if (routed) updateEdgeGeometry(edge.elements, edge.relation, routed);
     }
   }
 
@@ -339,16 +417,62 @@ export class SchemaRenderer {
     let lastX = 0;
     let lastY = 0;
 
+    // 拖曳卡片：調整檢視版面用，不會改動 Schema
+    // （與約束 #5 禁止的 Drag & Drop Schema Editor 是兩回事）。
+    let dragTableId: TableId | null = null;
+    let dragStartX = 0;
+    let dragStartY = 0;
+    let dragOriginX = 0;
+    let dragOriginY = 0;
+    let dragMoved = false;
+    /** 拖曳後要吃掉隨之而來的 click，否則放開手就會誤觸 Focus。 */
+    let suppressClick = false;
+
+    const DRAG_THRESHOLD = 4;
+
     this.root.addEventListener("pointerdown", (event) => {
       if (event.button !== 0) return;
-      if ((event.target as HTMLElement).closest(".dbs-card")) return;
+
+      const card = (event.target as HTMLElement).closest<HTMLElement>(".dbs-card");
+      if (card) {
+        // 摺疊鈕與 "+N more" 有自己的行為，不當成拖曳起點。
+        if ((event.target as HTMLElement).closest("[data-action]")) return;
+        const tableId = card.dataset.tableId!;
+        const node = this.positioned?.positionById.get(tableId);
+        if (!node) return;
+
+        dragTableId = tableId;
+        dragStartX = event.clientX;
+        dragStartY = event.clientY;
+        dragOriginX = node.x;
+        dragOriginY = node.y;
+        dragMoved = false;
+        this.root.setPointerCapture?.(event.pointerId);
+        return;
+      }
+
       panning = true;
       lastX = event.clientX;
       lastY = event.clientY;
       this.root.classList.add("is-panning");
-      this.root.setPointerCapture(event.pointerId);
+      this.root.setPointerCapture?.(event.pointerId);
     });
+
     this.root.addEventListener("pointermove", (event) => {
+      if (dragTableId) {
+        const dx = event.clientX - dragStartX;
+        const dy = event.clientY - dragStartY;
+        if (!dragMoved && Math.hypot(dx, dy) < DRAG_THRESHOLD) return;
+
+        if (!dragMoved) {
+          dragMoved = true;
+          this.cardElements.get(dragTableId)?.root.classList.add("is-dragging");
+        }
+        // 螢幕位移換算回圖座標，縮放後拖曳才會跟手。
+        this.moveCard(dragTableId, dragOriginX + dx / this.scale, dragOriginY + dy / this.scale);
+        return;
+      }
+
       if (!panning) return;
       this.tx += event.clientX - lastX;
       this.ty += event.clientY - lastY;
@@ -356,14 +480,35 @@ export class SchemaRenderer {
       lastY = event.clientY;
       this.applyTransform();
     });
-    const endPan = (event: PointerEvent): void => {
+
+    const endPointer = (event: PointerEvent): void => {
+      if (dragTableId) {
+        this.cardElements.get(dragTableId)?.root.classList.remove("is-dragging");
+        suppressClick = dragMoved;
+        if (dragMoved) this.events.layoutChanged?.();
+        dragTableId = null;
+        dragMoved = false;
+        this.root.releasePointerCapture?.(event.pointerId);
+        return;
+      }
       if (!panning) return;
       panning = false;
       this.root.classList.remove("is-panning");
-      this.root.releasePointerCapture(event.pointerId);
+      this.root.releasePointerCapture?.(event.pointerId);
     };
-    this.root.addEventListener("pointerup", endPan);
-    this.root.addEventListener("pointercancel", endPan);
+    this.root.addEventListener("pointerup", endPointer);
+    this.root.addEventListener("pointercancel", endPointer);
+
+    // 在捕捉階段吃掉拖曳後的 click，避免傳到卡片的 Focus 處理。
+    this.root.addEventListener(
+      "click",
+      (event) => {
+        if (!suppressClick) return;
+        suppressClick = false;
+        event.stopPropagation();
+      },
+      true,
+    );
 
     this.root.addEventListener(
       "wheel",

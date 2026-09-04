@@ -86,6 +86,8 @@ export interface ToolbarHandlers {
   onUnrelated(mode: UnrelatedMode): void;
   onResetFocus(): void;
   onFitView(): void;
+  /** 丟掉手動拖曳的位置，回到 Auto Layout。 */
+  onResetLayout(): void;
   onPickHit(hit: SearchHit): void;
   onSearchResults(hits: SearchHit[]): void;
   /** 切換介面語系；會寫回 dbschema.language 設定。 */
@@ -138,6 +140,7 @@ export class Toolbar {
   private readonly input: HTMLInputElement;
   private readonly results: HTMLElement;
   private readonly metrics: HTMLElement;
+  private readonly resetLayoutButton: HTMLButtonElement;
   private readonly detailGroup: ButtonGroup<DetailLevel>;
   private readonly depthGroup: ButtonGroup<1 | 2 | null>;
   private readonly directionGroup: ButtonGroup<TraversalDirection>;
@@ -220,7 +223,15 @@ export class Toolbar {
     fit.className = "dbs-btn";
     fit.textContent = this.strings.fitView;
     fit.addEventListener("click", () => handlers.onFitView());
-    actions.append(reset, fit);
+
+    // 只有真的拖曳過才出現，平常不佔用 Toolbar 空間。
+    this.resetLayoutButton = document.createElement("button");
+    this.resetLayoutButton.className = "dbs-btn";
+    this.resetLayoutButton.textContent = this.strings.resetLayout;
+    this.resetLayoutButton.hidden = true;
+    this.resetLayoutButton.addEventListener("click", () => handlers.onResetLayout());
+
+    actions.append(reset, fit, this.resetLayoutButton);
 
     this.metrics = document.createElement("div");
     this.metrics.className = "dbs-metrics";
@@ -247,6 +258,10 @@ export class Toolbar {
 
   setMetrics(text: string): void {
     this.metrics.textContent = text;
+  }
+
+  setLayoutDirty(dirty: boolean): void {
+    this.resetLayoutButton.hidden = !dirty;
   }
 
   setActive(state: {

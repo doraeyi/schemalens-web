@@ -20,6 +20,7 @@ function makeToolbar(locale: Locale = "en"): {
     onUnrelated: vi.fn(),
     onResetFocus: vi.fn(),
     onFitView: vi.fn(),
+    onResetLayout: vi.fn(),
     onPickHit: vi.fn(),
     onSearchResults: vi.fn(),
     onLocale,
@@ -77,6 +78,27 @@ describe("語系切換鈕", () => {
     const active = buttons(toolbar).filter((b) => b.classList.contains("is-active"));
     expect(active.map((b) => b.textContent)).toContain("中文");
     expect(active.map((b) => b.textContent)).not.toContain("EN");
+  });
+});
+
+describe("還原版面按鈕", () => {
+  it("預設隱藏，沒拖曳過就不佔空間", () => {
+    const { toolbar } = makeToolbar();
+    const button = buttons(toolbar).find((b) => b.textContent === "Reset Layout")!;
+    expect(button.hidden).toBe(true);
+  });
+
+  it("setLayoutDirty(true) 後才顯示", () => {
+    const { toolbar } = makeToolbar();
+    toolbar.setLayoutDirty(true);
+    expect(buttons(toolbar).find((b) => b.textContent === "Reset Layout")!.hidden).toBe(false);
+    toolbar.setLayoutDirty(false);
+    expect(buttons(toolbar).find((b) => b.textContent === "Reset Layout")!.hidden).toBe(true);
+  });
+
+  it("中文時標籤是還原版面", () => {
+    const { toolbar } = makeToolbar("zh-hant");
+    expect(buttons(toolbar).map((b) => b.textContent)).toContain("還原版面");
   });
 });
 
