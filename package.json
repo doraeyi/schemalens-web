@@ -11,7 +11,8 @@
     "build": "npm run build --workspaces --if-present",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "package:vsix": "npm run build -w dbschema && npm run package:vsix -w dbschema"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

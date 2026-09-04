@@ -7,11 +7,85 @@ VS Code 的 Database Schema Visualization Extension。
 在 VS Code 裡寫 `.dbschema`，即時驗證，開 Preview 直接看到完整的 Table / Column / Type /
 欄位級 Relation；就算有 100 張表，也能快速找到某張表並理解它的欄位與關聯。
 
-## 快速開始
+---
+
+## Distribution
+
+**This project is distributed through a private GitHub repository.
+You must have repository access before downloading a release.**
+
+DBSchema 目前透過 Private GitHub Repository 發布。
+只有具有 Repository 權限的使用者才能下載 Release 中的 VSIX。
+
+本專案**不會**發布到 Visual Studio Marketplace 或 Open VSX，也沒有任何公開下載點。
+
+---
+
+## Installation
+
+### Step 1 — 取得 Repository 存取權
+
+安裝前必須先由 Repository Owner 授權。
+
+Personal Private Repository：
+
+```text
+GitHub Repository
+→ Settings
+→ Collaborators
+→ Invite collaborator
+```
+
+GitHub Organization：
+
+```text
+Organization
+→ Teams
+→ Repository access
+```
+
+建議給 **Read** 權限：足以下載 Release，且無法推送程式碼。
+
+### Step 2 — 接受 GitHub 邀請
+
+受邀者會收到 GitHub 的 Invitation，接受後才能進入 Repository。
+
+### Step 3 — 下載 VSIX
+
+```text
+Repository
+→ Releases
+→ Latest Release
+→ dbschema-<version>.vsix
+```
+
+Release 頁面：<https://github.com/kaikaizhen/schemaLen/releases/latest>
+
+> 此連結需要 Repository 權限。未登入或未獲授權的使用者無法存取。
+
+### Step 4 — VS Code UI 安裝
+
+```text
+VS Code
+→ Extensions
+→ ...（右上角選單）
+→ Install from VSIX...
+→ 選擇 dbschema-<version>.vsix
+```
+
+### Step 5 — CLI 安裝
+
+```bash
+code --install-extension dbschema-<version>.vsix
+```
+
+---
+
+## 從原始碼開發
 
 ```bash
 npm install
-npm run build -w dbschema-vscode
+npm run build -w dbschema
 ```
 
 在 VS Code 按 `F5`（Run DBSchema Extension），於新視窗開啟 [examples/blog.dbschema](examples/blog.dbschema)，
@@ -96,12 +170,19 @@ Graph Traversal 獨立於 Renderer；Layout Engine 可整顆替換。
 ```bash
 npm test          # 182 個單元 / DOM / round-trip 測試
 npm run typecheck
-npm run build -w dbschema-vscode
-npm run watch -w dbschema-vscode
+npm run build -w dbschema
+npm run package:vsix     # 產出 dist/dbschema-<version>.vsix
+npm run watch -w dbschema
 ```
 
 執行計畫與各 Stage 狀態見 `docs/execution-matrix.md`（`docs/` 不進版控）。
+發布流程與權限管理見 [RELEASE.md](RELEASE.md)。
 
 ## Git Flow
 
 `main` ← `develop` ← `feature/*`。一個功能一個分支，完成即合併回 `develop`。
+Release 由 `main` 打 `v*` tag 觸發，詳見 [RELEASE.md](RELEASE.md)。
+
+## License
+
+見 [LICENSE](LICENSE)。本軟體僅授權給取得 Private Repository 權限的使用者。
