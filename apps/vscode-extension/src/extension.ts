@@ -1,15 +1,21 @@
 import * as vscode from "vscode";
 import { FIXTURE_SIZES, generateSchema } from "@schemalens/schema-fixtures";
-import {
-  DBSCHEMA_LANGUAGE_ID,
-  DiagnosticsProvider,
-  loadDocumentSchema,
-} from "./diagnostics/DiagnosticsProvider.js";
+import { DBSCHEMA_LANGUAGE_ID, DiagnosticsProvider } from "./diagnostics/DiagnosticsProvider.js";
+import { toJson } from "@schemalens/schema-serializer";
 import { PreviewPanel } from "./preview/PreviewPanel.js";
+import { isSchemaJson, jsonExportUri, loadSchemaFromDocument } from "./schema/documentSchema.js";
 
 function activeDbschemaDocument(): vscode.TextDocument | undefined {
   const document = vscode.window.activeTextEditor?.document;
   return document?.languageId === DBSCHEMA_LANGUAGE_ID ? document : undefined;
+}
+
+/** Preview / Export 也接受 `*.schema.json`（JSON Import，AC-18）。 */
+function activeSchemaDocument(): vscode.TextDocument | undefined {
+  const document = vscode.window.activeTextEditor?.document;
+  if (!document) return undefined;
+  if (document.languageId === DBSCHEMA_LANGUAGE_ID) return document;
+  return isSchemaJson(document.uri.fsPath) ? document : undefined;
 }
 
 export function activate(context: vscode.ExtensionContext): void {
@@ -21,13 +27,28 @@ export function activate(context: vscode.ExtensionContext): void {
 
   context.subscriptions.push(
     vscode.commands.registerCommand("dbschema.openPreview", () => {
-      const document = activeDbschemaDocument();
+      const document = activeSchemaDocument();
       if (!document) {
-        void vscode.window.showWarningMessage("請先開啟一個 .dbschema 檔案");
+        void vscode.window.showWarningMessage("請先開啟 .dbschema 或 *.schema.json 檔案");
         return;
       }
-      const result = loadDocumentSchema(document);
+      const result = loadSchemaFromDocument(document);
       PreviewPanel.show(context, result.schema, document.uri, result.diagnostics);
+    }),
+
+    vscode.commands.registerCommand("dbschema.exportJson", async () => {
+      const document = activeSchemaDocument();
+      if (!document) {
+        void vscode.window.showWarningMessage("請先開啟 .dbschema 或 *.schema.json 檔案");
+        return;
+      }
+      const result = loadSchemaFromDocument(document);
+      const target = jsonExportUri(document.uri);
+      await vscode.workspace.fs.writeFile(target, Buffer.from(toJson(result.schema), "utf8"));
+
+      const opened = await vscode.workspace.openTextDocument(target);
+      await vscode.window.showTextDocument(opened, { preview: false });
+      void vscode.window.showInformationMessage(`已匯出 ${result.schema.tables.length} 張 Table 到 ${target.fsPath}`);
     }),
 
     vscode.commands.registerCommand("dbschema.validateSchema", () => {

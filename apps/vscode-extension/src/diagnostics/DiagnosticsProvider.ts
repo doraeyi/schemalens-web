@@ -1,11 +1,11 @@
 import * as vscode from "vscode";
-import { validateSchema, type SchemaDiagnostic } from "@schemalens/schema-core";
+import { validateSchema, type Schema, type SchemaDiagnostic } from "@schemalens/schema-core";
 import { parseSchema } from "@schemalens/schema-parser";
 
 export const DBSCHEMA_LANGUAGE_ID = "dbschema";
 
 export interface DocumentSchema {
-  schema: ReturnType<typeof parseSchema>["schema"];
+  schema: Schema;
   diagnostics: SchemaDiagnostic[];
 }
 

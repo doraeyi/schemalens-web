@@ -20,6 +20,7 @@
       "@schemalens/schema-parser": ["./packages/schema-parser/src/index.ts"],
       "@schemalens/schema-graph": ["./packages/schema-graph/src/index.ts"],
       "@schemalens/schema-layout": ["./packages/schema-layout/src/index.ts"],
+      "@schemalens/schema-serializer": ["./packages/schema-serializer/src/index.ts"],
       "@schemalens/schema-renderer": ["./packages/schema-renderer/src/index.ts"],
       "@schemalens/schema-fixtures": ["./packages/schema-fixtures/src/index.ts"]
     }
