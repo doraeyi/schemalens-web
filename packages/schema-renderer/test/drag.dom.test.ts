@@ -51,15 +51,26 @@ function pointer(target: Element, type: string, x: number, y: number): void {
   target.dispatchEvent(event);
 }
 
-function mount(events = {}): { host: HTMLElement; renderer: SchemaRenderer } {
+function mount(events = {}): {
+  host: HTMLElement;
+  renderer: SchemaRenderer;
+  captures: number[];
+} {
   const host = document.createElement("div");
+  const captures: number[] = [];
   host.getBoundingClientRect = () =>
     ({ width: 1200, height: 800, top: 0, left: 0, right: 1200, bottom: 800, x: 0, y: 0, toJSON: () => ({}) }) as DOMRect;
   document.body.append(host);
   const renderer = new SchemaRenderer(host, { events });
+  // jsdom 沒有 setPointerCapture，補上假的以觀察呼叫時機。
+  const root = host.querySelector<HTMLElement>(".dbs-root")!;
+  (root as unknown as { setPointerCapture: (id: number) => void }).setPointerCapture = (id) =>
+    captures.push(id);
+  (root as unknown as { releasePointerCapture: (id: number) => void }).releasePointerCapture =
+    () => {};
   renderer.setSchema(schema);
   renderer.resetView(); // scale = 1，位移換算才好驗證
-  return { host, renderer };
+  return { host, renderer, captures };
 }
 
 function card(host: HTMLElement, id: string): HTMLElement {
@@ -168,6 +179,48 @@ describe("拖曳卡片", () => {
     pointer(posts, "pointerup", 200, 200);
 
     expect(posts.style.left).toBe(startLeft);
+  });
+});
+
+/**
+ * 回歸測試。
+ *
+ * 指標被 setPointerCapture 捕捉後，瀏覽器會把後續的 click 重新指向捕捉元素，
+ * 卡片就收不到 click，Focus / Dim / Hide 會整組失效。
+ * 因此「按下卡片的當下」絕對不能捕捉，必須等真的開始拖曳。
+ */
+describe("點擊與拖曳不得互相干擾", () => {
+  it("只是按下卡片時不捕捉指標，click 才不會被重新指向", () => {
+    const { host, captures } = mount();
+    pointer(card(host, "dbo.Posts"), "pointerdown", 100, 100);
+    expect(captures).toEqual([]);
+  });
+
+  it("真的開始拖曳後才捕捉指標", () => {
+    const { host, captures } = mount();
+    const posts = card(host, "dbo.Posts");
+
+    pointer(posts, "pointerdown", 100, 100);
+    pointer(posts, "pointermove", 101, 101); // 未達門檻
+    expect(captures).toEqual([]);
+
+    pointer(posts, "pointermove", 200, 200); // 超過門檻
+    expect(captures).toEqual([1]);
+  });
+
+  it("點卡片（沒拖曳）之後，Dim / Hide 仍然作用", () => {
+    const { host, renderer } = mount();
+    const posts = card(host, "dbo.Posts");
+
+    pointer(posts, "pointerdown", 100, 100);
+    pointer(posts, "pointerup", 100, 100);
+    posts.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+
+    // Focus 成立：自己被選取。
+    expect(card(host, "dbo.Posts").classList.contains("is-selected")).toBe(true);
+
+    renderer.setViewState({ unrelated: "hide" });
+    expect(renderer.getViewState().unrelated).toBe("hide");
   });
 });
 

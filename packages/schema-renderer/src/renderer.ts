@@ -425,6 +425,7 @@ export class SchemaRenderer {
     let dragOriginX = 0;
     let dragOriginY = 0;
     let dragMoved = false;
+    let dragPointerId: number | null = null;
     /** 拖曳後要吃掉隨之而來的 click，否則放開手就會誤觸 Focus。 */
     let suppressClick = false;
 
@@ -447,7 +448,10 @@ export class SchemaRenderer {
         dragOriginX = node.x;
         dragOriginY = node.y;
         dragMoved = false;
-        this.root.setPointerCapture?.(event.pointerId);
+        dragPointerId = event.pointerId;
+        // 這裡**不能**立刻 setPointerCapture：指標被捕捉後，瀏覽器會把後續的
+        // click 重新指向捕捉元素，卡片的 click 就再也收不到，Focus / Dim / Hide
+        // 會整組失效。等真的開始拖曳（超過門檻）再捕捉。
         return;
       }
 
@@ -467,6 +471,8 @@ export class SchemaRenderer {
         if (!dragMoved) {
           dragMoved = true;
           this.cardElements.get(dragTableId)?.root.classList.add("is-dragging");
+          // 真的在拖了才捕捉，這樣指標移出視窗也還能繼續拖。
+          if (dragPointerId !== null) this.root.setPointerCapture?.(dragPointerId);
         }
         // 螢幕位移換算回圖座標，縮放後拖曳才會跟手。
         this.moveCard(dragTableId, dragOriginX + dx / this.scale, dragOriginY + dy / this.scale);
@@ -485,10 +491,14 @@ export class SchemaRenderer {
       if (dragTableId) {
         this.cardElements.get(dragTableId)?.root.classList.remove("is-dragging");
         suppressClick = dragMoved;
-        if (dragMoved) this.events.layoutChanged?.();
+        if (dragMoved) {
+          this.events.layoutChanged?.();
+          // 只有拖曳時才捕捉過，因此也只在這時釋放。
+          this.root.releasePointerCapture?.(event.pointerId);
+        }
         dragTableId = null;
         dragMoved = false;
-        this.root.releasePointerCapture?.(event.pointerId);
+        dragPointerId = null;
         return;
       }
       if (!panning) return;
