@@ -1,0 +1,43 @@
+{
+  "name": "dbschema-vscode",
+  "displayName": "DBSchema",
+  "description": "Database Schema Visualization for VS Code",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": ["Visualization"],
+  "main": "./out/extension.cjs",
+  "contributes": {
+    "commands": [
+      {
+        "command": "dbschema.openSpikePreview",
+        "title": "DBSchema: Open Spike Preview (Synthetic Schema)"
+      },
+      {
+        "command": "dbschema.fitView",
+        "title": "DBSchema: Fit View"
+      },
+      {
+        "command": "dbschema.resetFocus",
+        "title": "DBSchema: Reset Focus"
+      }
+    ]
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "watch": "node scripts/build.mjs --watch"
+  },
+  "dependencies": {
+    "@schemalens/schema-core": "*",
+    "@schemalens/schema-fixtures": "*",
+    "@schemalens/schema-graph": "*",
+    "@schemalens/schema-layout": "*",
+    "@schemalens/schema-renderer": "*"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.90.0"
+  }
+}
