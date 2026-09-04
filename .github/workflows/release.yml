@@ -1,0 +1,96 @@
+name: Release VSIX
+
+# 只有推 v* tag 時才發布。一般 push / PR 不會產生 Release。
+on:
+  push:
+    tags:
+      - "v*"
+
+# 最小權限：只需要建立 Release 與上傳 Asset。
+# Release 會建立在本 Repository，因此 Asset 跟隨 Repository 的可見性；
+# Private Repository 的 Release Asset 只有具備 Repository 權限的人下載得到。
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build, Test, Package, Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Tag 與 package.json 必須一致。不一致就直接失敗，
+      # 避免發出「檔名版本」與「Extension 內部版本」對不起來的 VSIX。
+      - name: Validate version matches tag
+        id: version
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          PKG_VERSION="$(node -p "require('./apps/vscode-extension/package.json').version")"
+          echo "tag=$TAG_VERSION"
+          echo "package.json=$PKG_VERSION"
+          if [ "$TAG_VERSION" != "$PKG_VERSION" ]; then
+            echo "::error::Tag v$TAG_VERSION 與 apps/vscode-extension/package.json 的 version $PKG_VERSION 不一致"
+            exit 1
+          fi
+          echo "version=$PKG_VERSION" >> "$GITHUB_OUTPUT"
+          echo "vsix=dbschema-$PKG_VERSION.vsix" >> "$GITHUB_OUTPUT"
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+      - name: Build extension bundles
+        run: npm run build -w dbschema
+
+      - name: Package VSIX
+        run: npm run package:vsix -w dbschema
+
+      # 確認產出的檔名與預期一致，避免上傳到 Release 的是錯的檔案。
+      - name: Verify VSIX
+        run: |
+          VSIX="dist/${{ steps.version.outputs.vsix }}"
+          if [ ! -f "$VSIX" ]; then
+            echo "::error::找不到 $VSIX"
+            ls -la dist || true
+            exit 1
+          fi
+          echo "packaged: $VSIX ($(du -h "$VSIX" | cut -f1))"
+
+      # 用內建的 GITHUB_TOKEN 建立 Release，不需要任何額外 Secret。
+      - name: Create private GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            "dist/${{ steps.version.outputs.vsix }}" \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "DBSchema ${{ steps.version.outputs.version }}" \
+            --notes-file - <<'NOTES'
+          DBSchema VS Code Extension
+
+          此 Release 僅提供給具有本 Private Repository 權限的使用者。
+
+          ## 安裝
+
+          1. 下載下方的 `.vsix`
+          2. VS Code → Extensions → `...` → **Install from VSIX...**
+
+          或使用 CLI：
+
+          ```bash
+          code --install-extension dbschema-${{ steps.version.outputs.version }}.vsix
+          ```
+          NOTES

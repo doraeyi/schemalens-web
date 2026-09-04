@@ -1,21 +1,35 @@
 {
-  "name": "dbschema-vscode",
+  "name": "dbschema",
   "displayName": "DBSchema",
   "description": "Database Schema Visualization for VS Code",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "private": true,
+  "publisher": "kaikaizhen",
+  "license": "SEE LICENSE IN LICENSE",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kaikaizhen/schemaLen.git"
+  },
   "type": "module",
   "engines": {
     "vscode": "^1.90.0"
   },
-  "categories": ["Visualization", "Programming Languages"],
+  "categories": [
+    "Visualization",
+    "Programming Languages"
+  ],
   "main": "./out/extension.cjs",
   "contributes": {
     "languages": [
       {
         "id": "dbschema",
-        "aliases": ["DBSchema", "dbschema"],
-        "extensions": [".dbschema"],
+        "aliases": [
+          "DBSchema",
+          "dbschema"
+        ],
+        "extensions": [
+          ".dbschema"
+        ],
         "configuration": "./language/language-configuration.json"
       }
     ],
@@ -65,17 +79,18 @@
   },
   "scripts": {
     "build": "node scripts/build.mjs",
-    "watch": "node scripts/build.mjs --watch"
+    "watch": "node scripts/build.mjs --watch",
+    "package:vsix": "node scripts/package.mjs"
   },
-  "dependencies": {
+  "devDependencies": {
     "@schemalens/schema-core": "*",
     "@schemalens/schema-fixtures": "*",
     "@schemalens/schema-graph": "*",
     "@schemalens/schema-layout": "*",
     "@schemalens/schema-parser": "*",
-    "@schemalens/schema-renderer": "*"
-  },
-  "devDependencies": {
-    "@types/vscode": "^1.90.0"
+    "@schemalens/schema-renderer": "*",
+    "@schemalens/schema-serializer": "*",
+    "@types/vscode": "^1.90.0",
+    "@vscode/vsce": "^3.2.1"
   }
 }

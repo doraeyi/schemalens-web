@@ -1,0 +1,35 @@
+# VSIX 只需要 Runtime 需要的東西。
+# out/ 是 esbuild 產出的單檔 bundle，已包含所有 workspace 套件的程式碼，
+# 因此原始碼、測試與建置腳本都不必進 VSIX。
+
+.vscode/**
+.github/**
+.git/**
+.gitignore
+
+# 原始碼與建置設定（已 bundle 進 out/）
+src/**
+scripts/**
+test/**
+tsconfig*.json
+*.tsbuildinfo
+
+# 測試與覆蓋率
+coverage/**
+**/*.test.ts
+**/*.spec.ts
+
+# 開發用暫存
+node_modules/**
+**/.DS_Store
+**/Thumbs.db
+*.vsix
+
+# Source map 對使用者沒用，且會讓 VSIX 大一倍
+out/**/*.map
+
+# 保留（不要 ignore）：
+#   out/extension.cjs        Extension Host 進入點
+#   out/webview.js           Preview 的 Webview bundle
+#   language/**              語言設定與 TextMate 文法
+#   package.json README.md LICENSE
