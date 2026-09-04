@@ -88,6 +88,14 @@ export const RENDERER_CSS = `
   contain: layout paint;
 }
 .dbs-card.is-dimmed { opacity: 0.15; }
+/* 拖曳中的卡片浮起來，並讓游標明確表示可以移動。 */
+.dbs-card-header { cursor: grab; }
+.dbs-card.is-dragging {
+  cursor: grabbing;
+  z-index: 3;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.45);
+  opacity: 0.95;
+}
 .dbs-card.is-hidden { display: none; }
 .dbs-card.is-selected {
   border-color: var(--vscode-focusBorder, #007fd4);

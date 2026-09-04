@@ -27,6 +27,7 @@ export interface RendererStrings {
   unrelatedHide: string;
   resetFocus: string;
   fitView: string;
+  resetLayout: string;
   resultTable: string;
   resultColumn: string;
   /** `+3 more columns` */
@@ -57,6 +58,7 @@ const en: RendererStrings = {
   unrelatedHide: "Hide",
   resetFocus: "Reset Focus",
   fitView: "Fit View",
+  resetLayout: "Reset Layout",
   resultTable: "TABLE",
   resultColumn: "COLUMN",
   moreColumns: (count) => `+${count} more columns`,
@@ -86,6 +88,7 @@ const zhHant: RendererStrings = {
   unrelatedHide: "隱藏",
   resetFocus: "取消聚焦",
   fitView: "全部顯示",
+  resetLayout: "還原版面",
   resultTable: "資料表",
   resultColumn: "欄位",
   moreColumns: (count) => `還有 ${count} 個欄位`,

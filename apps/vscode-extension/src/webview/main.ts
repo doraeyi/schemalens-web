@@ -38,6 +38,7 @@ const renderer = new SchemaRenderer(canvas, {
     openSource: (target) => post({ type: "openSource", tableId: target.tableId, column: target.column }),
     tableSelected: () => syncToolbar(),
     viewStateChanged: () => syncToolbar(),
+    layoutChanged: () => toolbar.setLayoutDirty(true),
   },
 });
 
@@ -62,6 +63,10 @@ const handlers: ToolbarHandlers = {
     resetFocus();
   },
   onFitView: () => renderer.fitView(),
+  onResetLayout: () => {
+    renderer.resetLayout();
+    toolbar.setLayoutDirty(false);
+  },
   onPickHit: (hit: SearchHit) => {
     // US3 / US6：Table 命中 → Jump + Focus；Column 命中 → 額外高亮該欄位。
     if (hit.kind === "column") renderer.revealColumn(hit.tableId, hit.column);
@@ -104,6 +109,7 @@ function applyLocale(next: Locale): void {
   toolbar = rebuilt;
   if (schema) toolbar.setSchema(schema);
   if (lastMetrics) paintMetrics();
+  rebuilt.setLayoutDirty(renderer.hasManualPositions());
   syncToolbar();
 }
 
