@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import type { Schema, SchemaDiagnostic } from "@schemalens/schema-core";
 import type { ExtensionToWebview, WebviewToExtension } from "./protocol.js";
+import { findSourceLocation } from "./sourceNavigation.js";
 
 /**
  * DBSchema 專屬 Preview（約束 #13：不為了 Markdown Preview 犧牲這裡的能力）。
@@ -42,6 +43,8 @@ export class PreviewPanel {
   private pending: ExtensionToWebview | null = null;
   private ready = false;
   private source: vscode.Uri | undefined;
+  /** 目前畫面上的 Schema；Preview → Source 需要它的 SourceLocation。 */
+  private schema: Schema | null = null;
 
   private constructor(
     private readonly context: vscode.ExtensionContext,
@@ -56,6 +59,7 @@ export class PreviewPanel {
 
   setSchema(schema: Schema, source: vscode.Uri | undefined, diagnostics: SchemaDiagnostic[]): void {
     this.source = source;
+    this.schema = schema;
     const label = source ? basename(source.fsPath) : "Synthetic Schema";
     this.panel.title = `DBSchema — ${label}`;
     this.post({ type: "schema", schema, diagnostics, label });
@@ -67,6 +71,7 @@ export class PreviewPanel {
    */
   updateIfSameDocument(uri: vscode.Uri, schema: Schema, diagnostics: SchemaDiagnostic[]): void {
     if (!this.source || this.source.toString() !== uri.toString()) return;
+    this.schema = schema;
     this.post({ type: "schema", schema, diagnostics, label: basename(uri.fsPath) });
   }
 
@@ -94,9 +99,7 @@ export class PreviewPanel {
         return;
       }
       case "openSource": {
-        // Stage 9 會改成依 SourceLocation 精準跳轉。
-        const target = message.column ? `${message.tableId}.${message.column}` : message.tableId;
-        void vscode.window.showInformationMessage(`Open Source: ${target}`);
+        void this.openSource(message.tableId, message.column);
         return;
       }
       case "metrics": {
@@ -107,6 +110,41 @@ export class PreviewPanel {
         return;
       }
     }
+  }
+
+  /**
+   * Preview → Source（US9 / AC-17）。
+   *
+   * 這是 VS Code Extension 相對於一般 Web Viewer 的核心價值，
+   * 所以找不到精確欄位時也要盡量跳到 Table 定義，而不是無聲失敗。
+   */
+  private async openSource(tableId: string, column?: string): Promise<void> {
+    if (!this.source || !this.schema) {
+      void vscode.window.showWarningMessage("目前的 Preview 沒有對應的原始檔（合成 Schema）");
+      return;
+    }
+
+    const location = findSourceLocation(this.schema, { tableId, column });
+    if (!location) {
+      void vscode.window.showWarningMessage(`找不到 ${column ? `${tableId}.${column}` : tableId} 的定義位置`);
+      return;
+    }
+
+    const document = await vscode.workspace.openTextDocument(this.source);
+    const editor = await vscode.window.showTextDocument(document, {
+      viewColumn: vscode.ViewColumn.One,
+      preserveFocus: false,
+    });
+
+    // SourceLocation 是 1-based，VS Code 是 0-based。
+    const startLine = Math.max(0, location.line - 1);
+    const startColumn = Math.max(0, location.column - 1);
+    const endLine = Math.max(startLine, (location.endLine ?? location.line) - 1);
+    const endColumn = Math.max(startColumn, (location.endColumn ?? location.column) - 1);
+    const range = new vscode.Range(startLine, startColumn, endLine, endColumn);
+
+    editor.selection = new vscode.Selection(range.start, range.end);
+    editor.revealRange(range, vscode.TextEditorRevealType.InCenterIfOutsideViewport);
   }
 
   private buildHtml(): string {
