@@ -139,6 +139,39 @@ describe("SchemaRenderer 預設畫面", () => {
     expect(host2.querySelector("style")!.textContent).toMatch(/\.dbs-badge\s*{[^}]*border:/);
   });
 
+  it("每列用 subgrid 共用欄寬，欄位屬性不會因為內容長短而左右浮動", () => {
+    const css = host.querySelector("style")!.textContent!;
+    expect(css).toMatch(/\.dbs-card-body\s*{[^}]*display:\s*grid/);
+    expect(css).toMatch(/\.dbs-row\s*{[^}]*grid-template-columns:\s*subgrid/);
+  });
+
+  it("每個 span 都釘在固定欄，少了 null/default 的列不會讓備註錯位", () => {
+    const css = host.querySelector("style")!.textContent!;
+    // 取出某個 selector 的樣式區塊，避免正規表示式的跳脫層層疊加。
+    const block = (selector: string): string => {
+      const at = css.indexOf(`.${selector} {`);
+      expect(at).toBeGreaterThan(-1);
+      return css.slice(at, css.indexOf("}", at));
+    };
+
+    expect(block("dbs-row-badges")).toContain("grid-column: 1");
+    expect(block("dbs-row-name")).toContain("grid-column: 2");
+    expect(block("dbs-row-type")).toContain("grid-column: 3");
+    expect(block("dbs-row-flags")).toContain("grid-column: 4");
+    expect(block("dbs-row-comment")).toContain("grid-column: 5");
+  });
+
+  it("列與列之間有格線", () => {
+    const css = host.querySelector("style")!.textContent!;
+    expect(css).toMatch(/\.dbs-row \+ \.dbs-row\s*{[^}]*border-top/);
+  });
+
+  it("格線不影響列高，卡片幾何仍與 layout 一致", () => {
+    const css = host.querySelector("style")!.textContent!;
+    // border-box 讓 border 吃在 22px 內，否則每列會多 1px、線就接歪了。
+    expect(css).toMatch(/\.dbs-row\s*{[^}]*box-sizing:\s*border-box/);
+  });
+
   it("沒有備註的欄位不會多出空的備註節點", () => {
     const posts = host.querySelector('[data-table-id="dbo.Posts"]')!;
     expect(posts.querySelector('[data-column="Title"] .dbs-row-comment')).toBeNull();

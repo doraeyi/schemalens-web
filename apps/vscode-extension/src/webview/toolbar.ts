@@ -1,6 +1,6 @@
 import type { Schema } from "@schemalens/schema-core";
 import { search, type SearchHit } from "@schemalens/schema-graph";
-import type { DetailLevel, RendererStrings, UnrelatedMode } from "@schemalens/schema-renderer";
+import type { DetailLevel, Locale, RendererStrings, UnrelatedMode } from "@schemalens/schema-renderer";
 import type { TraversalDirection } from "@schemalens/schema-graph";
 
 export const TOOLBAR_CSS = `
@@ -88,6 +88,8 @@ export interface ToolbarHandlers {
   onFitView(): void;
   onPickHit(hit: SearchHit): void;
   onSearchResults(hits: SearchHit[]): void;
+  /** 切換介面語系；會寫回 dbschema.language 設定。 */
+  onLocale(locale: Locale): void;
 }
 
 interface ButtonGroup<T> {
@@ -140,6 +142,7 @@ export class Toolbar {
   private readonly depthGroup: ButtonGroup<1 | 2 | null>;
   private readonly directionGroup: ButtonGroup<TraversalDirection>;
   private readonly unrelatedGroup: ButtonGroup<UnrelatedMode>;
+  private readonly localeGroup: ButtonGroup<Locale>;
   private schema: Schema | null = null;
   private hits: SearchHit[] = [];
   private cursor = -1;
@@ -197,6 +200,16 @@ export class Toolbar {
       handlers.onUnrelated,
     );
 
+    // 語系鈕的標籤永遠寫成該語言本身，切到看不懂的語言時才找得回來。
+    this.localeGroup = buttonGroup<Locale>(
+      "",
+      [
+        { label: "EN", value: "en" },
+        { label: "中文", value: "zh-hant" },
+      ],
+      handlers.onLocale,
+    );
+
     const actions = document.createElement("div");
     actions.className = "dbs-group";
     const reset = document.createElement("button");
@@ -220,6 +233,7 @@ export class Toolbar {
       this.unrelatedGroup.element,
       actions,
       this.metrics,
+      this.localeGroup.element,
     );
 
     this.bindSearch();
@@ -240,11 +254,13 @@ export class Toolbar {
     depth: 1 | 2 | null;
     direction: TraversalDirection;
     unrelated: UnrelatedMode;
+    locale: Locale;
   }): void {
     this.detailGroup.setActive(state.detailLevel);
     this.depthGroup.setActive(state.depth);
     this.directionGroup.setActive(state.direction);
     this.unrelatedGroup.setActive(state.unrelated);
+    this.localeGroup.setActive(state.locale);
   }
 
   focusSearch(): void {

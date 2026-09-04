@@ -106,6 +106,13 @@ export class PreviewPanel {
         }
         return;
       }
+      case "setLocale": {
+        // 寫進 Global 設定：使用者換語言是偏好，不該只對當前工作區生效。
+        void vscode.workspace
+          .getConfiguration("dbschema")
+          .update("language", message.locale, vscode.ConfigurationTarget.Global);
+        return;
+      }
       case "openSource": {
         void this.openSource(message.tableId, message.column);
         return;

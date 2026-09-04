@@ -28,6 +28,8 @@ export const CARD_METRICS = {
   horizontalPadding: 20,
   /** 欄位標記欄（PK/FK/UQ/IDX）固定寬度；要放得下兩個帶框的標記 */
   badgeColumnWidth: 50,
+  /** 欄位列的 grid 欄間距總和（4 個間隔 × 8px） */
+  columnGaps: 32,
 } as const;
 
 export interface CardRow {
@@ -83,7 +85,8 @@ export function visibleColumns(table: Table, detailLevel: DetailLevel): Column[]
 }
 
 function estimateWidth(table: Table, rows: CardRow[], detailLevel: DetailLevel): number {
-  const { charWidth, horizontalPadding, badgeColumnWidth, minWidth, maxWidth } = CARD_METRICS;
+  const { charWidth, horizontalPadding, badgeColumnWidth, columnGaps, minWidth, maxWidth } =
+    CARD_METRICS;
 
   // 標題列：名稱 + schema + Table 備註都在同一行。
   const headerChars =
@@ -94,8 +97,8 @@ function estimateWidth(table: Table, rows: CardRow[], detailLevel: DetailLevel):
     // 名稱 + 型別 + 標記欄，再加上 nullable/default 與欄位備註的空間。
     const suffix = detailLevel === "full" ? (row.column.nullable ? 5 : 0) + (row.column.defaultValue ? 6 : 0) : 0;
     const comment = detailLevel === "full" && row.column.comment ? row.column.comment.length + 3 : 0;
-    const text = (row.column.name.length + row.typeLabel.length + suffix + comment + 3) * charWidth;
-    widest = Math.max(widest, text + badgeColumnWidth);
+    const text = (row.column.name.length + row.typeLabel.length + suffix + comment) * charWidth;
+    widest = Math.max(widest, text + badgeColumnWidth + columnGaps);
   }
   return Math.round(Math.min(maxWidth, Math.max(minWidth, widest + horizontalPadding)));
 }

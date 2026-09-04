@@ -136,25 +136,42 @@ export const RENDERER_CSS = `
 .dbs-card-comment::before {
   content: "· ";
 }
-.dbs-card-body { padding: 4px 0; }
+/* 欄位區用 grid，並讓每一列以 subgrid 共用同一組欄寬。
+   這樣同一張卡片裡的名稱、型別、備註一定對齊，
+   不會因為某一列的型別或備註比較長就整排歪掉。
+   五個 track：標記 / 名稱 / 型別 / null·default / 備註 */
+.dbs-card-body {
+  padding: 4px 0;
+  display: grid;
+  grid-template-columns: 50px max-content max-content max-content minmax(0, 1fr);
+  column-gap: 8px;
+  align-content: start;
+}
 
 .dbs-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: subgrid;
+  grid-column: 1 / -1;
   align-items: center;
   height: 22px;
   padding: 0 8px;
   box-sizing: border-box;
-  gap: 6px;
   font-family: var(--vscode-editor-font-family, monospace);
   white-space: nowrap;
+}
+
+/* 列與列之間的格線，讓長卡片仍然容易橫向讀。 */
+.dbs-row + .dbs-row {
+  border-top: 1px solid var(--vscode-panel-border, #3c3c3c);
 }
 .dbs-row:hover { background: var(--vscode-list-hoverBackground, #2a2d2e); }
 .dbs-row.is-highlight {
   background: var(--vscode-editor-findMatchHighlightBackground, rgba(234, 92, 0, 0.33));
 }
+/* 明確指定每個 span 落在哪一欄。
+   否則某一列少了 null/default，備註就會被 auto-placement 塞進那一欄而錯位。 */
 .dbs-row-badges {
-  flex: none;
-  width: 50px;
+  grid-column: 1;
   display: flex;
   gap: 3px;
   font-size: 9px;
@@ -173,33 +190,37 @@ export const RENDERER_CSS = `
 .dbs-badge.fk { color: var(--vscode-charts-blue, #4daafc); }
 .dbs-badge.uq { color: var(--vscode-charts-purple, #c586c0); }
 .dbs-badge.idx { color: var(--vscode-charts-green, #89d185); }
-.dbs-row-name { flex: none; }
+.dbs-row-name {
+  grid-column: 2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .dbs-row-type {
+  grid-column: 3;
   color: var(--vscode-symbolIcon-typeParameterForeground, #75beff);
-  margin-left: auto;
   font-size: 11px;
-  flex: none;
 }
 /* 欄位用途說明（plan §19：Column Comment 必須直接看得到，不能只放 tooltip）。 */
+/* 備註佔最後一個彈性 track，過長時截斷而不是把整列撐開。 */
 .dbs-row-comment {
+  grid-column: 5;
   color: var(--vscode-descriptionForeground, #9d9d9d);
   font-size: 10px;
   font-style: italic;
-  max-width: 45%;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-.dbs-row-comment::before {
-  content: "— ";
+  border-left: 1px solid var(--vscode-panel-border, #3c3c3c);
+  padding-left: 8px;
 }
 .dbs-row-flags {
-  flex: none;
+  grid-column: 4;
   color: var(--vscode-descriptionForeground, #9d9d9d);
   font-size: 10px;
 }
 .dbs-row-more {
+  grid-column: 1 / -1;
   color: var(--vscode-descriptionForeground, #9d9d9d);
   font-style: italic;
 }
