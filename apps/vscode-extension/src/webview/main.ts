@@ -71,9 +71,14 @@ const handlers: ToolbarHandlers = {
   onSearchResults: (hits: SearchHit[]) => {
     renderer.setSearchMatches([...new Set(hits.map((hit) => hit.tableId))]);
   },
-  // 交給 Extension 寫回設定，再由設定變更事件推回來；
-  // 這樣 Toolbar 的選擇會被記住，而不是只影響當下這個 Preview。
-  onLocale: (next: Locale) => post({ type: "setLocale", locale: next }),
+  onLocale: (next: Locale) => {
+    // 先在本地套用，UI 立刻有反應。
+    // 若只等 Extension 寫設定再推回來，鏈上任何一環失敗（或 Extension Host
+    // 跑的是舊版程式碼）就會變成「按了完全沒事」，使用者無從判斷。
+    applyLocale(next);
+    // 再請 Extension 寫回設定，讓選擇被記住、其他 Preview 也一致。
+    post({ type: "setLocale", locale: next });
+  },
 };
 
 function buildToolbar(h: ToolbarHandlers): Toolbar {
