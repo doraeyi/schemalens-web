@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
-import { validateSchema, type Schema, type SchemaDiagnostic } from "@schemalens/schema-core";
-import { parseSchema } from "@schemalens/schema-parser";
+import type { Schema, SchemaDiagnostic } from "@schemalens/schema-core";
+import { isSupportedSchemaFile, loadSchemaFromText } from "../schema/documentSchema.js";
 
 export const DBSCHEMA_LANGUAGE_ID = "dbschema";
 
@@ -15,10 +15,12 @@ export interface DocumentSchema {
  * 永遠回傳 Schema（可能是部分結果），因此 Preview 在有錯時仍能顯示可解析的部分（US10）。
  */
 export function loadDocumentSchema(document: vscode.TextDocument): DocumentSchema {
-  const file = document.uri.fsPath;
-  const parsed = parseSchema(document.getText(), file);
-  const validated = validateSchema(parsed.schema, { file });
-  return { schema: parsed.schema, diagnostics: [...parsed.diagnostics, ...validated] };
+  return loadSchemaFromText(document.getText(), document.uri.fsPath);
+}
+
+/** 需要驗證的文件：`.dbschema`（語言 id）或 `*.schema.md` / `*.schema.json`（檔名）。 */
+function isDiagnosableDocument(document: vscode.TextDocument): boolean {
+  return document.languageId === DBSCHEMA_LANGUAGE_ID || isSupportedSchemaFile(document.uri.fsPath);
 }
 
 /** SchemaDiagnostic 是 1-based；VS Code 的 Position 是 0-based。 */
@@ -69,7 +71,7 @@ export class DiagnosticsProvider implements vscode.Disposable {
   }
 
   refresh(document: vscode.TextDocument): DocumentSchema | undefined {
-    if (document.languageId !== DBSCHEMA_LANGUAGE_ID) return undefined;
+    if (!isDiagnosableDocument(document)) return undefined;
     const result = loadDocumentSchema(document);
     this.collection.set(document.uri, result.diagnostics.map(toVsCodeDiagnostic));
     this.onSchemaChanged?.(document, result);
@@ -77,7 +79,7 @@ export class DiagnosticsProvider implements vscode.Disposable {
   }
 
   private scheduleRefresh(document: vscode.TextDocument): void {
-    if (document.languageId !== DBSCHEMA_LANGUAGE_ID) return;
+    if (!isDiagnosableDocument(document)) return;
     const key = document.uri.toString();
     const existing = this.timers.get(key);
     if (existing) clearTimeout(existing);

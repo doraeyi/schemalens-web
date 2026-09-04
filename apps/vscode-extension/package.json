@@ -57,7 +57,7 @@
       "editor/title": [
         {
           "command": "dbschema.openPreview",
-          "when": "resourceLangId == dbschema",
+          "when": "resourceLangId == dbschema || resourceFilename =~ /\\.schema\\.(md|json)$/",
           "group": "navigation"
         }
       ]
