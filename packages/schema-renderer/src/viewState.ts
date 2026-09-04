@@ -24,6 +24,11 @@ export interface ViewState {
   unrelated: UnrelatedMode;
   /** 被 Collapse 的 table。 */
   collapsed: ReadonlySet<TableId>;
+  /**
+   * 欄位備註是否完整展開。
+   * 預設 false：備註單行、過長截斷成 …，避免卡片被長註解撐爆。
+   */
+  expandComments: boolean;
   /** Column Search 命中後要高亮的欄位（US6）。 */
   highlightedColumn: { tableId: TableId; column: string } | null;
   /** Search 命中的 table 集合，用於卡片外框標示。 */
@@ -35,6 +40,7 @@ export const DEFAULT_VIEW_STATE: ViewState = {
   detailLevel: "full",
   focus: { tableId: null, depth: 1, direction: "all" },
   unrelated: "dim",
+  expandComments: false,
   collapsed: new Set(),
   highlightedColumn: null,
   searchMatches: new Set(),

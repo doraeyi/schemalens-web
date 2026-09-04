@@ -147,7 +147,8 @@ export class SchemaRenderer {
     const previous = this.state;
     this.state = { ...previous, ...patch };
     const geometryChanged =
-      patch.detailLevel !== undefined && patch.detailLevel !== previous.detailLevel;
+      (patch.detailLevel !== undefined && patch.detailLevel !== previous.detailLevel) ||
+      (patch.expandComments !== undefined && patch.expandComments !== previous.expandComments);
     const collapseChanged = patch.collapsed !== undefined && patch.collapsed !== previous.collapsed;
 
     if (geometryChanged || collapseChanged) this.rebuild();

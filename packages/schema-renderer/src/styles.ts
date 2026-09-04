@@ -209,7 +209,20 @@ export const RENDERER_CSS = `
   font-size: 11px;
 }
 /* 欄位用途說明（plan §19：Column Comment 必須直接看得到，不能只放 tooltip）。 */
-/* 備註佔最後一個彈性 track，過長時截斷而不是把整列撐開。 */
+/* 備註佔最後一個彈性 track。
+   預設單行、過長截斷成 …；展開時改為多行（行的切分由 cardModel 算好）。 */
+.dbs-row-comment.is-expanded {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+}
+.dbs-comment-line {
+  line-height: 14px;
+  white-space: nowrap;
+}
 .dbs-row-comment {
   grid-column: 5;
   color: var(--vscode-descriptionForeground, #9d9d9d);

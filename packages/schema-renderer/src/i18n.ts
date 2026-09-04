@@ -14,6 +14,9 @@ export interface RendererStrings {
   depthGroup: string;
   directionGroup: string;
   unrelatedGroup: string;
+  commentsGroup: string;
+  commentsTruncate: string;
+  commentsExpand: string;
   viewOverview: string;
   viewKeys: string;
   viewFull: string;
@@ -45,6 +48,9 @@ const en: RendererStrings = {
   depthGroup: "Depth",
   directionGroup: "Direction",
   unrelatedGroup: "Unrelated",
+  commentsGroup: "Comments",
+  commentsTruncate: "Truncate",
+  commentsExpand: "Full",
   viewOverview: "Overview",
   viewKeys: "Keys",
   viewFull: "Full",
@@ -75,6 +81,9 @@ const zhHant: RendererStrings = {
   depthGroup: "深度",
   directionGroup: "方向",
   unrelatedGroup: "不相關",
+  commentsGroup: "備註",
+  commentsTruncate: "截斷",
+  commentsExpand: "完整",
   viewOverview: "總覽",
   viewKeys: "索引鍵",
   viewFull: "完整",

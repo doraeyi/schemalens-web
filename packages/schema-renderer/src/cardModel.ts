@@ -30,6 +30,10 @@ export const CARD_METRICS = {
   badgeColumnWidth: 50,
   /** 欄位列的 grid 欄間距總和（4 個間隔 × 8px） */
   columnGaps: 32,
+  /** 展開備註時，每行放幾個字就換行 */
+  commentWrapChars: 6,
+  /** 備註每行的高度 */
+  commentLineHeight: 14,
 } as const;
 
 export interface CardRow {
@@ -38,6 +42,14 @@ export interface CardRow {
   badges: string[];
   /** 例如 `nvarchar(255)` */
   typeLabel: string;
+  /**
+   * 展開備註時，已經切好的每一行。
+   * 換行在這裡算完而不是交給瀏覽器，否則 layout 拿到的高度會與實際畫出來的不一致，
+   * 關聯線的錨點就會接歪。
+   */
+  commentLines: string[];
+  /** 這一列實際的高度；備註換行時會比 rowHeight 高。 */
+  height: number;
 }
 
 export interface CardModel {
@@ -50,6 +62,8 @@ export interface CardModel {
   hiddenColumnCount: number;
   /** Table 備註是否要顯示；它與 schema 名稱同一行，不佔額外高度。 */
   showComment: boolean;
+  /** 欄位備註是否展開成多行（否則單行截斷成 …）。 */
+  commentsExpanded: boolean;
   width: number;
   height: number;
 }
@@ -78,13 +92,37 @@ function isKeyColumn(column: Column): boolean {
   return column.primaryKey || column.foreignKey || column.unique || column.indexed;
 }
 
+/**
+ * 把備註切成固定字數的多行。
+ *
+ * 以「字」為單位而不是像素：中文與英文混排時，用像素估算會失準，
+ * 而固定字數換行的結果是確定的，layout 與繪製才不會對不上。
+ */
+export function wrapComment(
+  comment: string,
+  charsPerLine: number = CARD_METRICS.commentWrapChars,
+): string[] {
+  const text = comment.trim();
+  if (!text) return [];
+  const lines: string[] = [];
+  for (let i = 0; i < text.length; i += charsPerLine) {
+    lines.push(text.slice(i, i + charsPerLine));
+  }
+  return lines;
+}
+
 export function visibleColumns(table: Table, detailLevel: DetailLevel): Column[] {
   if (detailLevel === "overview") return [];
   if (detailLevel === "keys") return table.columns.filter(isKeyColumn);
   return [...table.columns];
 }
 
-function estimateWidth(table: Table, rows: CardRow[], detailLevel: DetailLevel): number {
+function estimateWidth(
+  table: Table,
+  rows: CardRow[],
+  detailLevel: DetailLevel,
+  commentsExpanded: boolean,
+): number {
   const { charWidth, horizontalPadding, badgeColumnWidth, columnGaps, minWidth, maxWidth } =
     CARD_METRICS;
 
@@ -96,7 +134,13 @@ function estimateWidth(table: Table, rows: CardRow[], detailLevel: DetailLevel):
   for (const row of rows) {
     // 名稱 + 型別 + 標記欄，再加上 nullable/default 與欄位備註的空間。
     const suffix = detailLevel === "full" ? (row.column.nullable ? 5 : 0) + (row.column.defaultValue ? 6 : 0) : 0;
-    const comment = detailLevel === "full" && row.column.comment ? row.column.comment.length + 3 : 0;
+    // 展開時備註欄固定為 commentWrapChars 寬；截斷時才需要預留原文長度。
+    const comment =
+      detailLevel === "full" && row.column.comment
+        ? commentsExpanded
+          ? CARD_METRICS.commentWrapChars + 2
+          : row.column.comment.length + 3
+        : 0;
     const text = (row.column.name.length + row.typeLabel.length + suffix + comment) * charWidth;
     widest = Math.max(widest, text + badgeColumnWidth + columnGaps);
   }
@@ -107,11 +151,22 @@ export function buildCardModel(table: Table, state: ViewState): CardModel {
   const collapsed = state.collapsed.has(table.id);
   const detailLevel = state.detailLevel;
   const columns = collapsed ? [] : visibleColumns(table, detailLevel);
-  const rows: CardRow[] = columns.map((column) => ({
-    column,
-    badges: columnBadges(column),
-    typeLabel: formatType(column),
-  }));
+
+  // 備註只在 Full 檢視顯示，因此也只有 Full 需要考慮展開。
+  const commentsExpanded = state.expandComments && detailLevel === "full";
+
+  const rows: CardRow[] = columns.map((column) => {
+    const commentLines =
+      commentsExpanded && column.comment ? wrapComment(column.comment) : [];
+    const commentHeight = commentLines.length * CARD_METRICS.commentLineHeight + 6;
+    return {
+      column,
+      badges: columnBadges(column),
+      typeLabel: formatType(column),
+      commentLines,
+      height: Math.max(CARD_METRICS.rowHeight, commentHeight),
+    };
+  });
   // Table 備註與 schema 名稱同一行，不再自成一列，所以任何檢視層級都顯示得起。
   const showComment = Boolean(table.comment);
   // Overview / Collapse 是刻意的降噪模式，連 "+N more" 都不該出現；
@@ -119,17 +174,32 @@ export function buildCardModel(table: Table, state: ViewState): CardModel {
   const compact = collapsed || detailLevel === "overview";
   const hiddenColumnCount = compact ? 0 : table.columns.length - columns.length;
 
-  const width = estimateWidth(table, rows, detailLevel);
-  const height = computeCardHeight(rows.length, hiddenColumnCount > 0, compact);
+  const width = estimateWidth(table, rows, detailLevel, commentsExpanded);
+  const height = computeCardHeight(rows, hiddenColumnCount > 0, compact);
 
-  return { table, detailLevel, collapsed, rows, hiddenColumnCount, showComment, width, height };
+  return {
+    table,
+    detailLevel,
+    collapsed,
+    rows,
+    hiddenColumnCount,
+    showComment,
+    commentsExpanded,
+    width,
+    height,
+  };
 }
 
-export function computeCardHeight(rowCount: number, showMoreRow: boolean, compact: boolean): number {
+export function computeCardHeight(
+  rows: readonly CardRow[],
+  showMoreRow: boolean,
+  compact: boolean,
+): number {
   const m = CARD_METRICS;
   if (compact) return m.compactHeight;
-  const bodyRows = rowCount + (showMoreRow ? 1 : 0);
-  return m.headerHeight + m.bodyPaddingY * 2 + bodyRows * m.rowHeight;
+  // 每一列的高度可能不同（備註展開時），所以要逐列加總而不是乘法。
+  const body = rows.reduce((total, row) => total + row.height, 0);
+  return m.headerHeight + m.bodyPaddingY * 2 + body + (showMoreRow ? m.rowHeight : 0);
 }
 
 /**
@@ -142,8 +212,11 @@ export function rowCenterOffset(card: CardModel, columnName: string): number {
   const m = CARD_METRICS;
   const index = card.rows.findIndex((row) => row.column.name === columnName);
   if (index < 0) return card.height / 2;
-  const top = m.headerHeight + m.bodyPaddingY;
-  return top + index * m.rowHeight + m.rowHeight / 2;
+
+  // 列高不再固定，必須累加前面每一列的實際高度。
+  let top = m.headerHeight + m.bodyPaddingY;
+  for (let i = 0; i < index; i++) top += card.rows[i]!.height;
+  return top + card.rows[index]!.height / 2;
 }
 
 export function buildCardModels(schema: Schema, state: ViewState): Map<TableId, CardModel> {
