@@ -59,6 +59,10 @@ const handlers: ToolbarHandlers = {
     renderer.setViewState({ unrelated: mode });
     syncToolbar();
   },
+  onComments: (expanded: boolean) => {
+    renderer.setViewState({ expandComments: expanded });
+    syncToolbar();
+  },
   onResetFocus: () => {
     resetFocus();
   },
@@ -129,6 +133,7 @@ function syncToolbar(): void {
     depth: state.focus.depth,
     direction: state.focus.direction,
     unrelated: state.unrelated,
+    expandComments: state.expandComments,
     locale,
   });
 }

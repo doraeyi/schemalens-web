@@ -245,6 +245,49 @@ describe("SchemaRenderer 探索行為", () => {
     expect(host.querySelectorAll(".dbs-card").length).toBeGreaterThan(0);
   });
 
+  it("展開備註後畫成多行，且列高與 cardModel 一致", () => {
+    renderer.setSchema(blogSchema);
+    renderer.setViewState({ expandComments: true });
+
+    const posts = host.querySelector('[data-table-id="dbo.Posts"]')!;
+    const row = posts.querySelector<HTMLElement>('[data-column="AuthorId"]')!;
+    const comment = row.querySelector(".dbs-row-comment")!;
+
+    expect(comment.classList.contains("is-expanded")).toBe(true);
+    // "作者，指向 Users" 共 10 個字 → 每行 6 個字 → 2 行
+    expect(comment.querySelectorAll(".dbs-comment-line")).toHaveLength(2);
+    expect([...comment.querySelectorAll(".dbs-comment-line")].map((n) => n.textContent)).toEqual([
+      "作者，指向 ",
+      "Users",
+    ]);
+    // 列高必須是算出來的值，不能交給瀏覽器決定。
+    expect(Number.parseFloat(row.style.height)).toBe(2 * 14 + 6);
+  });
+
+  it("截斷模式下備註是單行，靠 CSS 顯示 …", () => {
+    renderer.setSchema(blogSchema);
+    const posts = host.querySelector('[data-table-id="dbo.Posts"]')!;
+    const comment = posts.querySelector('[data-column="AuthorId"] .dbs-row-comment')!;
+
+    expect(comment.classList.contains("is-expanded")).toBe(false);
+    expect(comment.querySelectorAll(".dbs-comment-line")).toHaveLength(0);
+    expect(host.querySelector("style")!.textContent).toContain("text-overflow: ellipsis");
+  });
+
+  it("展開備註後關聯線仍接在正確的欄位高度上", () => {
+    renderer.setSchema(blogSchema);
+    const path = host.querySelector('[data-relation="FK_Posts_Users"] .dbs-edge-path')!;
+    const before = path.getAttribute("d");
+
+    renderer.setViewState({ expandComments: true });
+    const after = host
+      .querySelector('[data-relation="FK_Posts_Users"] .dbs-edge-path')!
+      .getAttribute("d");
+
+    // 列高變了，錨點也必須跟著變；沒變就代表錨點沒有重新計算。
+    expect(after).not.toBe(before);
+  });
+
   it("Keys 檢視不顯示欄位備註（降噪）", () => {
     renderer.setSchema(blogSchema);
     renderer.setViewState({ detailLevel: "keys" });

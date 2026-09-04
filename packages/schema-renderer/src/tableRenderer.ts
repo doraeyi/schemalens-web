@@ -1,5 +1,5 @@
 import type { PositionedNode } from "@schemalens/schema-layout";
-import { CARD_METRICS, type CardModel } from "./cardModel.js";
+import type { CardModel } from "./cardModel.js";
 import { stringsFor, type RendererStrings } from "./i18n.js";
 
 export interface CardElements {
@@ -53,7 +53,8 @@ export function renderCard(
     for (const row of card.rows) {
       const rowEl = el("div", "dbs-row");
       rowEl.dataset.column = row.column.name;
-      rowEl.style.height = `${CARD_METRICS.rowHeight}px`;
+      // 高度由 cardModel 算好；備註展開時這一列會比較高。
+      rowEl.style.height = `${row.height}px`;
 
       const badges = el("div", "dbs-row-badges");
       for (const badge of row.badges) {
@@ -72,7 +73,18 @@ export function renderCard(
         // 欄位用途說明直接畫出來（plan §19）。只放 tooltip 的話，
         // 使用者必須逐欄 hover 才知道欄位是做什麼的。
         if (row.column.comment) {
-          rowEl.append(el("span", "dbs-row-comment", row.column.comment));
+          const comment = el("span", "dbs-row-comment");
+          if (row.commentLines.length > 0) {
+            // 展開：用算好的行切分，不依賴瀏覽器自動換行，
+            // 否則實際高度會與 cardModel 算的不一致。
+            comment.classList.add("is-expanded");
+            for (const line of row.commentLines) {
+              comment.append(el("span", "dbs-comment-line", line));
+            }
+          } else {
+            comment.textContent = row.column.comment;
+          }
+          rowEl.append(comment);
         }
       }
 

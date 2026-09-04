@@ -84,6 +84,8 @@ export interface ToolbarHandlers {
   onDepth(depth: 1 | 2 | null): void;
   onDirection(direction: TraversalDirection): void;
   onUnrelated(mode: UnrelatedMode): void;
+  /** 欄位備註要截斷成 … 還是完整展開成多行。 */
+  onComments(expanded: boolean): void;
   onResetFocus(): void;
   onFitView(): void;
   /** 丟掉手動拖曳的位置，回到 Auto Layout。 */
@@ -99,7 +101,7 @@ interface ButtonGroup<T> {
   setActive(value: T): void;
 }
 
-function buttonGroup<T extends string | number | null>(
+function buttonGroup<T extends string | number | boolean | null>(
   label: string,
   options: Array<{ label: string; value: T }>,
   onPick: (value: T) => void,
@@ -145,6 +147,7 @@ export class Toolbar {
   private readonly depthGroup: ButtonGroup<1 | 2 | null>;
   private readonly directionGroup: ButtonGroup<TraversalDirection>;
   private readonly unrelatedGroup: ButtonGroup<UnrelatedMode>;
+  private readonly commentsGroup: ButtonGroup<boolean>;
   private readonly localeGroup: ButtonGroup<Locale>;
   private schema: Schema | null = null;
   private hits: SearchHit[] = [];
@@ -203,6 +206,15 @@ export class Toolbar {
       handlers.onUnrelated,
     );
 
+    this.commentsGroup = buttonGroup<boolean>(
+      this.strings.commentsGroup,
+      [
+        { label: this.strings.commentsTruncate, value: false },
+        { label: this.strings.commentsExpand, value: true },
+      ],
+      handlers.onComments,
+    );
+
     // 語系鈕的標籤永遠寫成該語言本身，切到看不懂的語言時才找得回來。
     this.localeGroup = buttonGroup<Locale>(
       "",
@@ -242,6 +254,7 @@ export class Toolbar {
       this.depthGroup.element,
       this.directionGroup.element,
       this.unrelatedGroup.element,
+      this.commentsGroup.element,
       actions,
       this.metrics,
       this.localeGroup.element,
@@ -269,12 +282,14 @@ export class Toolbar {
     depth: 1 | 2 | null;
     direction: TraversalDirection;
     unrelated: UnrelatedMode;
+    expandComments: boolean;
     locale: Locale;
   }): void {
     this.detailGroup.setActive(state.detailLevel);
     this.depthGroup.setActive(state.depth);
     this.directionGroup.setActive(state.direction);
     this.unrelatedGroup.setActive(state.unrelated);
+    this.commentsGroup.setActive(state.expandComments);
     this.localeGroup.setActive(state.locale);
   }
 

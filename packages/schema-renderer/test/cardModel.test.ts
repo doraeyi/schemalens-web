@@ -8,6 +8,7 @@ import {
   formatType,
   rowCenterOffset,
   visibleColumns,
+  wrapComment,
   type ViewState,
 } from "@schemalens/schema-renderer";
 
@@ -153,5 +154,86 @@ describe("rowCenterOffset", () => {
   it("欄位在目前檢視看不到時退回卡片中心，線不會斷", () => {
     const card = buildCardModel(users, state({ detailLevel: "overview" }));
     expect(rowCenterOffset(card, "Email")).toBe(card.height / 2);
+  });
+});
+
+describe("wrapComment", () => {
+  it("每 6 個字換一行", () => {
+    expect(wrapComment("使用者登入用的電子郵件")).toEqual(["使用者登入用", "的電子郵件"]);
+  });
+
+  it("短於一行時不切", () => {
+    expect(wrapComment("帳號")).toEqual(["帳號"]);
+  });
+
+  it("空字串不產生行", () => {
+    expect(wrapComment("")).toEqual([]);
+    expect(wrapComment("   ")).toEqual([]);
+  });
+
+  it("每行字數可調整", () => {
+    expect(wrapComment("abcdefghij", 4)).toEqual(["abcd", "efgh", "ij"]);
+  });
+});
+
+describe("備註展開", () => {
+  const longComment = "使用者登入用的電子郵件地址";
+  const table: Table = {
+    ...users,
+    columns: users.columns.map((c) => (c.name === "Email" ? { ...c, comment: longComment } : c)),
+  };
+
+  it("預設不展開：備註單行，列高維持 22", () => {
+    const card = buildCardModel(table, state());
+    expect(card.commentsExpanded).toBe(false);
+    const email = card.rows.find((r) => r.column.name === "Email")!;
+    expect(email.commentLines).toEqual([]);
+    expect(email.height).toBe(CARD_METRICS.rowHeight);
+  });
+
+  it("展開後備註切成多行，該列變高", () => {
+    const card = buildCardModel(table, state({ expandComments: true }));
+    const email = card.rows.find((r) => r.column.name === "Email")!;
+    expect(email.commentLines).toEqual(["使用者登入用", "的電子郵件地", "址"]);
+    expect(email.height).toBeGreaterThan(CARD_METRICS.rowHeight);
+    expect(email.height).toBe(3 * CARD_METRICS.commentLineHeight + 6);
+  });
+
+  it("沒有備註的欄位不會變高", () => {
+    const card = buildCardModel(table, state({ expandComments: true }));
+    const displayName = card.rows.find((r) => r.column.name === "DisplayName")!;
+    expect(displayName.height).toBe(CARD_METRICS.rowHeight);
+  });
+
+  it("卡片高度等於各列高度總和，layout 與繪製才不會對不上", () => {
+    const card = buildCardModel(table, state({ expandComments: true }));
+    const sum = card.rows.reduce((total, row) => total + row.height, 0);
+    expect(card.height).toBe(CARD_METRICS.headerHeight + CARD_METRICS.bodyPaddingY * 2 + sum);
+  });
+
+  it("錨點會累加前面每一列的實際高度（否則關聯線會接歪）", () => {
+    const card = buildCardModel(table, state({ expandComments: true }));
+    const top = CARD_METRICS.headerHeight + CARD_METRICS.bodyPaddingY;
+    const idRow = card.rows[0]!;
+    const emailRow = card.rows[1]!;
+
+    expect(rowCenterOffset(card, "Id")).toBe(top + idRow.height / 2);
+    expect(rowCenterOffset(card, "Email")).toBe(top + idRow.height + emailRow.height / 2);
+    // 第三列必須被前面變高的 Email 推下去。
+    expect(rowCenterOffset(card, "DisplayName")).toBe(
+      top + idRow.height + emailRow.height + card.rows[2]!.height / 2,
+    );
+  });
+
+  it("只有 Full 檢視會展開；Keys 仍是截斷", () => {
+    const card = buildCardModel(table, state({ expandComments: true, detailLevel: "keys" }));
+    expect(card.commentsExpanded).toBe(false);
+    expect(card.rows.every((row) => row.commentLines.length === 0)).toBe(true);
+  });
+
+  it("展開時備註欄固定寬度，卡片不會被長註解撐爆", () => {
+    const truncated = buildCardModel(table, state());
+    const expanded = buildCardModel(table, state({ expandComments: true }));
+    expect(expanded.width).toBeLessThan(truncated.width);
   });
 });

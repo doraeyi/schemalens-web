@@ -21,6 +21,7 @@ function makeToolbar(locale: Locale = "en"): {
     onResetFocus: vi.fn(),
     onFitView: vi.fn(),
     onResetLayout: vi.fn(),
+    onComments: vi.fn(),
     onPickHit: vi.fn(),
     onSearchResults: vi.fn(),
     onLocale,
@@ -73,11 +74,45 @@ describe("語系切換鈕", () => {
       depth: 1,
       direction: "all",
       unrelated: "dim",
+      expandComments: false,
       locale: "zh-hant",
     });
     const active = buttons(toolbar).filter((b) => b.classList.contains("is-active"));
     expect(active.map((b) => b.textContent)).toContain("中文");
     expect(active.map((b) => b.textContent)).not.toContain("EN");
+  });
+});
+
+describe("備註切換", () => {
+  it("提供截斷與完整兩個選項", () => {
+    const { toolbar } = makeToolbar();
+    const labels = buttons(toolbar).map((b) => b.textContent);
+    expect(labels).toContain("Truncate");
+    expect(labels).toContain("Full");
+  });
+
+  it("中文標籤是截斷 / 完整", () => {
+    const { toolbar } = makeToolbar("zh-hant");
+    const labels = buttons(toolbar).map((b) => b.textContent);
+    expect(labels).toContain("截斷");
+    expect(labels).toContain("完整");
+  });
+
+  it("setActive 標示目前是截斷還是完整", () => {
+    const { toolbar } = makeToolbar("zh-hant");
+    toolbar.setActive({
+      detailLevel: "full",
+      depth: 1,
+      direction: "all",
+      unrelated: "dim",
+      expandComments: true,
+      locale: "zh-hant",
+    });
+    const active = buttons(toolbar)
+      .filter((b) => b.classList.contains("is-active"))
+      .map((b) => b.textContent);
+    expect(active).toContain("完整");
+    expect(active).not.toContain("截斷");
   });
 });
 
