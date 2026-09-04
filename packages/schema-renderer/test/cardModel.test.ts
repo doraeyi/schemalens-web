@@ -84,6 +84,10 @@ describe("buildCardModel", () => {
     expect(card.detailLevel).toBe("full");
     expect(card.rows).toHaveLength(5);
     expect(card.showComment).toBe(true);
+    // Table 備註與 schema 同一行，不佔額外高度。
+    expect(card.height).toBe(
+      CARD_METRICS.headerHeight + CARD_METRICS.bodyPaddingY * 2 + 5 * CARD_METRICS.rowHeight,
+    );
     expect(card.rows[1]!.typeLabel).toBe("nvarchar(255)");
     expect(card.rows[0]!.badges).toEqual(["PK"]);
   });
@@ -102,11 +106,33 @@ describe("buildCardModel", () => {
   it("卡片高度等於實際列數，layout 與繪製不會對不上", () => {
     const card = buildCardModel(users, state());
     const expected =
-      CARD_METRICS.headerHeight +
-      CARD_METRICS.commentHeight +
-      CARD_METRICS.bodyPaddingY * 2 +
-      5 * CARD_METRICS.rowHeight;
+      CARD_METRICS.headerHeight + CARD_METRICS.bodyPaddingY * 2 + 5 * CARD_METRICS.rowHeight;
     expect(card.height).toBe(expected);
+  });
+
+  it("有沒有 Table 備註都不影響卡片高度（備註在標題列上）", () => {
+    const withComment = buildCardModel(users, state());
+    const withoutComment = buildCardModel({ ...users, comment: undefined }, state());
+    expect(withComment.height).toBe(withoutComment.height);
+    expect(withoutComment.showComment).toBe(false);
+  });
+
+  it("Overview 仍保留 Table 備註（不佔高度，所以沒有理由藏起來）", () => {
+    const card = buildCardModel(users, state({ detailLevel: "overview" }));
+    expect(card.showComment).toBe(true);
+    expect(card.height).toBe(CARD_METRICS.compactHeight);
+  });
+
+  it("欄位備註會被算進卡片寬度，才不會整排被截斷", () => {
+    const verbose = {
+      ...users,
+      columns: users.columns.map((c) =>
+        c.name === "Email" ? { ...c, comment: "使用者登入用的電子郵件地址，必須唯一" } : c,
+      ),
+    };
+    expect(buildCardModel(verbose, state()).width).toBeGreaterThan(
+      buildCardModel(users, state()).width,
+    );
   });
 
   it("寬度被夾在 min / max 之間", () => {
@@ -119,7 +145,7 @@ describe("buildCardModel", () => {
 describe("rowCenterOffset", () => {
   it("回傳該欄位 Row 的中心，讓 Relation 連到真正的欄位", () => {
     const card = buildCardModel(users, state());
-    const top = CARD_METRICS.headerHeight + CARD_METRICS.commentHeight + CARD_METRICS.bodyPaddingY;
+    const top = CARD_METRICS.headerHeight + CARD_METRICS.bodyPaddingY;
     expect(rowCenterOffset(card, "Id")).toBe(top + CARD_METRICS.rowHeight / 2);
     expect(rowCenterOffset(card, "Email")).toBe(top + CARD_METRICS.rowHeight * 1.5);
   });
