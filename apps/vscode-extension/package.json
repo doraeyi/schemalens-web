@@ -37,6 +37,10 @@
         "title": "DBSchema: Validate Schema"
       },
       {
+        "command": "dbschema.exportJson",
+        "title": "DBSchema: Export JSON"
+      },
+      {
         "command": "dbschema.fitView",
         "title": "DBSchema: Fit View"
       },
