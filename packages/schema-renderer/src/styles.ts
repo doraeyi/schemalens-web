@@ -193,6 +193,19 @@ export const RENDERER_CSS = `
   border-top: 1px solid var(--vscode-panel-border, #3c3c3c);
 }
 .dbs-row:hover { background: var(--vscode-list-hoverBackground, #2a2d2e); }
+/* 欄位聚焦：起點最亮、對應欄位次之、其餘視為雜訊。
+   用降低不相關欄位的方式而不是隱藏——欄位一旦消失，
+   使用者會誤以為這張表沒有那些欄位。 */
+.dbs-row.is-column-focus {
+  background: var(--vscode-list-activeSelectionBackground, #04395e);
+  outline: 1px solid var(--vscode-focusBorder, #007fd4);
+  outline-offset: -1px;
+}
+.dbs-row.is-column-related {
+  background: var(--vscode-list-inactiveSelectionBackground, #37373d);
+}
+.dbs-row.is-column-muted { opacity: 0.25; }
+
 .dbs-row.is-highlight {
   background: var(--vscode-editor-findMatchHighlightBackground, rgba(234, 92, 0, 0.33));
 }

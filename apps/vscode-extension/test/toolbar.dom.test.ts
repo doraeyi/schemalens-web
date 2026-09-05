@@ -23,6 +23,7 @@ function makeToolbar(locale: Locale = "en"): {
     onResetLayout: vi.fn(),
     onComments: vi.fn(),
     onGroupFilter: vi.fn(),
+    onClearColumnFocus: vi.fn(),
     onPickHit: vi.fn(),
     onSearchResults: vi.fn(),
     onLocale,
@@ -208,6 +209,7 @@ describe("群組篩選下拉", () => {
       onDetailLevel: vi.fn(), onDepth: vi.fn(), onDirection: vi.fn(), onUnrelated: vi.fn(),
       onResetFocus: vi.fn(), onFitView: vi.fn(), onResetLayout: vi.fn(), onComments: vi.fn(),
       onPickHit: vi.fn(), onSearchResults: vi.fn(), onLocale: vi.fn(), onGroupFilter,
+      onClearColumnFocus: vi.fn(),
     };
     const toolbar = new Toolbar(handlers, stringsFor("en"));
     document.body.append(toolbar.element);
@@ -225,6 +227,7 @@ describe("群組篩選下拉", () => {
       onDetailLevel: vi.fn(), onDepth: vi.fn(), onDirection: vi.fn(), onUnrelated: vi.fn(),
       onResetFocus: vi.fn(), onFitView: vi.fn(), onResetLayout: vi.fn(), onComments: vi.fn(),
       onPickHit: vi.fn(), onSearchResults: vi.fn(), onLocale: vi.fn(), onGroupFilter,
+      onClearColumnFocus: vi.fn(),
     };
     const toolbar = new Toolbar(handlers, stringsFor("en"));
     document.body.append(toolbar.element);
@@ -244,5 +247,48 @@ describe("群組篩選下拉", () => {
       expandComments: false, groupFilter: "Sales", locale: "en",
     });
     expect(select(toolbar).value).toBe("Sales");
+  });
+});
+
+describe("欄位聚焦狀態", () => {
+  it("預設隱藏", () => {
+    const { toolbar } = makeToolbar();
+    expect(toolbar.element.querySelector<HTMLElement>(".dbs-column-focus")!.hidden).toBe(true);
+  });
+
+  it("設定後顯示欄位全名，讓使用者知道畫面為什麼變暗", () => {
+    const { toolbar } = makeToolbar();
+    toolbar.setColumnFocus("dbo.Orders.UserId");
+    const chip = toolbar.element.querySelector<HTMLElement>(".dbs-column-focus")!;
+    expect(chip.hidden).toBe(false);
+    expect(chip.textContent).toContain("dbo.Orders.UserId");
+  });
+
+  it("中文語系用中文標籤", () => {
+    const { toolbar } = makeToolbar("zh-hant");
+    toolbar.setColumnFocus("dbo.Orders.UserId");
+    expect(toolbar.element.querySelector(".dbs-column-focus")!.textContent).toContain("欄位聚焦");
+  });
+
+  it("點它會要求取消聚焦", () => {
+    const onClearColumnFocus = vi.fn();
+    const handlers: ToolbarHandlers = {
+      onDetailLevel: vi.fn(), onDepth: vi.fn(), onDirection: vi.fn(), onUnrelated: vi.fn(),
+      onResetFocus: vi.fn(), onFitView: vi.fn(), onResetLayout: vi.fn(), onComments: vi.fn(),
+      onPickHit: vi.fn(), onSearchResults: vi.fn(), onLocale: vi.fn(), onGroupFilter: vi.fn(),
+      onClearColumnFocus,
+    };
+    const toolbar = new Toolbar(handlers, stringsFor("en"));
+    document.body.append(toolbar.element);
+    toolbar.setColumnFocus("dbo.Orders.UserId");
+    toolbar.element.querySelector<HTMLElement>(".dbs-column-focus")!.click();
+    expect(onClearColumnFocus).toHaveBeenCalled();
+  });
+
+  it("設回 null 後隱藏", () => {
+    const { toolbar } = makeToolbar();
+    toolbar.setColumnFocus("dbo.Orders.UserId");
+    toolbar.setColumnFocus(null);
+    expect(toolbar.element.querySelector<HTMLElement>(".dbs-column-focus")!.hidden).toBe(true);
   });
 });
