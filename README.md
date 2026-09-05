@@ -102,7 +102,9 @@ npm run build -w dbschema
 ## DSL
 
 ```text
-table Users "系統使用者" {
+group Identity "使用者與身分"
+
+table Users "系統使用者" in Identity {
   PK Id          bigint        not null "使用者 ID"
   UQ Email       nvarchar(255) not null "登入 Email"
      DisplayName nvarchar(100) null     "顯示名稱"
@@ -148,7 +150,8 @@ relation FK_Posts_Users {
 | 拖曳背景 | Pan |
 | `Ctrl` / `Cmd` + 滾輪 | Zoom |
 | 滾輪 | 平移 |
-| 單擊 Table | Focus：相關表 active、其餘 dim 或 hide |
+| 單擊 Table 標題 | Focus：相關表 active、其餘 dim 或 hide |
+| 單擊欄位 | 欄位聚焦：只亮該欄位與透過 FK 對應的欄位，其餘欄位變雜訊；再點一次取消 |
 | 雙擊 Table / Column | 跳回 DSL 定義並選取該行 |
 | `Ctrl` / `Cmd` + `F` | 搜尋 Table / Column |
 | `Esc` | Reset Focus |

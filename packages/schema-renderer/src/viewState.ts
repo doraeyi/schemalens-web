@@ -29,6 +29,11 @@ export interface ViewState {
    * 預設 false：備註單行、過長截斷成 …，避免卡片被長註解撐爆。
    */
   expandComments: boolean;
+  /**
+   * 欄位聚焦：只亮起這個欄位與它透過 FK 對應到的欄位，其餘欄位降為雜訊。
+   * 與 highlightedColumn（Search 命中的單一欄位）不同，這是一整組關聯欄位。
+   */
+  columnFocus: { tableId: TableId; column: string } | null;
   /** Column Search 命中後要高亮的欄位（US6）。 */
   highlightedColumn: { tableId: TableId; column: string } | null;
   /** Search 命中的 table 集合，用於卡片外框標示。 */
@@ -47,6 +52,7 @@ export const DEFAULT_VIEW_STATE: ViewState = {
   unrelated: "dim",
   expandComments: false,
   collapsed: new Set(),
+  columnFocus: null,
   highlightedColumn: null,
   searchMatches: new Set(),
   groupFilter: null,
@@ -56,6 +62,7 @@ export function resetFocus(state: ViewState): ViewState {
   return {
     ...state,
     focus: { ...state.focus, tableId: null },
+    columnFocus: null,
     highlightedColumn: null,
     searchMatches: new Set(),
   };

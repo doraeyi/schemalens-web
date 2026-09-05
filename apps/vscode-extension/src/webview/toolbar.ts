@@ -85,6 +85,11 @@ export const TOOLBAR_CSS = `
   font: inherit;
   max-width: 220px;
 }
+.dbs-column-focus {
+  margin-left: auto;
+  border-color: var(--vscode-focusBorder, #007fd4);
+  color: var(--vscode-focusBorder, #007fd4);
+}
 .dbs-metrics { margin-left: auto; color: var(--vscode-descriptionForeground, #9d9d9d); }
 `;
 
@@ -97,6 +102,8 @@ export interface ToolbarHandlers {
   onComments(expanded: boolean): void;
   /** 只顯示某個群組；null 代表全部。 */
   onGroupFilter(group: string | null): void;
+  /** 取消欄位聚焦。 */
+  onClearColumnFocus(): void;
   onResetFocus(): void;
   onFitView(): void;
   /** 丟掉手動拖曳的位置，回到 Auto Layout。 */
@@ -161,6 +168,7 @@ export class Toolbar {
   private readonly commentsGroup: ButtonGroup<boolean>;
   private readonly groupSelect: HTMLSelectElement;
   private readonly groupWrap: HTMLElement;
+  private readonly columnFocusChip: HTMLElement;
   private readonly localeGroup: ButtonGroup<Locale>;
   private schema: Schema | null = null;
   private hits: SearchHit[] = [];
@@ -274,6 +282,12 @@ export class Toolbar {
 
     actions.append(reset, fit, this.resetLayoutButton);
 
+    // 欄位聚焦的狀態要看得見，否則使用者會不知道畫面為什麼變暗。
+    this.columnFocusChip = document.createElement("button");
+    this.columnFocusChip.className = "dbs-btn dbs-column-focus";
+    this.columnFocusChip.hidden = true;
+    this.columnFocusChip.addEventListener("click", () => handlers.onClearColumnFocus());
+
     this.metrics = document.createElement("div");
     this.metrics.className = "dbs-metrics";
 
@@ -286,6 +300,7 @@ export class Toolbar {
       this.groupWrap,
       this.commentsGroup.element,
       actions,
+      this.columnFocusChip,
       this.metrics,
       this.localeGroup.element,
     );
@@ -322,6 +337,12 @@ export class Toolbar {
 
   setMetrics(text: string): void {
     this.metrics.textContent = text;
+  }
+
+  /** 顯示目前聚焦的欄位；null 代表沒有聚焦。 */
+  setColumnFocus(label: string | null): void {
+    this.columnFocusChip.hidden = label === null;
+    this.columnFocusChip.textContent = label ? `${this.strings.columnFocus}: ${label} ✕` : "";
   }
 
   setLayoutDirty(dirty: boolean): void {

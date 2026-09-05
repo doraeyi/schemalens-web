@@ -1,5 +1,5 @@
-import type { Relation, Schema, SchemaDiagnostic, TableId } from "@schemalens/schema-core";
-import { buildGraph, type SchemaGraph } from "@schemalens/schema-graph";
+import { columnRef, type Relation, type Schema, type SchemaDiagnostic, type TableId } from "@schemalens/schema-core";
+import { buildGraph, getRelatedColumns, type SchemaGraph } from "@schemalens/schema-graph";
 import {
   computeBounds,
   layeredLayout,
@@ -24,6 +24,8 @@ import { resolveVisibility } from "./visibility.js";
 export interface RendererEvents {
   /** 單擊 Table：Focus。 */
   tableSelected(tableId: TableId): void;
+  /** 單擊欄位：欄位級聚焦；null 代表取消。 */
+  columnSelected(target: { tableId: TableId; column: string } | null): void;
   /** 雙擊 Table / Column：回跳 DSL Source（US9）。 */
   openSource(target: { tableId: TableId; column?: string }): void;
   relationSelected(relation: Relation): void;
@@ -199,6 +201,28 @@ export class SchemaRenderer {
 
   setSearchMatches(tableIds: readonly TableId[]): void {
     this.setViewState({ searchMatches: new Set(tableIds) });
+  }
+
+  /**
+   * 聚焦單一欄位：只亮起它與透過 FK 對應到的欄位。
+   *
+   * 這回答的是「這個欄位跟誰有關」，與 Table Focus（這張表跟誰有關）不同層級，
+   * 因此兩者可以同時存在。
+   */
+  focusColumn(tableId: TableId, column: string): void {
+    this.setViewState({ columnFocus: { tableId, column } });
+  }
+
+  clearColumnFocus(): void {
+    if (!this.state.columnFocus) return;
+    this.setViewState({ columnFocus: null });
+  }
+
+  /** 目前欄位聚焦所涵蓋的欄位（含起點）；沒有聚焦時為空集合。 */
+  getFocusedColumns(): ReadonlySet<string> {
+    if (!this.schema || !this.graph || !this.state.columnFocus) return new Set();
+    const { tableId, column } = this.state.columnFocus;
+    return getRelatedColumns(this.schema, this.graph, tableId, column).columns;
   }
 
   // ---------------------------------------------------------------- 視口操作
@@ -412,6 +436,14 @@ export class SchemaRenderer {
     const visibility = resolveVisibility(this.graph, this.state, this.schema ?? undefined);
     const highlight = this.state.highlightedColumn;
 
+    const columnFocus = this.state.columnFocus;
+    const focused =
+      columnFocus && this.schema
+        ? getRelatedColumns(this.schema, this.graph, columnFocus.tableId, columnFocus.column)
+        : null;
+    const focusedColumns = focused?.columns ?? new Set<string>();
+    const rootRef = columnFocus ? columnRef(columnFocus.tableId, columnFocus.column) : "";
+
     for (const [tableId, elements] of this.cardElements) {
       const emphasis = visibility.tables.get(tableId) ?? "active";
       const root = elements.root;
@@ -426,11 +458,28 @@ export class SchemaRenderer {
           "is-highlight",
           highlight !== null && highlight.tableId === tableId && highlight.column === column,
         );
+
+        if (!columnFocus) {
+          rowEl.classList.remove("is-column-focus", "is-column-related", "is-column-muted");
+          continue;
+        }
+        const ref = columnRef(tableId, column);
+        const isRoot = ref === rootRef;
+        const isRelated = !isRoot && focusedColumns.has(ref);
+        rowEl.classList.toggle("is-column-focus", isRoot);
+        rowEl.classList.toggle("is-column-related", isRelated);
+        // 其餘欄位就是雜訊。
+        rowEl.classList.toggle("is-column-muted", !isRoot && !isRelated);
       }
     }
 
     for (const [relationName, edge] of this.edgeElements) {
-      const emphasis = visibility.edges.get(relationName) ?? "normal";
+      let emphasis = visibility.edges.get(relationName) ?? "normal";
+      // 欄位聚焦時，沒有參與這組欄位的線一律降噪——
+      // 否則一堆無關的線仍然橫在畫面上，等於沒聚焦。
+      if (focused && emphasis !== "hidden" && emphasis !== "filtered") {
+        emphasis = focused.relations.has(relationName) ? "highlight" : "dimmed";
+      }
       const root = edge.elements.root;
       root.classList.toggle("is-highlight", emphasis === "highlight");
       root.classList.toggle("is-dimmed", emphasis === "dimmed");
@@ -636,6 +685,24 @@ export class SchemaRenderer {
         return;
       }
 
+      // 點在欄位上 → 欄位級聚焦；點在標題上 → 只做 table 級聚焦。
+      const column = target.closest<HTMLElement>(".dbs-row")?.dataset.column;
+      if (column) {
+        // 再點同一個欄位就取消，不必特地去按 Reset。
+        const current = this.state.columnFocus;
+        const same = current?.tableId === tableId && current.column === column;
+        if (same) {
+          this.clearColumnFocus();
+          this.events.columnSelected?.(null);
+        } else {
+          this.focusColumn(tableId, column);
+          this.events.columnSelected?.({ tableId, column });
+        }
+        return;
+      }
+
+      this.clearColumnFocus();
+      this.events.columnSelected?.(null);
       this.focusTable(tableId);
       this.events.tableSelected?.(tableId);
     });

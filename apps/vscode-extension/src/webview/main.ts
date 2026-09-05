@@ -37,6 +37,9 @@ const renderer = new SchemaRenderer(canvas, {
   events: {
     openSource: (target) => post({ type: "openSource", tableId: target.tableId, column: target.column }),
     tableSelected: () => syncToolbar(),
+    columnSelected: (target) => {
+      toolbar.setColumnFocus(target ? `${target.tableId}.${target.column}` : null);
+    },
     viewStateChanged: () => syncToolbar(),
     layoutChanged: () => toolbar.setLayoutDirty(true),
   },
@@ -66,6 +69,10 @@ const handlers: ToolbarHandlers = {
   onGroupFilter: (group: string | null) => {
     renderer.setViewState({ groupFilter: group });
     syncToolbar();
+  },
+  onClearColumnFocus: () => {
+    renderer.clearColumnFocus();
+    toolbar.setColumnFocus(null);
   },
   onResetFocus: () => {
     resetFocus();
@@ -124,9 +131,11 @@ function applyLocale(next: Locale): void {
 function resetFocus(): void {
   renderer.setViewState({
     focus: { ...renderer.getViewState().focus, tableId: null },
+    columnFocus: null,
     highlightedColumn: null,
     searchMatches: new Set(),
   });
+  toolbar.setColumnFocus(null);
   syncToolbar();
 }
 
