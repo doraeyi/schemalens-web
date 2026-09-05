@@ -14,6 +14,9 @@ export interface RendererStrings {
   depthGroup: string;
   directionGroup: string;
   unrelatedGroup: string;
+  layoutGroup: string;
+  layoutByGroup: string;
+  layoutByRelation: string;
   columnFocus: string;
   groupLabel: string;
   allGroups: string;
@@ -52,6 +55,9 @@ const en: RendererStrings = {
   depthGroup: "Depth",
   directionGroup: "Direction",
   unrelatedGroup: "Unrelated",
+  layoutGroup: "Layout",
+  layoutByGroup: "By group",
+  layoutByRelation: "By relations",
   columnFocus: "Column",
   groupLabel: "Group",
   allGroups: "All groups",
@@ -89,6 +95,9 @@ const zhHant: RendererStrings = {
   depthGroup: "深度",
   directionGroup: "方向",
   unrelatedGroup: "不相關",
+  layoutGroup: "排版",
+  layoutByGroup: "依群組",
+  layoutByRelation: "依關聯",
   columnFocus: "欄位聚焦",
   groupLabel: "群組",
   allGroups: "全部群組",

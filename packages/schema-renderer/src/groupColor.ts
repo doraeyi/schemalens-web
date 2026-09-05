@@ -23,3 +23,19 @@ export function groupColor(group: string): string {
 export function groupBadgeColor(group: string): string {
   return `hsla(${groupHue(group)}, 62%, 58%, 0.18)`;
 }
+
+/** 群組外框的邊線顏色。 */
+export function groupBorderColor(group: string): string {
+  return `hsla(${groupHue(group)}, 62%, 60%, 0.75)`;
+}
+
+/**
+ * 群組外框的底色。
+ *
+ * 同色系但透明度極低：卡片自己有不透明背景，因此底色只會出現在卡片之間的縫隙，
+ * 剛好圈出範圍又不影響閱讀。用單一透明色而不是點陣——
+ * 10 個群組同時出現時，點陣會讓整片畫面變得很吵。
+ */
+export function groupTintColor(group: string): string {
+  return `hsla(${groupHue(group)}, 62%, 58%, 0.08)`;
+}

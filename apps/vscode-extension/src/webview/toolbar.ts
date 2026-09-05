@@ -1,6 +1,12 @@
 import { groupNames, type Schema } from "@schemalens/schema-core";
 import { search, type SearchHit } from "@schemalens/schema-graph";
-import type { DetailLevel, Locale, RendererStrings, UnrelatedMode } from "@schemalens/schema-renderer";
+import type {
+  DetailLevel,
+  LayoutMode,
+  Locale,
+  RendererStrings,
+  UnrelatedMode,
+} from "@schemalens/schema-renderer";
 import type { TraversalDirection } from "@schemalens/schema-graph";
 
 export const TOOLBAR_CSS = `
@@ -102,6 +108,8 @@ export interface ToolbarHandlers {
   onComments(expanded: boolean): void;
   /** 只顯示某個群組；null 代表全部。 */
   onGroupFilter(group: string | null): void;
+  /** 依群組聚攏排版，還是純依關聯排版。 */
+  onLayoutMode(mode: LayoutMode): void;
   /** 取消欄位聚焦。 */
   onClearColumnFocus(): void;
   onResetFocus(): void;
@@ -165,6 +173,7 @@ export class Toolbar {
   private readonly depthGroup: ButtonGroup<1 | 2 | null>;
   private readonly directionGroup: ButtonGroup<TraversalDirection>;
   private readonly unrelatedGroup: ButtonGroup<UnrelatedMode>;
+  private readonly layoutModeGroup: ButtonGroup<LayoutMode>;
   private readonly commentsGroup: ButtonGroup<boolean>;
   private readonly groupSelect: HTMLSelectElement;
   private readonly groupWrap: HTMLElement;
@@ -225,6 +234,17 @@ export class Toolbar {
         { label: this.strings.unrelatedHide, value: "hide" },
       ],
       handlers.onUnrelated,
+    );
+
+    // 依群組聚攏會讓跨群組的線拉得比較遠；純依關聯排版線最短，
+    // 但同群組的表會散開。兩種各有適用場合，交給使用者切換。
+    this.layoutModeGroup = buttonGroup<LayoutMode>(
+      this.strings.layoutGroup,
+      [
+        { label: this.strings.layoutByGroup, value: "group" },
+        { label: this.strings.layoutByRelation, value: "relation" },
+      ],
+      handlers.onLayoutMode,
     );
 
     // 群組是動態的（來自 Schema），用下拉而不是按鈕列，
@@ -297,6 +317,7 @@ export class Toolbar {
       this.depthGroup.element,
       this.directionGroup.element,
       this.unrelatedGroup.element,
+      this.layoutModeGroup.element,
       this.groupWrap,
       this.commentsGroup.element,
       actions,
@@ -355,6 +376,7 @@ export class Toolbar {
     direction: TraversalDirection;
     unrelated: UnrelatedMode;
     expandComments: boolean;
+    layoutMode: LayoutMode;
     groupFilter: string | null;
     locale: Locale;
   }): void {
@@ -363,6 +385,7 @@ export class Toolbar {
     this.directionGroup.setActive(state.direction);
     this.unrelatedGroup.setActive(state.unrelated);
     this.commentsGroup.setActive(state.expandComments);
+    this.layoutModeGroup.setActive(state.layoutMode);
     this.groupSelect.value = state.groupFilter ?? "";
     this.localeGroup.setActive(state.locale);
   }

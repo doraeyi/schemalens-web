@@ -6,8 +6,10 @@ import {
   type LayoutEngine,
   type PositionedGraph,
   type Point,
+  type Rect,
 } from "@schemalens/schema-layout";
 import { CARD_METRICS, buildCardModels, toLayoutNodes, type CardModel } from "./cardModel.js";
+import { groupBorderColor, groupColor, groupTintColor } from "./groupColor.js";
 import { stringsFor, type Locale, type RendererStrings } from "./i18n.js";
 import {
   describeRelation,
@@ -47,6 +49,14 @@ const MIN_SCALE = 0.08;
 const MAX_SCALE = 2.5;
 
 /**
+ * 群組外框的邊距與標題高度。
+ *
+ * 同一組數值同時交給 Layout（保留空間）與 Renderer（畫外框），
+ * 分開寫就會漂移，外框會壓到卡片。
+ */
+const GROUP_BOX = { padding: 28, headerHeight: 46 } as const;
+
+/**
  * DBSchema Renderer。
  *
  * Technical Spike 結論：**DOM 卡片 + 單一 SVG Edge Overlay + CSS transform 視口**。
@@ -58,6 +68,7 @@ export class SchemaRenderer {
   private readonly root: HTMLElement;
   private readonly viewport: HTMLElement;
   private readonly edgeLayer: SVGSVGElement;
+  private readonly groupLayer: HTMLElement;
   private readonly nodeLayer: HTMLElement;
   private readonly errorLayer: HTMLElement;
   private readonly layoutEngine: LayoutEngine;
@@ -72,6 +83,8 @@ export class SchemaRenderer {
   private cardElements = new Map<TableId, CardElements>();
   private edgeElements = new Map<string, { elements: EdgeElements; relation: Relation }>();
   private edgesByTable = new Map<TableId, string[]>();
+  private groupElements = new Map<string, HTMLElement>();
+  private groupMembers = new Map<string, TableId[]>();
   /** 使用者手動拖曳過的卡片位置，覆寫 Auto Layout 的結果。 */
   private manualPositions = new Map<TableId, Point>();
   private selectedRelation: string | null = null;
@@ -99,6 +112,9 @@ export class SchemaRenderer {
     this.edgeLayer = document.createElementNS("http://www.w3.org/2000/svg", "svg");
     this.edgeLayer.setAttribute("class", "dbs-edges");
 
+    this.groupLayer = document.createElement("div");
+    this.groupLayer.className = "dbs-groups";
+
     this.nodeLayer = document.createElement("div");
     this.nodeLayer.className = "dbs-nodes";
 
@@ -106,7 +122,7 @@ export class SchemaRenderer {
     this.errorLayer.className = "dbs-error";
     this.errorLayer.hidden = true;
 
-    this.viewport.append(this.edgeLayer, this.nodeLayer);
+    this.viewport.append(this.groupLayer, this.edgeLayer, this.nodeLayer);
     this.root.append(this.viewport);
     host.append(this.root, this.errorLayer);
 
@@ -148,13 +164,24 @@ export class SchemaRenderer {
   setViewState(patch: Partial<ViewState>): void {
     const previous = this.state;
     this.state = { ...previous, ...patch };
+    const layoutModeChanged =
+      patch.layoutMode !== undefined && patch.layoutMode !== previous.layoutMode;
+    // 換排版依據等於整張圖重新擺過，先前手動拖曳的位置已經沒有意義，
+    // 留著只會讓卡片停在奇怪的地方甚至互相重疊。
+    if (layoutModeChanged) this.manualPositions.clear();
+
     const geometryChanged =
+      layoutModeChanged ||
       (patch.detailLevel !== undefined && patch.detailLevel !== previous.detailLevel) ||
       (patch.expandComments !== undefined && patch.expandComments !== previous.expandComments);
     const collapseChanged = patch.collapsed !== undefined && patch.collapsed !== previous.collapsed;
 
-    if (geometryChanged || collapseChanged) this.rebuild();
-    else this.applyEmphasis();
+    if (geometryChanged || collapseChanged) {
+      this.rebuild();
+      if (layoutModeChanged) this.fitView();
+    } else {
+      this.applyEmphasis();
+    }
   }
 
   /**
@@ -296,22 +323,38 @@ export class SchemaRenderer {
   private rebuild(): void {
     if (!this.schema || !this.graph) return;
     this.cards = buildCardModels(this.schema, this.state);
-    this.positioned = this.layoutEngine.layout({
-      nodes: toLayoutNodes(this.cards),
-      edges: this.graph.edges.map((e) => ({ id: e.id, source: e.source, target: e.target })),
-    });
+    this.positioned = this.layoutEngine.layout(
+      {
+        nodes: toLayoutNodes(this.cards),
+        edges: this.graph.edges.map((e) => ({ id: e.id, source: e.source, target: e.target })),
+      },
+      {
+        clusterByGroup: this.state.layoutMode === "group",
+        groupPadding: GROUP_BOX.padding,
+        groupHeaderHeight: GROUP_BOX.headerHeight,
+      },
+    );
     this.applyManualPositions();
+    this.renderGroupBoxes();
     this.renderNodes();
 
     // 估算只是起點；實際寬度取決於使用者的字型，量到之後要重排一次，
     // 否則卡片會太窄而把欄位名稱或型別截掉。
     if (this.measureCardWidths()) {
-      this.positioned = this.layoutEngine.layout({
-        nodes: toLayoutNodes(this.cards),
-        edges: this.graph.edges.map((e) => ({ id: e.id, source: e.source, target: e.target })),
-      });
+      this.positioned = this.layoutEngine.layout(
+        {
+          nodes: toLayoutNodes(this.cards),
+          edges: this.graph.edges.map((e) => ({ id: e.id, source: e.source, target: e.target })),
+        },
+        {
+        clusterByGroup: this.state.layoutMode === "group",
+        groupPadding: GROUP_BOX.padding,
+        groupHeaderHeight: GROUP_BOX.headerHeight,
+      },
+      );
       this.applyManualPositions();
       this.repositionNodes();
+      this.renderGroupBoxes();
     }
 
     this.renderEdges();
@@ -365,6 +408,98 @@ export class SchemaRenderer {
     });
 
     return changed;
+  }
+
+  /**
+   * 畫群組外框。
+   *
+   * 外框是獨立圖層且疊在卡片之下，只負責圈出範圍：
+   * 邊線與底色都取群組色，底色透明度極低。
+   * 卡片自己有不透明背景，所以底色只會出現在卡片之間的縫隙。
+   * 先前試過點陣底紋，但 10 個群組同時出現時整片畫面都是點，反而更難讀。
+   */
+  private renderGroupBoxes(): void {
+    this.groupElements.clear();
+    this.groupMembers.clear();
+    if (!this.positioned || !this.schema) {
+      this.groupLayer.replaceChildren();
+      return;
+    }
+
+    for (const table of this.schema.tables) {
+      if (!table.group) continue;
+      const list = this.groupMembers.get(table.group);
+      if (list) list.push(table.id);
+      else this.groupMembers.set(table.group, [table.id]);
+    }
+
+    const fragment = document.createDocumentFragment();
+    for (const [group, rect] of this.positioned.groupBounds) {
+      const box = document.createElement("div");
+      box.className = "dbs-group-box";
+      box.dataset.group = group;
+      box.style.borderColor = groupBorderColor(group);
+      box.style.backgroundColor = groupTintColor(group);
+
+      const label = document.createElement("div");
+      label.className = "dbs-group-box-label";
+      label.style.color = groupColor(group);
+      label.style.borderColor = groupBorderColor(group);
+      label.textContent = group;
+
+      const description = this.schema.groups?.find((g) => g.name === group)?.description;
+      if (description) {
+        const hint = document.createElement("span");
+        hint.className = "dbs-group-box-desc";
+        hint.textContent = description;
+        label.append(hint);
+      }
+
+      box.append(label);
+      this.groupElements.set(group, box);
+      fragment.append(box);
+      this.placeGroupBox(group, rect);
+    }
+    this.groupLayer.replaceChildren(fragment);
+  }
+
+  private placeGroupBox(group: string, rect: Rect): void {
+    const box = this.groupElements.get(group);
+    if (!box) return;
+    box.style.left = `${rect.x}px`;
+    box.style.top = `${rect.y}px`;
+    box.style.width = `${rect.width}px`;
+    box.style.height = `${rect.height}px`;
+  }
+
+  /**
+   * 依成員目前的位置重算某個群組的外框。
+   * 拖曳卡片後外框要跟著長大，否則卡片會跑到框外。
+   */
+  private refreshGroupBox(group: string): void {
+    const members = this.groupMembers.get(group);
+    if (!members || !this.positioned) return;
+
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    for (const id of members) {
+      const node = this.positioned.positionById.get(id);
+      if (!node) continue;
+      minX = Math.min(minX, node.x);
+      minY = Math.min(minY, node.y);
+      maxX = Math.max(maxX, node.x + node.width);
+      maxY = Math.max(maxY, node.y + node.height);
+    }
+    if (!Number.isFinite(minX)) return;
+
+    this.placeGroupBox(group, {
+      x: minX - GROUP_BOX.padding,
+      y: minY - GROUP_BOX.headerHeight,
+      width: maxX - minX + GROUP_BOX.padding * 2,
+      height: maxY - minY + GROUP_BOX.headerHeight + GROUP_BOX.padding,
+    });
   }
 
   /** 重排後只更新位置，不重建 DOM。 */
@@ -447,10 +582,28 @@ export class SchemaRenderer {
     for (const [tableId, elements] of this.cardElements) {
       const emphasis = visibility.tables.get(tableId) ?? "active";
       const root = elements.root;
-      root.classList.toggle("is-selected", emphasis === "selected");
+
+      // 淡化／隱藏是一個軸（透明度與顯示），邊框強調是另一個軸。
       root.classList.toggle("is-dimmed", emphasis === "dimmed");
       root.classList.toggle("is-hidden", emphasis === "hidden");
       root.classList.toggle("is-filtered-out", emphasis === "filtered");
+
+      // 邊框同一時間只能由一個狀態擁有。
+      // 先前 is-selected / is-column-participant / is-search-match 各自設 border 與
+      // box-shadow，同時成立時互相蓋掉，卡片看起來就會前後不一致。
+      const owner =
+        emphasis === "selected"
+          ? "selected"
+          : (focused?.tables.has(tableId) ?? false)
+            ? "participant"
+            : emphasis === "related"
+              ? "related"
+              : null;
+      root.classList.toggle("is-selected", owner === "selected");
+      root.classList.toggle("is-column-participant", owner === "participant");
+      root.classList.toggle("is-related", owner === "related");
+
+      // 搜尋命中改用 outline，與邊框不同屬性，才能和上面三種並存。
       root.classList.toggle("is-search-match", this.state.searchMatches.has(tableId));
 
       for (const [column, rowEl] of elements.rowByColumn) {
@@ -471,6 +624,17 @@ export class SchemaRenderer {
         // 其餘欄位就是雜訊。
         rowEl.classList.toggle("is-column-muted", !isRoot && !isRelated);
       }
+    }
+
+    // 有聚焦時線才浮到卡片之上——此時無關的線已被淡化，不會蓋住內容。
+    this.edgeLayer.classList.toggle(
+      "is-above",
+      this.state.focus.tableId !== null || this.state.columnFocus !== null,
+    );
+
+    for (const [group, box] of this.groupElements) {
+      const filtered = this.state.groupFilter !== null && this.state.groupFilter !== group;
+      box.classList.toggle("is-filtered-out", filtered);
     }
 
     for (const [relationName, edge] of this.edgeElements) {
@@ -521,6 +685,9 @@ export class SchemaRenderer {
     card.root.style.left = `${x}px`;
     card.root.style.top = `${y}px`;
 
+    const group = this.cards.get(tableId)?.group;
+    if (group) this.refreshGroupBox(group);
+
     // 只重算這張表相鄰的線；整層重建在 200 張表時會掉幀。
     for (const relationName of this.edgesByTable.get(tableId) ?? []) {
       const edge = this.edgeElements.get(relationName);
@@ -538,6 +705,10 @@ export class SchemaRenderer {
 
   private bindPointerEvents(): void {
     let panning = false;
+    let panMoved = false;
+    let panPointerId: number | null = null;
+    let panStartX = 0;
+    let panStartY = 0;
     let lastX = 0;
     let lastY = 0;
 
@@ -559,31 +730,48 @@ export class SchemaRenderer {
       if (event.button !== 0) return;
 
       const card = (event.target as HTMLElement).closest<HTMLElement>(".dbs-card");
-      if (card) {
-        // 摺疊鈕與 "+N more" 有自己的行為，不當成拖曳起點。
-        if ((event.target as HTMLElement).closest("[data-action]")) return;
-        const tableId = card.dataset.tableId!;
-        const node = this.positioned?.positionById.get(tableId);
-        if (!node) return;
+      // 被淡化的表（Focus 之外、或被群組篩掉）不給拖：
+      // 它們是背景資訊，使用者在密集畫面上很容易誤拉到。
+      // 但**不能就此中止**——聚焦時淡化的卡片佔了大半畫面，
+      // 中止的話那一大片就變成連視窗都平移不了的死區，所以往下走 pan。
+      const draggableCard =
+        card &&
+        !card.classList.contains("is-dimmed") &&
+        !card.classList.contains("is-filtered-out")
+          ? card
+          : null;
 
-        dragTableId = tableId;
-        dragStartX = event.clientX;
-        dragStartY = event.clientY;
-        dragOriginX = node.x;
-        dragOriginY = node.y;
-        dragMoved = false;
-        dragPointerId = event.pointerId;
-        // 這裡**不能**立刻 setPointerCapture：指標被捕捉後，瀏覽器會把後續的
-        // click 重新指向捕捉元素，卡片的 click 就再也收不到，Focus / Dim / Hide
-        // 會整組失效。等真的開始拖曳（超過門檻）再捕捉。
-        return;
+      if (card) {
+        // 摺疊鈕與 "+N more" 有自己的行為，既不拖卡片也不平移。
+        if ((event.target as HTMLElement).closest("[data-action]")) return;
+      }
+
+      if (draggableCard) {
+        const tableId = draggableCard.dataset.tableId!;
+        const node = this.positioned?.positionById.get(tableId);
+        if (node) {
+          dragTableId = tableId;
+          dragStartX = event.clientX;
+          dragStartY = event.clientY;
+          dragOriginX = node.x;
+          dragOriginY = node.y;
+          dragMoved = false;
+          dragPointerId = event.pointerId;
+          // 這裡**不能**立刻 setPointerCapture：指標被捕捉後，瀏覽器會把後續的
+          // click 重新指向捕捉元素，卡片的 click 就再也收不到，Focus / Dim / Hide
+          // 會整組失效。等真的開始拖曳（超過門檻）再捕捉。
+          return;
+        }
       }
 
       panning = true;
+      panMoved = false;
+      panPointerId = event.pointerId;
+      panStartX = event.clientX;
+      panStartY = event.clientY;
       lastX = event.clientX;
       lastY = event.clientY;
-      this.root.classList.add("is-panning");
-      this.root.setPointerCapture?.(event.pointerId);
+      // 同樣延後捕捉：從淡化卡片起手的單純點擊仍要能把焦點移過去。
     });
 
     this.root.addEventListener("pointermove", (event) => {
@@ -604,6 +792,15 @@ export class SchemaRenderer {
       }
 
       if (!panning) return;
+
+      if (!panMoved) {
+        const moved = Math.hypot(event.clientX - panStartX, event.clientY - panStartY);
+        if (moved < DRAG_THRESHOLD) return;
+        panMoved = true;
+        this.root.classList.add("is-panning");
+        if (panPointerId !== null) this.root.setPointerCapture?.(panPointerId);
+      }
+
       this.tx += event.clientX - lastX;
       this.ty += event.clientY - lastY;
       lastX = event.clientX;
@@ -628,7 +825,14 @@ export class SchemaRenderer {
       if (!panning) return;
       panning = false;
       this.root.classList.remove("is-panning");
-      this.root.releasePointerCapture?.(event.pointerId);
+      if (panMoved) {
+        // 平移過就吃掉隨後的 click，否則從淡化卡片起手平移，
+        // 放開手會誤把焦點跳過去。
+        suppressClick = true;
+        this.root.releasePointerCapture?.(event.pointerId);
+      }
+      panMoved = false;
+      panPointerId = null;
     };
     this.root.addEventListener("pointerup", endPointer);
     this.root.addEventListener("pointercancel", endPointer);

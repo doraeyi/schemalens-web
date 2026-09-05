@@ -24,6 +24,7 @@ function makeToolbar(locale: Locale = "en"): {
     onComments: vi.fn(),
     onGroupFilter: vi.fn(),
     onClearColumnFocus: vi.fn(),
+    onLayoutMode: vi.fn(),
     onPickHit: vi.fn(),
     onSearchResults: vi.fn(),
     onLocale,
@@ -77,6 +78,7 @@ describe("語系切換鈕", () => {
       direction: "all",
       unrelated: "dim",
       expandComments: false,
+      layoutMode: "group",
       groupFilter: null,
       locale: "zh-hant",
     });
@@ -109,6 +111,7 @@ describe("備註切換", () => {
       direction: "all",
       unrelated: "dim",
       expandComments: true,
+      layoutMode: "group",
       groupFilter: null,
       locale: "zh-hant",
     });
@@ -209,7 +212,8 @@ describe("群組篩選下拉", () => {
       onDetailLevel: vi.fn(), onDepth: vi.fn(), onDirection: vi.fn(), onUnrelated: vi.fn(),
       onResetFocus: vi.fn(), onFitView: vi.fn(), onResetLayout: vi.fn(), onComments: vi.fn(),
       onPickHit: vi.fn(), onSearchResults: vi.fn(), onLocale: vi.fn(), onGroupFilter,
-      onClearColumnFocus: vi.fn(),
+      onClearColumnFocus: vi.fn(), onLayoutMode: vi.fn(),
+    onLayoutMode: vi.fn(),
     };
     const toolbar = new Toolbar(handlers, stringsFor("en"));
     document.body.append(toolbar.element);
@@ -227,7 +231,8 @@ describe("群組篩選下拉", () => {
       onDetailLevel: vi.fn(), onDepth: vi.fn(), onDirection: vi.fn(), onUnrelated: vi.fn(),
       onResetFocus: vi.fn(), onFitView: vi.fn(), onResetLayout: vi.fn(), onComments: vi.fn(),
       onPickHit: vi.fn(), onSearchResults: vi.fn(), onLocale: vi.fn(), onGroupFilter,
-      onClearColumnFocus: vi.fn(),
+      onClearColumnFocus: vi.fn(), onLayoutMode: vi.fn(),
+    onLayoutMode: vi.fn(),
     };
     const toolbar = new Toolbar(handlers, stringsFor("en"));
     document.body.append(toolbar.element);
@@ -244,7 +249,7 @@ describe("群組篩選下拉", () => {
     toolbar.setSchema(schemaWithGroups);
     toolbar.setActive({
       detailLevel: "full", depth: 1, direction: "all", unrelated: "dim",
-      expandComments: false, groupFilter: "Sales", locale: "en",
+      expandComments: false, layoutMode: "group", groupFilter: "Sales", locale: "en",
     });
     expect(select(toolbar).value).toBe("Sales");
   });
@@ -277,6 +282,7 @@ describe("欄位聚焦狀態", () => {
       onResetFocus: vi.fn(), onFitView: vi.fn(), onResetLayout: vi.fn(), onComments: vi.fn(),
       onPickHit: vi.fn(), onSearchResults: vi.fn(), onLocale: vi.fn(), onGroupFilter: vi.fn(),
       onClearColumnFocus,
+      onLayoutMode: vi.fn(),
     };
     const toolbar = new Toolbar(handlers, stringsFor("en"));
     document.body.append(toolbar.element);
@@ -290,5 +296,49 @@ describe("欄位聚焦狀態", () => {
     toolbar.setColumnFocus("dbo.Orders.UserId");
     toolbar.setColumnFocus(null);
     expect(toolbar.element.querySelector<HTMLElement>(".dbs-column-focus")!.hidden).toBe(true);
+  });
+});
+
+describe("排版依據切換", () => {
+  it("提供依群組與依關聯兩種", () => {
+    const { toolbar } = makeToolbar();
+    const labels = buttons(toolbar).map((b) => b.textContent);
+    expect(labels).toContain("By group");
+    expect(labels).toContain("By relations");
+  });
+
+  it("中文標籤是依群組 / 依關聯", () => {
+    const { toolbar } = makeToolbar("zh-hant");
+    const labels = buttons(toolbar).map((b) => b.textContent);
+    expect(labels).toContain("依群組");
+    expect(labels).toContain("依關聯");
+  });
+
+  it("點選會回報模式", () => {
+    const onLayoutMode = vi.fn();
+    const handlers: ToolbarHandlers = {
+      onDetailLevel: vi.fn(), onDepth: vi.fn(), onDirection: vi.fn(), onUnrelated: vi.fn(),
+      onResetFocus: vi.fn(), onFitView: vi.fn(), onResetLayout: vi.fn(), onComments: vi.fn(),
+      onPickHit: vi.fn(), onSearchResults: vi.fn(), onLocale: vi.fn(), onGroupFilter: vi.fn(),
+      onClearColumnFocus: vi.fn(), onLayoutMode,
+    };
+    const toolbar = new Toolbar(handlers, stringsFor("en"));
+    document.body.append(toolbar.element);
+
+    buttons(toolbar).find((b) => b.textContent === "By relations")!.click();
+    expect(onLayoutMode).toHaveBeenCalledWith("relation");
+  });
+
+  it("setActive 標示目前的排版依據", () => {
+    const { toolbar } = makeToolbar();
+    toolbar.setActive({
+      detailLevel: "full", depth: 1, direction: "all", unrelated: "dim",
+      expandComments: false, layoutMode: "relation", groupFilter: null, locale: "en",
+    });
+    const active = buttons(toolbar)
+      .filter((b) => b.classList.contains("is-active"))
+      .map((b) => b.textContent);
+    expect(active).toContain("By relations");
+    expect(active).not.toContain("By group");
   });
 });

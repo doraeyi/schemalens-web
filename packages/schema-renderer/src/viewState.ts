@@ -8,6 +8,14 @@ import type { TraversalDirection } from "@schemalens/schema-graph";
  */
 export type DetailLevel = "overview" | "keys" | "full";
 
+/**
+ * 排版依據。
+ *
+ * `group`：同群組的表聚在一起，群組外框才畫得出來，但跨群組的關聯線會拉得比較遠。
+ * `relation`：純依關聯排版，線最短最清楚，但同群組的表會散開，因此不畫外框。
+ */
+export type LayoutMode = "group" | "relation";
+
 /** 未相關 Table 的處理方式（plan §23）。 */
 export type UnrelatedMode = "dim" | "hide";
 
@@ -20,6 +28,8 @@ export interface FocusState {
 
 export interface ViewState {
   detailLevel: DetailLevel;
+  /** 依群組聚攏，還是純依關聯排版。 */
+  layoutMode: LayoutMode;
   focus: FocusState;
   unrelated: UnrelatedMode;
   /** 被 Collapse 的 table。 */
@@ -48,6 +58,7 @@ export interface ViewState {
 export const DEFAULT_VIEW_STATE: ViewState = {
   // 約束 #15 / #16：預設就是完整卡片，不是 Table 名稱 + 線。
   detailLevel: "full",
+  layoutMode: "group",
   focus: { tableId: null, depth: 1, direction: "all" },
   unrelated: "dim",
   expandComments: false,
