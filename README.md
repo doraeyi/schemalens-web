@@ -7,85 +7,48 @@ VS Code 的 Database Schema Visualization Extension。
 在 VS Code 裡寫 `.dbschema`，即時驗證，開 Preview 直接看到完整的 Table / Column / Type /
 欄位級 Relation；就算有 100 張表，也能快速找到某張表並理解它的欄位與關聯。
 
+## 能做什麼
+
+- **完整的資料表卡片** — 預設就顯示欄位、型別、PK / FK / UQ / IDX、nullable、預設值與備註，不必再點開細節面板
+- **欄位級關聯線** — 線直接連到實際的欄位列，不是只連到表格外框
+- **大型 Schema 探索** — 搜尋 Table / Column、1-Hop / 2-Hop、Upstream / Downstream、淡化或隱藏無關的表
+- **欄位聚焦** — 點一個欄位，只亮起它與透過 FK 對應的欄位
+- **群組分類** — 依功能模組把資料表框在一起，可依群組或依關聯兩種方式排版
+- **回跳原始碼** — 雙擊表或欄位跳回 DSL 定義；DSL 錯誤直接顯示在 Problems Panel
+- **JSON 匯入 / 匯出** — DSL ⇄ JSON 語意一致的 round trip
+- **中文 / 英文介面**
+
 ---
 
-## Distribution
+## 安裝
 
-**This project is distributed through a private GitHub repository.
-You must have repository access before downloading a release.**
+從 [Releases](https://github.com/kaikaizhen/schemaLen/releases/latest) 下載
+`dbschema-<version>.vsix`，然後：
 
-DBSchema 目前透過 Private GitHub Repository 發布。
-只有具有 Repository 權限的使用者才能下載 Release 中的 VSIX。
-
-本專案**不會**發布到 Visual Studio Marketplace 或 Open VSX，也沒有任何公開下載點。
-
----
-
-## Installation
-
-### Step 1 — 取得 Repository 存取權
-
-安裝前必須先由 Repository Owner 授權。
-
-Personal Private Repository：
+**VS Code UI**
 
 ```text
-GitHub Repository
-→ Settings
-→ Collaborators
-→ Invite collaborator
+Extensions → ...（右上角選單）→ Install from VSIX... → 選擇下載的檔案
 ```
 
-GitHub Organization：
-
-```text
-Organization
-→ Teams
-→ Repository access
-```
-
-建議給 **Read** 權限：足以下載 Release，且無法推送程式碼。
-
-### Step 2 — 接受 GitHub 邀請
-
-受邀者會收到 GitHub 的 Invitation，接受後才能進入 Repository。
-
-### Step 3 — 下載 VSIX
-
-```text
-Repository
-→ Releases
-→ Latest Release
-→ dbschema-<version>.vsix
-```
-
-Release 頁面：<https://github.com/kaikaizhen/schemaLen/releases/latest>
-
-> 此連結需要 Repository 權限。未登入或未獲授權的使用者無法存取。
-
-### Step 4 — VS Code UI 安裝
-
-```text
-VS Code
-→ Extensions
-→ ...（右上角選單）
-→ Install from VSIX...
-→ 選擇 dbschema-<version>.vsix
-```
-
-### Step 5 — CLI 安裝
+**CLI**
 
 ```bash
 code --install-extension dbschema-<version>.vsix
 ```
 
+安裝後重新載入視窗（`Developer: Reload Window`）即可使用。
+
+> 目前尚未上架 Visual Studio Marketplace 與 Open VSX，請由 Releases 取得。
+
 ---
 
-## 從原始碼開發
+## 從原始碼建置
 
 ```bash
 npm install
 npm run build -w dbschema
+npm run package:vsix     # 產出 dist/dbschema-<version>.vsix
 ```
 
 在 VS Code 按 `F5`（Run DBSchema Extension），於新視窗開啟 [examples/blog.dbschema](examples/blog.dbschema)，
@@ -123,7 +86,7 @@ relation FK_Posts_Users {
 }
 ```
 
-完整語法見 `docs/dsl-spec.md`。
+完整語法見 [docs/dsl-spec.md](docs/dsl-spec.md)。
 
 ## 支援的輸入
 
@@ -186,21 +149,22 @@ Graph Traversal 獨立於 Renderer；Layout Engine 可整顆替換。
 ## 開發
 
 ```bash
-npm test          # 182 個單元 / DOM / round-trip 測試
+npm test          # 429 個單元 / DOM / round-trip 測試
 npm run typecheck
 npm run build -w dbschema
 npm run package:vsix     # 產出 dist/dbschema-<version>.vsix
 npm run watch -w dbschema
 ```
 
-執行計畫與各 Stage 狀態見 `docs/execution-matrix.md`（`docs/` 不進版控）。
-發布流程與權限管理見 [RELEASE.md](RELEASE.md)。
+DSL 規格見 [docs/dsl-spec.md](docs/dsl-spec.md)，發布流程見 [RELEASE.md](RELEASE.md)。
 
 ## Git Flow
 
 `main` ← `develop` ← `feature/*`。一個功能一個分支，完成即合併回 `develop`。
 Release 由 `main` 打 `v*` tag 觸發，詳見 [RELEASE.md](RELEASE.md)。
 
+送 PR 請以 `develop` 為目標分支，並確認 `npm test` 與 `npm run typecheck` 都通過。
+
 ## License
 
-見 [LICENSE](LICENSE)。本軟體僅授權給取得 Private Repository 權限的使用者。
+見 [LICENSE](LICENSE)。

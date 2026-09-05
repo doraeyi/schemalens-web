@@ -7,8 +7,6 @@ on:
       - "v*"
 
 # 最小權限：只需要建立 Release 與上傳 Asset。
-# Release 會建立在本 Repository，因此 Asset 跟隨 Repository 的可見性；
-# Private Repository 的 Release Asset 只有具備 Repository 權限的人下載得到。
 permissions:
   contents: write
 
@@ -80,8 +78,6 @@ jobs:
             --title "DBSchema ${{ steps.version.outputs.version }}" \
             --notes-file - <<'NOTES'
           DBSchema VS Code Extension
-
-          此 Release 僅提供給具有本 Private Repository 權限的使用者。
 
           ## 安裝
 

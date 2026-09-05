@@ -1,10 +1,7 @@
 # Release 流程
 
-DBSchema 透過 **Private GitHub Repository 的 Private Release** 發布，
-不上架 Visual Studio Marketplace、Open VSX，也不放任何公開下載點。
-
-Release Asset 跟隨 Repository 的可見性：Repository 是 Private，
-Release 的 `.vsix` 就只有具備 Repository 權限的人下得到。
+DBSchema 透過 **GitHub Releases** 發布 VSIX，任何人都可以下載安裝。
+目前尚未上架 Visual Studio Marketplace 與 Open VSX。
 
 Repository：<https://github.com/kaikaizhen/schemaLen>
 
@@ -103,7 +100,7 @@ Checkout
 
 - Release 標題為 `DBSchema 0.1.0`
 - Asset 名稱為 `dbschema-0.1.0.vsix`
-- 未登入或無權限的帳號**無法**看到此頁面
+- 未登入的瀏覽器也下載得到（Repository 為 Public）
 
 ---
 
@@ -121,38 +118,14 @@ git push origin :refs/tags/v0.1.0
 
 ---
 
-## Access Management
+## 誰可以下載
 
-### Personal Private Repository
+Repository 是 Public，Release Asset 也跟著公開，任何人都能下載安裝，
+不需要邀請或授權。
 
-```text
-GitHub Repository
-→ Settings
-→ Collaborators
-→ Add people
-```
-
-輸入對方的 GitHub 帳號並送出邀請。對方接受後即可進入 Releases 下載。
-
-權限層級建議 **Read**：足以下載 Release，且不能推送程式碼。
-
-### GitHub Organization
-
-```text
-Organization
-→ Teams
-→ (選擇 Team)
-→ Repositories
-→ Add repository
-```
-
-或直接在 Repository 的 `Settings → Collaborators and teams` 加入團隊，
-權限選 **Read**。
-
-### 移除權限
-
-在同一個頁面移除該使用者即可。移除後對方立刻無法再下載 Release Asset。
-已經下載過的 `.vsix` 無法回收，這是檔案發布的本質限制。
+若日後要改回限定對象發布，把 Repository 改成 Private 即可——
+Release Asset 會跟著 Repository 的可見性走，只有具 Repository 權限的人下得到。
+屆時記得同步更新 README 與 LICENSE 的說法。
 
 ---
 
@@ -200,7 +173,8 @@ Repository → Settings → Actions → General → Workflow permissions
 ```text
 Visual Studio Marketplace
 Open VSX
-Public GitHub Release
 Public CDN / Package Registry
 Self-hosted Extension Marketplace
 ```
+
+VSIX 只從 GitHub Releases 發布，不另外放到其他通路。
