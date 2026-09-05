@@ -32,4 +32,4 @@ out/**/*.map
 #   out/extension.cjs        Extension Host 進入點
 #   out/webview.js           Preview 的 Webview bundle
 #   language/**              語言設定與 TextMate 文法
-#   package.json README.md LICENSE
+#   package.json README.md LICENSE NOTICE

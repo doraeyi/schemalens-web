@@ -114,4 +114,4 @@ DSL 有錯時，錯誤會出現在編輯器的紅色波浪線與 Problems Panel�
 
 ## License
 
-見 [LICENSE](LICENSE)。
+[Apache License 2.0](LICENSE)。

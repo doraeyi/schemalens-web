@@ -5,7 +5,7 @@
   "version": "0.2.0",
   "private": true,
   "publisher": "kaikaizhen",
-  "license": "SEE LICENSE IN LICENSE",
+  "license": "Apache-2.0",
   "repository": {
     "type": "git",
     "url": "https://github.com/kaikaizhen/schemaLen.git"
