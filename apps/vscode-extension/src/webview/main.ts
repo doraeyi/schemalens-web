@@ -63,6 +63,10 @@ const handlers: ToolbarHandlers = {
     renderer.setViewState({ expandComments: expanded });
     syncToolbar();
   },
+  onGroupFilter: (group: string | null) => {
+    renderer.setViewState({ groupFilter: group });
+    syncToolbar();
+  },
   onResetFocus: () => {
     resetFocus();
   },
@@ -134,6 +138,7 @@ function syncToolbar(): void {
     direction: state.focus.direction,
     unrelated: state.unrelated,
     expandComments: state.expandComments,
+    groupFilter: state.groupFilter,
     locale,
   });
 }

@@ -10,6 +10,7 @@ import {
   type Schema,
   type SchemaDiagnostic,
   type Table,
+  type TableGroup,
 } from "@schemalens/schema-core";
 import type { ColumnNode, QualifiedNameNode, SchemaFileNode, TypeRefNode } from "./ast.js";
 
@@ -77,6 +78,7 @@ export function astToSchema(ast: SchemaFileNode, options: AstToSchemaOptions = {
       schema: statement.name.schema ?? defaultSchema,
       name: statement.name.name,
       comment: statement.comment,
+      group: statement.group,
       columns,
       indexes: [],
       location: statement.location,
@@ -163,11 +165,63 @@ export function astToSchema(ast: SchemaFileNode, options: AstToSchemaOptions = {
     });
   }
 
+  // 群組：宣告收集描述，區塊成員則寫回 table.group。
+  // 成員關係只存在 table 上，避免同一件事有兩份可能互相矛盾的紀錄。
+  const groups: TableGroup[] = [];
+  const groupByName = new Map<string, TableGroup>();
+
+  for (const statement of ast.statements) {
+    if (statement.kind !== "group") continue;
+
+    if (groupByName.has(statement.name)) {
+      diagnostics.push({
+        code: "SCHEMA_DUPLICATE_GROUP",
+        severity: "error",
+        message: `群組重複宣告：${statement.name}`,
+        location: statement.location,
+      });
+      continue;
+    }
+    const group: TableGroup = {
+      name: statement.name,
+      description: statement.description,
+      location: statement.location,
+    };
+    groups.push(group);
+    groupByName.set(statement.name, group);
+
+    for (const member of statement.members) {
+      const memberId = resolveId(member);
+      const table = tableById.get(memberId);
+      if (!table) {
+        diagnostics.push({
+          code: "SCHEMA_UNKNOWN_TABLE",
+          severity: "error",
+          message: `群組 ${statement.name} 列出了不存在的 Table：${memberId}`,
+          location: member.location,
+        });
+        continue;
+      }
+      // 同時用 `in` 標了別的群組時，兩邊說法不一致，必須讓使用者知道。
+      if (table.group && table.group !== statement.name) {
+        diagnostics.push({
+          code: "SCHEMA_CONFLICTING_GROUP",
+          severity: "error",
+          message: `${memberId} 同時屬於群組 ${table.group} 與 ${statement.name}`,
+          location: member.location,
+        });
+        continue;
+      }
+      table.group = statement.name;
+    }
+  }
+
   const schema: Schema = {
     version: SCHEMA_VERSION,
     metadata: { name: options.schemaName, defaultSchema },
     tables,
     relations,
+    groups,
   };
   // FK / indexed 旗標由 relation 與 index 推導，DSL 上的 FK/IDX 標記只是額外提示。
   const declaredFlags = collectDeclaredFlags(ast, resolveId);

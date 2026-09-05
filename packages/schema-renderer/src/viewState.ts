@@ -33,6 +33,11 @@ export interface ViewState {
   highlightedColumn: { tableId: TableId; column: string } | null;
   /** Search 命中的 table 集合，用於卡片外框標示。 */
   searchMatches: ReadonlySet<TableId>;
+  /**
+   * 只顯示這個群組的 table；null 代表不篩選。
+   * 與 Focus 是不同維度：Focus 依關聯展開，群組依人為分類。
+   */
+  groupFilter: string | null;
 }
 
 export const DEFAULT_VIEW_STATE: ViewState = {
@@ -44,6 +49,7 @@ export const DEFAULT_VIEW_STATE: ViewState = {
   collapsed: new Set(),
   highlightedColumn: null,
   searchMatches: new Set(),
+  groupFilter: null,
 };
 
 export function resetFocus(state: ViewState): ViewState {

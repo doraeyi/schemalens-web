@@ -2,6 +2,7 @@ import type { SchemaDiagnostic, SourceLocation } from "@schemalens/schema-core";
 import type {
   ColumnNode,
   ColumnRefNode,
+  GroupNode,
   IndexNode,
   MappingNode,
   QualifiedNameNode,
@@ -23,6 +24,13 @@ export interface ParseResult {
 class ParseError extends Error {}
 
 const STATEMENT_STARTERS = new Set(["table", "index", "relation", "unique"]);
+/**
+ * `group` 與 `in` 是 soft keyword：不放進 KEYWORDS，只在語法位置上辨識。
+ *
+ * 否則像 `Group nvarchar(50)` 這種很常見的欄位名會直接變成語法錯誤。
+ */
+const SOFT_GROUP = "group";
+const SOFT_IN = "in";
 const COLUMN_FLAGS = new Set(["pk", "fk", "uq", "idx"]);
 
 /**
@@ -69,6 +77,7 @@ class Parser {
     if (token.type === "keyword" && (word === "unique" || word === "index")) return this.parseIndex();
     if (token.type === "keyword" && word === "table") return this.parseTable();
     if (token.type === "keyword" && word === "relation") return this.parseRelation();
+    if (this.checkSoft(SOFT_GROUP)) return this.parseGroup();
 
     this.error(token.location, `預期 table / index / relation，卻讀到 '${token.value || "檔案結尾"}'`);
     throw new ParseError();
@@ -78,6 +87,13 @@ class Parser {
     const start = this.expectKeyword("table");
     const name = this.parseQualifiedName();
     const comment = this.check("string") ? this.advance().value : undefined;
+
+    let group: string | undefined;
+    if (this.checkSoft(SOFT_IN)) {
+      this.advance();
+      group = this.expect("identifier", "預期群組名稱").value;
+    }
+
     this.expectPunct("{");
     this.skipNewlines();
 
@@ -96,7 +112,65 @@ class Parser {
     }
     const end = this.expectPunct("}");
 
-    return { kind: "table", name, comment, columns, location: span(start.location, end.location) };
+    return {
+      kind: "table",
+      name,
+      comment,
+      group,
+      columns,
+      location: span(start.location, end.location),
+    };
+  }
+
+  /**
+   * 群組宣告。
+   *
+   *   group Identity "身分與權限模組"
+   *   group Identity "身分與權限模組" {
+   *     Users
+   *     sales.Orders
+   *   }
+   *
+   * 區塊可省略——只想補描述、成員用 `table ... in Identity` 標時就不需要。
+   */
+  private parseGroup(): GroupNode {
+    const start = this.advance(); // soft keyword `group`
+    const nameToken = this.expect("identifier", "預期群組名稱");
+    const description = this.check("string") ? this.advance().value : undefined;
+
+    const members: QualifiedNameNode[] = [];
+    let end = this.previous();
+
+    if (this.checkPunct("{")) {
+      this.advance();
+      this.skipNewlines();
+      while (!this.atEnd() && !this.checkPunct("}")) {
+        const before = this.index;
+        try {
+          members.push(this.parseQualifiedName());
+          // 成員之間用換行或逗號分隔都可以；
+          // 有逗號就允許同一行繼續列下一個成員。
+          if (this.checkPunct(",")) this.advance();
+          else this.expectLineEnd();
+        } catch (error) {
+          if (!(error instanceof ParseError)) throw error;
+          this.skipToLineEnd();
+        }
+        if (this.index === before) this.advance();
+        this.skipNewlines();
+      }
+      end = this.expectPunct("}");
+    } else {
+      this.expectLineEnd();
+    }
+
+    return {
+      kind: "group",
+      name: nameToken.value,
+      description,
+      members,
+      location: span(start.location, end.location),
+    };
   }
 
   private parseColumn(): ColumnNode {
@@ -357,6 +431,11 @@ class Parser {
     return this.peek().type === "keyword" && this.peek().value.toLowerCase() === word;
   }
 
+  /** soft keyword：以識別字出現，只在特定語法位置才有意義。 */
+  private checkSoft(word: string): boolean {
+    return this.peek().type === "identifier" && this.peek().value.toLowerCase() === word;
+  }
+
   private expect(type: Token["type"], message: string): Token {
     if (!this.check(type)) {
       this.error(this.peek().location, `${message}，卻讀到 '${this.peek().value || "換行"}'`);
@@ -411,6 +490,7 @@ class Parser {
       if (this.peek().type === "keyword" && STATEMENT_STARTERS.has(this.peek().value.toLowerCase())) {
         return;
       }
+      if (this.checkSoft(SOFT_GROUP)) return;
       this.advance();
     }
   }

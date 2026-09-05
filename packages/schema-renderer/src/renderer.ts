@@ -409,7 +409,7 @@ export class SchemaRenderer {
   /** 只切 class，不動幾何 —— Focus / Dim / Hide 在大型 schema 也維持即時。 */
   private applyEmphasis(): void {
     if (!this.graph) return;
-    const visibility = resolveVisibility(this.graph, this.state);
+    const visibility = resolveVisibility(this.graph, this.state, this.schema ?? undefined);
     const highlight = this.state.highlightedColumn;
 
     for (const [tableId, elements] of this.cardElements) {
@@ -418,6 +418,7 @@ export class SchemaRenderer {
       root.classList.toggle("is-selected", emphasis === "selected");
       root.classList.toggle("is-dimmed", emphasis === "dimmed");
       root.classList.toggle("is-hidden", emphasis === "hidden");
+      root.classList.toggle("is-filtered-out", emphasis === "filtered");
       root.classList.toggle("is-search-match", this.state.searchMatches.has(tableId));
 
       for (const [column, rowEl] of elements.rowByColumn) {
@@ -434,6 +435,7 @@ export class SchemaRenderer {
       root.classList.toggle("is-highlight", emphasis === "highlight");
       root.classList.toggle("is-dimmed", emphasis === "dimmed");
       root.classList.toggle("is-hidden", emphasis === "hidden");
+      root.classList.toggle("is-filtered-out", emphasis === "filtered");
       root.classList.toggle("is-selected", this.selectedRelation === relationName);
     }
   }

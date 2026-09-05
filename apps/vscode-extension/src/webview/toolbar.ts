@@ -1,4 +1,4 @@
-import type { Schema } from "@schemalens/schema-core";
+import { groupNames, type Schema } from "@schemalens/schema-core";
 import { search, type SearchHit } from "@schemalens/schema-graph";
 import type { DetailLevel, Locale, RendererStrings, UnrelatedMode } from "@schemalens/schema-renderer";
 import type { TraversalDirection } from "@schemalens/schema-graph";
@@ -76,6 +76,15 @@ export const TOOLBAR_CSS = `
 }
 .dbs-result-label { font-family: var(--vscode-editor-font-family, monospace); }
 .dbs-result-meta { margin-left: auto; color: var(--vscode-descriptionForeground, #9d9d9d); font-size: 10px; }
+.dbs-select {
+  padding: 3px 6px;
+  border: 1px solid var(--vscode-dropdown-border, #3c3c3c);
+  border-radius: 3px;
+  background: var(--vscode-dropdown-background, #3c3c3c);
+  color: var(--vscode-dropdown-foreground, #ccc);
+  font: inherit;
+  max-width: 220px;
+}
 .dbs-metrics { margin-left: auto; color: var(--vscode-descriptionForeground, #9d9d9d); }
 `;
 
@@ -86,6 +95,8 @@ export interface ToolbarHandlers {
   onUnrelated(mode: UnrelatedMode): void;
   /** 欄位備註要截斷成 … 還是完整展開成多行。 */
   onComments(expanded: boolean): void;
+  /** 只顯示某個群組；null 代表全部。 */
+  onGroupFilter(group: string | null): void;
   onResetFocus(): void;
   onFitView(): void;
   /** 丟掉手動拖曳的位置，回到 Auto Layout。 */
@@ -148,6 +159,8 @@ export class Toolbar {
   private readonly directionGroup: ButtonGroup<TraversalDirection>;
   private readonly unrelatedGroup: ButtonGroup<UnrelatedMode>;
   private readonly commentsGroup: ButtonGroup<boolean>;
+  private readonly groupSelect: HTMLSelectElement;
+  private readonly groupWrap: HTMLElement;
   private readonly localeGroup: ButtonGroup<Locale>;
   private schema: Schema | null = null;
   private hits: SearchHit[] = [];
@@ -206,6 +219,22 @@ export class Toolbar {
       handlers.onUnrelated,
     );
 
+    // 群組是動態的（來自 Schema），用下拉而不是按鈕列，
+    // 否則 10 個以上的模組會把 Toolbar 撐爆。
+    const groupWrap = document.createElement("div");
+    groupWrap.className = "dbs-group";
+    const groupCaption = document.createElement("span");
+    groupCaption.className = "dbs-group-label";
+    groupCaption.textContent = this.strings.groupLabel;
+    this.groupSelect = document.createElement("select");
+    this.groupSelect.className = "dbs-select";
+    this.groupSelect.addEventListener("change", () => {
+      const value = this.groupSelect.value;
+      handlers.onGroupFilter(value === "" ? null : value);
+    });
+    groupWrap.append(groupCaption, this.groupSelect);
+    this.groupWrap = groupWrap;
+
     this.commentsGroup = buttonGroup<boolean>(
       this.strings.commentsGroup,
       [
@@ -254,6 +283,7 @@ export class Toolbar {
       this.depthGroup.element,
       this.directionGroup.element,
       this.unrelatedGroup.element,
+      this.groupWrap,
       this.commentsGroup.element,
       actions,
       this.metrics,
@@ -267,6 +297,27 @@ export class Toolbar {
     this.schema = schema;
     this.input.value = "";
     this.renderResults([]);
+    this.renderGroups(schema);
+  }
+
+  /** 沒有任何群組時整組隱藏，不佔 Toolbar 空間。 */
+  private renderGroups(schema: Schema): void {
+    const names = groupNames(schema);
+    this.groupWrap.hidden = names.length === 0;
+    this.groupSelect.replaceChildren();
+
+    const all = document.createElement("option");
+    all.value = "";
+    all.textContent = this.strings.allGroups;
+    this.groupSelect.append(all);
+
+    for (const name of names) {
+      const option = document.createElement("option");
+      option.value = name;
+      const description = schema.groups?.find((g) => g.name === name)?.description;
+      option.textContent = description ? `${name} — ${description}` : name;
+      this.groupSelect.append(option);
+    }
   }
 
   setMetrics(text: string): void {
@@ -283,6 +334,7 @@ export class Toolbar {
     direction: TraversalDirection;
     unrelated: UnrelatedMode;
     expandComments: boolean;
+    groupFilter: string | null;
     locale: Locale;
   }): void {
     this.detailGroup.setActive(state.detailLevel);
@@ -290,6 +342,7 @@ export class Toolbar {
     this.directionGroup.setActive(state.direction);
     this.unrelatedGroup.setActive(state.unrelated);
     this.commentsGroup.setActive(state.expandComments);
+    this.groupSelect.value = state.groupFilter ?? "";
     this.localeGroup.setActive(state.locale);
   }
 
