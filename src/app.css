@@ -1,0 +1,226 @@
+@import 'tailwindcss';
+
+@theme {
+	--font-sans:
+		'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+	--font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+
+	/* indirection so these Tailwind utilities stay theme-aware at runtime —
+	   the --sl-* values themselves are redefined per data-theme below. */
+	--color-bg: var(--sl-bg);
+	--color-surface: var(--sl-surface);
+	--color-surface-2: var(--sl-surface-2);
+	--color-border: var(--sl-border);
+	--color-fg: var(--sl-fg);
+	--color-muted: var(--sl-muted);
+	--color-cyan: var(--sl-cyan);
+	--color-violet: var(--sl-violet);
+	--color-magenta: var(--sl-magenta);
+}
+
+/*
+ * These --vscode-* custom properties are read directly by the vendored
+ * @schemalens/schema-renderer and toolbar CSS (packages/schema-renderer/src/styles.ts).
+ * Defining them here re-skins the diagram without touching the vendored source.
+ */
+:root {
+	color-scheme: dark;
+
+	--sl-page-bg: #05070d;
+	--sl-page-bg-2: #070b16;
+
+	--sl-bg: #05070d;
+	--sl-surface: #0b0f1c;
+	--sl-surface-2: #121a2e;
+	--sl-border: #1e2942;
+	--sl-fg: #e6ecff;
+	--sl-muted: #7a8bb0;
+	--sl-cyan: #22d3ee;
+	--sl-violet: #8b5cf6;
+	--sl-magenta: #f472b6;
+
+	--vscode-editor-background: #0b0f1c;
+	--vscode-editor-foreground: #e6ecff;
+	--vscode-font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+	--vscode-editor-font-family: 'JetBrains Mono', ui-monospace, monospace;
+
+	--vscode-panel-border: #1e2942;
+	--vscode-editorWidget-background: #121a2e;
+	--vscode-titleBar-activeBackground: #16203a;
+	--vscode-descriptionForeground: #7a8bb0;
+	--vscode-focusBorder: #22d3ee;
+
+	--vscode-editorIndentGuide-activeBackground: #2c3a5c;
+	--vscode-list-hoverBackground: rgba(148, 197, 255, 0.08);
+	--vscode-list-activeSelectionBackground: rgba(34, 211, 238, 0.18);
+	--vscode-list-inactiveSelectionBackground: rgba(139, 92, 246, 0.12);
+	--vscode-editor-findMatchHighlightBackground: rgba(251, 146, 60, 0.35);
+
+	--vscode-charts-blue: #38bdf8;
+	--vscode-charts-orange: #fb923c;
+	--vscode-charts-yellow: #facc15;
+	--vscode-charts-purple: #c084fc;
+	--vscode-charts-green: #34d399;
+	--vscode-symbolIcon-typeParameterForeground: #8b5cf6;
+
+	--vscode-inputValidation-errorBorder: #f43f5e;
+	--vscode-inputValidation-errorBackground: rgba(244, 63, 94, 0.14);
+
+	--vscode-toolbar-hoverBackground: rgba(148, 197, 255, 0.1);
+	--vscode-button-background: #0ea5b7;
+	--vscode-button-foreground: #04141a;
+	--vscode-input-border: #26314d;
+	--vscode-input-background: #0b0f1c;
+	--vscode-input-foreground: #e6ecff;
+	--vscode-quickInput-background: #0b0f1c;
+	--vscode-dropdown-border: #26314d;
+	--vscode-dropdown-background: #0b0f1c;
+	--vscode-dropdown-foreground: #e6ecff;
+}
+
+:root[data-theme='light'] {
+	color-scheme: light;
+
+	--sl-page-bg: #f5f7fc;
+	--sl-page-bg-2: #eef2fa;
+
+	--sl-bg: #f5f7fc;
+	--sl-surface: #ffffff;
+	--sl-surface-2: #eef2fa;
+	--sl-border: #dbe2f0;
+	--sl-fg: #101625;
+	--sl-muted: #5b6b8c;
+	--sl-cyan: #0891b2;
+	--sl-violet: #7c3aed;
+	--sl-magenta: #db2777;
+
+	--vscode-editor-background: #ffffff;
+	--vscode-editor-foreground: #101625;
+
+	--vscode-panel-border: #dbe2f0;
+	--vscode-editorWidget-background: #f3f5fb;
+	--vscode-titleBar-activeBackground: #e9edf8;
+	--vscode-descriptionForeground: #5b6b8c;
+	--vscode-focusBorder: #0891b2;
+
+	--vscode-editorIndentGuide-activeBackground: #c7d1e6;
+	--vscode-list-hoverBackground: rgba(8, 145, 178, 0.07);
+	--vscode-list-activeSelectionBackground: rgba(8, 145, 178, 0.15);
+	--vscode-list-inactiveSelectionBackground: rgba(124, 58, 237, 0.1);
+	--vscode-editor-findMatchHighlightBackground: rgba(234, 88, 12, 0.25);
+
+	--vscode-charts-blue: #0284c7;
+	--vscode-charts-orange: #ea580c;
+	--vscode-charts-yellow: #ca8a04;
+	--vscode-charts-purple: #7c3aed;
+	--vscode-charts-green: #059669;
+	--vscode-symbolIcon-typeParameterForeground: #7c3aed;
+
+	--vscode-inputValidation-errorBorder: #dc2626;
+	--vscode-inputValidation-errorBackground: rgba(220, 38, 38, 0.08);
+
+	--vscode-toolbar-hoverBackground: rgba(15, 23, 42, 0.06);
+	--vscode-button-background: #0891b2;
+	--vscode-button-foreground: #ffffff;
+	--vscode-input-border: #cbd5e1;
+	--vscode-input-background: #ffffff;
+	--vscode-input-foreground: #101625;
+	--vscode-quickInput-background: #ffffff;
+	--vscode-dropdown-border: #cbd5e1;
+	--vscode-dropdown-background: #ffffff;
+	--vscode-dropdown-foreground: #101625;
+}
+
+/*
+ * Multi-select highlight (schemalens-web only — the vendored renderer has no
+ * multi-select concept, so this class is toggled imperatively from the app
+ * layer directly on the rendered .dbs-card elements; see routes/app/+page.svelte.
+ */
+.sl-multi-selected {
+	outline: 2px solid var(--sl-violet) !important;
+	outline-offset: 2px;
+	box-shadow: 0 0 0 4px color-mix(in oklab, var(--sl-violet) 18%, transparent);
+}
+
+/*
+ * Compact-mode overlay (schemalens-web only): full-width grouped zone panels
+ * + orthogonal relation connectors, both synced imperatively from
+ * src/lib/canvas/compactOverlay.ts on top of the vendored renderer's DOM.
+ * The vendored renderer's own curved edges are hidden in favor of the
+ * connector layer while compact mode is active. See that file for why.
+ */
+.sl-compact-active .dbs-edges {
+	display: none;
+}
+.sl-zone-layer {
+	position: absolute;
+	inset: 0;
+	z-index: 0;
+	pointer-events: none;
+}
+.sl-zone {
+	position: absolute;
+	border-left: 4px solid;
+	border-radius: 10px;
+	background: color-mix(in oklab, var(--sl-surface-2) 55%, transparent);
+	pointer-events: none;
+	transition: opacity 0.15s ease;
+}
+.sl-zone-label {
+	position: absolute;
+	top: 10px;
+	left: 20px;
+	right: 20px;
+}
+.sl-zone-title {
+	font-size: 13px;
+	font-weight: 700;
+	color: var(--sl-fg);
+}
+.sl-zone-desc {
+	margin-top: 2px;
+	font-size: 11px;
+	color: var(--sl-muted);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+.sl-connector-layer {
+	position: absolute;
+	top: 0;
+	left: 0;
+	overflow: visible;
+	pointer-events: none;
+	z-index: 0;
+}
+.sl-connector-path {
+	fill: none;
+	stroke: var(--sl-cyan);
+	stroke-width: 1.5;
+	opacity: 0.55;
+}
+.sl-connector-arrowhead {
+	fill: var(--sl-cyan);
+	opacity: 0.55;
+}
+.sl-group-hidden {
+	display: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		animation-duration: 0.001ms !important;
+		animation-iteration-count: 1 !important;
+		transition-duration: 0.001ms !important;
+		scroll-behavior: auto !important;
+	}
+}
+
+html,
+body {
+	background: var(--sl-page-bg);
+	color: var(--vscode-editor-foreground);
+	font-family: var(--vscode-font-family);
+}
