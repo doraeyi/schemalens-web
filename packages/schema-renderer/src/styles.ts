@@ -265,12 +265,7 @@ export const RENDERER_CSS = `
 }
 .dbs-row.is-column-muted { opacity: 0.2; }
 
-/* 哪幾張卡片裡有亮起的欄位——150 張表時，
-   沒有這個標示根本找不到亮在哪。 */
-.dbs-card.is-column-participant {
-  border-color: var(--vscode-charts-blue, #4daafc);
-  box-shadow: 0 0 0 1px var(--vscode-charts-blue, #4daafc);
-}
+
 
 .dbs-row.is-highlight {
   background: var(--vscode-editor-findMatchHighlightBackground, rgba(234, 92, 0, 0.33));

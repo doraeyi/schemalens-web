@@ -583,45 +583,31 @@ export class SchemaRenderer {
     const highlight = this.state.highlightedColumn;
 
     const columnFocus = this.state.columnFocus;
-    const focused =
+    // 欄位列的亮／暗仍需要欄位級的集合；表與線的強調已由 resolveVisibility 決定。
+    const focusedColumns =
       columnFocus && this.schema
-        ? getRelatedColumns(this.schema, this.graph, columnFocus.tableId, columnFocus.column)
-        : null;
-    const focusedColumns = focused?.columns ?? new Set<string>();
+        ? getRelatedColumns(this.schema, this.graph, columnFocus.tableId, columnFocus.column).columns
+        : new Set<string>();
     const rootRef = columnFocus ? columnRef(columnFocus.tableId, columnFocus.column) : "";
 
     for (const [tableId, elements] of this.cardElements) {
       const emphasis = visibility.tables.get(tableId) ?? "active";
       const root = elements.root;
-      const participant = focused?.tables.has(tableId) ?? false;
-
-      // 欄位聚焦的參與者不受 table focus 的淡化影響。
-      // 否則「先聚焦 A 表，再點 B 表的欄位」時，B 仍是 dimmed（opacity 0.15），
-      // 亮起的那一列也一起被壓暗，操作起來就像完全沒反應。
-      // 群組篩選是使用者設定的硬性範圍，不在此豁免之列。
-      const overrideFade = participant && emphasis !== "filtered";
 
       // 淡化／隱藏是一個軸（透明度與顯示），邊框強調是另一個軸。
-      root.classList.toggle("is-dimmed", emphasis === "dimmed" && !overrideFade);
-      root.classList.toggle("is-hidden", emphasis === "hidden" && !overrideFade);
+      // 兩者都直接來自 resolveVisibility——欄位聚焦時它已經改由欄位決定強調，
+      // 這裡不再做任何額外判斷。
+      root.classList.toggle("is-dimmed", emphasis === "dimmed");
+      root.classList.toggle("is-hidden", emphasis === "hidden");
       root.classList.toggle("is-filtered-out", emphasis === "filtered");
 
       // 邊框同一時間只能由一個狀態擁有。
       // 先前 is-selected / is-column-participant / is-search-match 各自設 border 與
       // box-shadow，同時成立時互相蓋掉，卡片看起來就會前後不一致。
-      const owner =
-        emphasis === "selected"
-          ? "selected"
-          : participant
-            ? "participant"
-            : emphasis === "related"
-              ? "related"
-              : null;
-      root.classList.toggle("is-selected", owner === "selected");
-      root.classList.toggle("is-column-participant", owner === "participant");
-      root.classList.toggle("is-related", owner === "related");
+      root.classList.toggle("is-selected", emphasis === "selected");
+      root.classList.toggle("is-related", emphasis === "related");
 
-      // 搜尋命中改用 outline，與邊框不同屬性，才能和上面三種並存。
+      // 搜尋命中改用 outline，與邊框不同屬性，才能和上面兩種並存。
       root.classList.toggle("is-search-match", this.state.searchMatches.has(tableId));
 
       for (const [column, rowEl] of elements.rowByColumn) {
@@ -650,13 +636,7 @@ export class SchemaRenderer {
     }
 
     for (const [relationName, edge] of this.edgeElements) {
-      let emphasis = visibility.edges.get(relationName) ?? "normal";
-      // 欄位聚焦時，沒有參與這組欄位的線一律降噪——
-      // 否則一堆無關的線仍然橫在畫面上，等於沒聚焦。
-      // 參與的線連 Hide 模式都要救回來，否則點了 focus 範圍外的欄位會看不到任何線。
-      if (focused && emphasis !== "filtered") {
-        emphasis = focused.relations.has(relationName) ? "highlight" : "dimmed";
-      }
+      const emphasis = visibility.edges.get(relationName) ?? "normal";
       const root = edge.elements.root;
       const selected = this.selectedRelation === relationName;
       root.classList.toggle("is-highlight", emphasis === "highlight");
