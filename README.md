@@ -167,4 +167,5 @@ Release 由 `main` 打 `v*` tag 觸發，詳見 [RELEASE.md](RELEASE.md)。
 
 ## License
 
-見 [LICENSE](LICENSE)。
+[Apache License 2.0](LICENSE)。可自由使用、修改與再散布（含商業用途），
+散布時請保留授權與 [NOTICE](NOTICE) 的標示。
