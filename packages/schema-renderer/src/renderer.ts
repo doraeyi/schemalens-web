@@ -68,6 +68,8 @@ export class SchemaRenderer {
   private readonly root: HTMLElement;
   private readonly viewport: HTMLElement;
   private readonly edgeLayer: SVGSVGElement;
+  /** 只放「亮起」的線，疊在卡片之上。 */
+  private readonly edgeTopLayer: SVGSVGElement;
   private readonly groupLayer: HTMLElement;
   private readonly nodeLayer: HTMLElement;
   private readonly errorLayer: HTMLElement;
@@ -112,6 +114,12 @@ export class SchemaRenderer {
     this.edgeLayer = document.createElementNS("http://www.w3.org/2000/svg", "svg");
     this.edgeLayer.setAttribute("class", "dbs-edges");
 
+    // 兩層而不是整層切換 z-index：聚焦時仍有上百條淡化的線，
+    // 整層浮上去等於用一張網蓋住所有卡片內容。
+    // 淡化的線留在卡片下，只有亮起的線浮到上面。
+    this.edgeTopLayer = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    this.edgeTopLayer.setAttribute("class", "dbs-edges dbs-edges-top");
+
     this.groupLayer = document.createElement("div");
     this.groupLayer.className = "dbs-groups";
 
@@ -122,7 +130,7 @@ export class SchemaRenderer {
     this.errorLayer.className = "dbs-error";
     this.errorLayer.hidden = true;
 
-    this.viewport.append(this.groupLayer, this.edgeLayer, this.nodeLayer);
+    this.viewport.append(this.groupLayer, this.edgeLayer, this.nodeLayer, this.edgeTopLayer);
     this.root.append(this.viewport);
     host.append(this.root, this.errorLayer);
 
@@ -532,8 +540,11 @@ export class SchemaRenderer {
   private renderEdges(): void {
     if (!this.schema || !this.positioned) return;
     const bounds = this.positioned.bounds;
-    this.edgeLayer.setAttribute("width", String(Math.max(1, bounds.x + bounds.width)));
-    this.edgeLayer.setAttribute("height", String(Math.max(1, bounds.y + bounds.height)));
+    for (const layer of [this.edgeLayer, this.edgeTopLayer]) {
+      layer.setAttribute("width", String(Math.max(1, bounds.x + bounds.width)));
+      layer.setAttribute("height", String(Math.max(1, bounds.y + bounds.height)));
+    }
+    this.edgeTopLayer.replaceChildren();
 
     const fragment = document.createDocumentFragment();
     this.edgeElements.clear();
@@ -582,10 +593,17 @@ export class SchemaRenderer {
     for (const [tableId, elements] of this.cardElements) {
       const emphasis = visibility.tables.get(tableId) ?? "active";
       const root = elements.root;
+      const participant = focused?.tables.has(tableId) ?? false;
+
+      // 欄位聚焦的參與者不受 table focus 的淡化影響。
+      // 否則「先聚焦 A 表，再點 B 表的欄位」時，B 仍是 dimmed（opacity 0.15），
+      // 亮起的那一列也一起被壓暗，操作起來就像完全沒反應。
+      // 群組篩選是使用者設定的硬性範圍，不在此豁免之列。
+      const overrideFade = participant && emphasis !== "filtered";
 
       // 淡化／隱藏是一個軸（透明度與顯示），邊框強調是另一個軸。
-      root.classList.toggle("is-dimmed", emphasis === "dimmed");
-      root.classList.toggle("is-hidden", emphasis === "hidden");
+      root.classList.toggle("is-dimmed", emphasis === "dimmed" && !overrideFade);
+      root.classList.toggle("is-hidden", emphasis === "hidden" && !overrideFade);
       root.classList.toggle("is-filtered-out", emphasis === "filtered");
 
       // 邊框同一時間只能由一個狀態擁有。
@@ -594,7 +612,7 @@ export class SchemaRenderer {
       const owner =
         emphasis === "selected"
           ? "selected"
-          : (focused?.tables.has(tableId) ?? false)
+          : participant
             ? "participant"
             : emphasis === "related"
               ? "related"
@@ -626,12 +644,6 @@ export class SchemaRenderer {
       }
     }
 
-    // 有聚焦時線才浮到卡片之上——此時無關的線已被淡化，不會蓋住內容。
-    this.edgeLayer.classList.toggle(
-      "is-above",
-      this.state.focus.tableId !== null || this.state.columnFocus !== null,
-    );
-
     for (const [group, box] of this.groupElements) {
       const filtered = this.state.groupFilter !== null && this.state.groupFilter !== group;
       box.classList.toggle("is-filtered-out", filtered);
@@ -641,15 +653,21 @@ export class SchemaRenderer {
       let emphasis = visibility.edges.get(relationName) ?? "normal";
       // 欄位聚焦時，沒有參與這組欄位的線一律降噪——
       // 否則一堆無關的線仍然橫在畫面上，等於沒聚焦。
-      if (focused && emphasis !== "hidden" && emphasis !== "filtered") {
+      // 參與的線連 Hide 模式都要救回來，否則點了 focus 範圍外的欄位會看不到任何線。
+      if (focused && emphasis !== "filtered") {
         emphasis = focused.relations.has(relationName) ? "highlight" : "dimmed";
       }
       const root = edge.elements.root;
+      const selected = this.selectedRelation === relationName;
       root.classList.toggle("is-highlight", emphasis === "highlight");
       root.classList.toggle("is-dimmed", emphasis === "dimmed");
       root.classList.toggle("is-hidden", emphasis === "hidden");
       root.classList.toggle("is-filtered-out", emphasis === "filtered");
-      root.classList.toggle("is-selected", this.selectedRelation === relationName);
+      root.classList.toggle("is-selected", selected);
+
+      // 亮起的線搬到上層，其餘留在卡片之下。
+      const target = emphasis === "highlight" || selected ? this.edgeTopLayer : this.edgeLayer;
+      if (root.parentNode !== target) target.append(root);
     }
   }
 

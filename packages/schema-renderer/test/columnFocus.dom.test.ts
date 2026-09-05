@@ -219,3 +219,98 @@ describe("點欄位聚焦", () => {
     expect(row(host, "Users", "Id").classList.contains("is-column-focus")).toBe(true);
   });
 });
+
+/**
+ * 使用者實際的操作順序：先聚焦某張表，再去點另一張（已被淡化的）表的欄位。
+ *
+ * 這是最容易壞的組合——table focus 的淡化會把欄位聚焦的亮色一起壓暗，
+ * 看起來就像點了完全沒反應。
+ */
+describe("table focus 與欄位聚焦同時存在", () => {
+  it("點 focus 範圍外的欄位，那張卡片不再被淡化", () => {
+    const { host, renderer } = mount();
+    // 從 Orders 看 downstream 是空的，Users 與 Comments 都會被淡化。
+    renderer.focusTable("dbo.Orders", { direction: "downstream", depth: 1 });
+    expect(host.querySelector('[data-table-id="dbo.Users"]')!.classList.contains("is-dimmed")).toBe(
+      true,
+    );
+
+    renderer.focusColumn("dbo.Users", "Id");
+
+    const users = host.querySelector('[data-table-id="dbo.Users"]')!;
+    expect(users.classList.contains("is-dimmed")).toBe(false);
+    expect(users.classList.contains("is-column-participant")).toBe(true);
+  });
+
+  it("該欄位確實亮起，而不是被卡片的透明度壓掉", () => {
+    const { host, renderer } = mount();
+    renderer.focusTable("dbo.Orders", { direction: "downstream", depth: 1 });
+    renderer.focusColumn("dbo.Users", "Id");
+
+    expect(row(host, "Users", "Id").classList.contains("is-column-focus")).toBe(true);
+    // 卡片沒有被淡化，亮色才看得到。
+    expect(host.querySelector('[data-table-id="dbo.Users"]')!.classList.contains("is-dimmed")).toBe(
+      false,
+    );
+  });
+
+  it("對應欄位所在的卡片也一起救回來", () => {
+    const { host, renderer } = mount();
+    renderer.focusTable("dbo.Orders", { direction: "downstream", depth: 1 });
+    renderer.focusColumn("dbo.Users", "Id");
+
+    // Comments.UserId 也指向 Users.Id，同樣是參與者。
+    const comments = host.querySelector('[data-table-id="dbo.Comments"]')!;
+    expect(comments.classList.contains("is-dimmed")).toBe(false);
+    expect(comments.classList.contains("is-column-participant")).toBe(true);
+  });
+
+  it("參與的關聯線會 highlight，即使原本在 focus 範圍外", () => {
+    const { host, renderer } = mount();
+    renderer.focusTable("dbo.Orders", { direction: "downstream", depth: 1 });
+    renderer.focusColumn("dbo.Users", "Id");
+
+    expect(
+      host.querySelector('[data-relation="FK_Comments_Users"]')!.classList.contains("is-highlight"),
+    ).toBe(true);
+  });
+
+  it("Hide 模式下也救得回來——否則點了會看不到任何線", () => {
+    const { host, renderer } = mount();
+    renderer.setViewState({ unrelated: "hide" });
+    renderer.focusTable("dbo.Orders", { direction: "downstream", depth: 1 });
+    expect(host.querySelector('[data-table-id="dbo.Users"]')!.classList.contains("is-hidden")).toBe(
+      true,
+    );
+
+    renderer.focusColumn("dbo.Users", "Id");
+
+    const users = host.querySelector('[data-table-id="dbo.Users"]')!;
+    expect(users.classList.contains("is-hidden")).toBe(false);
+    expect(
+      host.querySelector('[data-relation="FK_Comments_Users"]')!.classList.contains("is-hidden"),
+    ).toBe(false);
+  });
+
+  it("非參與者仍然維持原本的淡化", () => {
+    const { host, renderer } = mount();
+    renderer.focusTable("dbo.Orders", { direction: "downstream", depth: 1 });
+    renderer.focusColumn("dbo.Users", "Email");
+
+    // Email 沒有任何 FK 對應，Comments 不是參與者。
+    expect(
+      host.querySelector('[data-table-id="dbo.Comments"]')!.classList.contains("is-dimmed"),
+    ).toBe(true);
+  });
+
+  it("取消欄位聚焦後，淡化狀態回到 table focus 的結果", () => {
+    const { host, renderer } = mount();
+    renderer.focusTable("dbo.Orders", { direction: "downstream", depth: 1 });
+    renderer.focusColumn("dbo.Users", "Id");
+    renderer.clearColumnFocus();
+
+    expect(host.querySelector('[data-table-id="dbo.Users"]')!.classList.contains("is-dimmed")).toBe(
+      true,
+    );
+  });
+});

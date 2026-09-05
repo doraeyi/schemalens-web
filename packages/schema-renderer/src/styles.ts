@@ -26,10 +26,10 @@ export const RENDERER_CSS = `
   will-change: transform;
 }
 
-/* 關聯線的疊放層級隨狀態改變。
-   預設在卡片「之下」：100+ 張表時線非常多，疊在上面會把欄位內容整片蓋掉。
-   一旦聚焦（點表或點欄位），無關的線已經被淡化，
-   剩下的正是使用者要看的，這時才浮到卡片之上以免被擋住。
+/* 關聯線分成兩層。
+   一般與淡化的線在卡片「之下」：100+ 張表時線非常多，
+   疊在上面會像一張網把欄位內容整片蓋掉。
+   只有「亮起」的線（聚焦時的相關關聯）浮到卡片之上，才不會被卡片擋住。
    .dbs-edges 本身 pointer-events: none，只有線接受點擊，卡片照常可按。 */
 .dbs-edges {
   position: absolute;
@@ -39,7 +39,7 @@ export const RENDERER_CSS = `
   pointer-events: none;
   z-index: 1;
 }
-.dbs-edges.is-above { z-index: 3; }
+.dbs-edges-top { z-index: 3; }
 .dbs-nodes {
   position: relative;
   z-index: 2;
