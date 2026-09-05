@@ -917,7 +917,15 @@ export class SchemaRenderer {
           this.clearColumnFocus();
           this.events.columnSelected?.(null);
         } else {
-          this.focusColumn(tableId, column);
+          // table focus 一起跟過去。否則點了另一張表的欄位之後，
+          // 原本那張表還掛著 selected 外框、裡面卻沒有任何亮起的欄位，
+          // 畫面上兩個焦點各說各話。
+          // 不用 focusTable()，因為它會把視角移到該表——
+          // 使用者點的是眼前看得到的欄位，畫面不該跳走。
+          this.setViewState({
+            columnFocus: { tableId, column },
+            focus: { ...this.state.focus, tableId },
+          });
           this.events.columnSelected?.({ tableId, column });
         }
         return;
