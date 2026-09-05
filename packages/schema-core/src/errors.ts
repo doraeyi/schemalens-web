@@ -16,6 +16,8 @@ export type SchemaErrorCode =
   | "SCHEMA_INVALID_RELATION"
   | "SCHEMA_INVALID_CARDINALITY"
   | "SCHEMA_INVALID_COMPOSITE_RELATION"
+  | "SCHEMA_DUPLICATE_GROUP"
+  | "SCHEMA_CONFLICTING_GROUP"
   | "SCHEMA_PARSE_ERROR";
 
 export type DiagnosticSeverity = "error" | "warning" | "info";

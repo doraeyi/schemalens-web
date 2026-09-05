@@ -22,6 +22,7 @@ function makeToolbar(locale: Locale = "en"): {
     onFitView: vi.fn(),
     onResetLayout: vi.fn(),
     onComments: vi.fn(),
+    onGroupFilter: vi.fn(),
     onPickHit: vi.fn(),
     onSearchResults: vi.fn(),
     onLocale,
@@ -75,6 +76,7 @@ describe("語系切換鈕", () => {
       direction: "all",
       unrelated: "dim",
       expandComments: false,
+      groupFilter: null,
       locale: "zh-hant",
     });
     const active = buttons(toolbar).filter((b) => b.classList.contains("is-active"));
@@ -106,6 +108,7 @@ describe("備註切換", () => {
       direction: "all",
       unrelated: "dim",
       expandComments: true,
+      groupFilter: null,
       locale: "zh-hant",
     });
     const active = buttons(toolbar)
@@ -156,5 +159,90 @@ describe("Toolbar 語系", () => {
     const { toolbar } = makeToolbar("zh-hant");
     const input = toolbar.element.querySelector("input")!;
     expect(input.placeholder).toBe(stringsFor("zh-hant").searchPlaceholder);
+  });
+});
+
+describe("群組篩選下拉", () => {
+  const schemaWithGroups = {
+    version: "1",
+    metadata: { defaultSchema: "dbo" },
+    groups: [
+      { name: "Identity", description: "身分與權限" },
+      { name: "Sales" },
+    ],
+    tables: [
+      { id: "dbo.Users", schema: "dbo", name: "Users", group: "Identity", columns: [], indexes: [] },
+      { id: "dbo.Orders", schema: "dbo", name: "Orders", group: "Sales", columns: [], indexes: [] },
+    ],
+    relations: [],
+  };
+
+  function select(toolbar: Toolbar): HTMLSelectElement {
+    return toolbar.element.querySelector("select")!;
+  }
+
+  it("沒有群組時整組隱藏，不佔 Toolbar 空間", () => {
+    const { toolbar } = makeToolbar();
+    toolbar.setSchema({
+      version: "1",
+      metadata: { defaultSchema: "dbo" },
+      tables: [],
+      relations: [],
+    });
+    expect(select(toolbar).parentElement!.hidden).toBe(true);
+  });
+
+  it("列出全部群組，並附上描述", () => {
+    const { toolbar } = makeToolbar();
+    toolbar.setSchema(schemaWithGroups);
+    const options = [...select(toolbar).options].map((o) => o.textContent);
+    expect(options[0]).toBe("All groups");
+    expect(options).toContain("Identity — 身分與權限");
+    // 沒有描述的群組只顯示名稱
+    expect(options).toContain("Sales");
+  });
+
+  it("選擇群組會回報名稱", () => {
+    const onGroupFilter = vi.fn();
+    const handlers: ToolbarHandlers = {
+      onDetailLevel: vi.fn(), onDepth: vi.fn(), onDirection: vi.fn(), onUnrelated: vi.fn(),
+      onResetFocus: vi.fn(), onFitView: vi.fn(), onResetLayout: vi.fn(), onComments: vi.fn(),
+      onPickHit: vi.fn(), onSearchResults: vi.fn(), onLocale: vi.fn(), onGroupFilter,
+    };
+    const toolbar = new Toolbar(handlers, stringsFor("en"));
+    document.body.append(toolbar.element);
+    toolbar.setSchema(schemaWithGroups);
+
+    const el = select(toolbar);
+    el.value = "Identity";
+    el.dispatchEvent(new Event("change"));
+    expect(onGroupFilter).toHaveBeenCalledWith("Identity");
+  });
+
+  it("選回全部時回報 null", () => {
+    const onGroupFilter = vi.fn();
+    const handlers: ToolbarHandlers = {
+      onDetailLevel: vi.fn(), onDepth: vi.fn(), onDirection: vi.fn(), onUnrelated: vi.fn(),
+      onResetFocus: vi.fn(), onFitView: vi.fn(), onResetLayout: vi.fn(), onComments: vi.fn(),
+      onPickHit: vi.fn(), onSearchResults: vi.fn(), onLocale: vi.fn(), onGroupFilter,
+    };
+    const toolbar = new Toolbar(handlers, stringsFor("en"));
+    document.body.append(toolbar.element);
+    toolbar.setSchema(schemaWithGroups);
+
+    const el = select(toolbar);
+    el.value = "";
+    el.dispatchEvent(new Event("change"));
+    expect(onGroupFilter).toHaveBeenCalledWith(null);
+  });
+
+  it("setActive 會同步目前選到的群組", () => {
+    const { toolbar } = makeToolbar();
+    toolbar.setSchema(schemaWithGroups);
+    toolbar.setActive({
+      detailLevel: "full", depth: 1, direction: "all", unrelated: "dim",
+      expandComments: false, groupFilter: "Sales", locale: "en",
+    });
+    expect(select(toolbar).value).toBe("Sales");
   });
 });

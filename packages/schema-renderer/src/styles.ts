@@ -87,6 +87,20 @@ export const RENDERER_CSS = `
   cursor: pointer;
   contain: layout paint;
 }
+.dbs-card.has-group { border-left-width: 3px; }
+.dbs-card-group {
+  flex: none;
+  font-size: 9px;
+  font-weight: 600;
+  padding: 1px 5px;
+  border-radius: 8px;
+  white-space: nowrap;
+}
+/* 被群組篩選排除的表：比 dim 更弱，但仍看得到輪廓，
+   使用者才知道「還有東西在那裡」而不是以為資料不見了。 */
+.dbs-card.is-filtered-out { opacity: 0.06; }
+.dbs-edge.is-filtered-out { opacity: 0.05; }
+
 .dbs-card.is-dimmed { opacity: 0.15; }
 /* 量測用：算「不含備註時至少需要多寬」。
    欄位名稱與型別永遠不該被截斷，備註才可以。 */

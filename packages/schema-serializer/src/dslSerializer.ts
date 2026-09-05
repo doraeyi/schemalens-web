@@ -19,6 +19,19 @@ export function toDsl(schema: Schema, options: DslSerializeOptions = {}): string
   const align = options.align ?? true;
   const lines: string[] = [];
 
+  // 群組宣告放在最前面：描述集中在一處，成員關係則寫在各自的 table 上，
+  // 這樣重新解析後兩者不會互相矛盾。
+  for (const group of schema.groups ?? []) {
+    lines.push(
+      group.description
+        ? `group ${group.name} ${quote(group.description)}`
+        : `group ${group.name}`,
+    );
+  }
+  // 只被 table 引用、沒有正式宣告的群組不需要補宣告——
+  // `table X in G` 本身已經足以表達。
+  if ((schema.groups ?? []).length > 0) lines.push("");
+
   for (const table of schema.tables) {
     lines.push(...serializeTable(table, indent, align), "");
   }
@@ -41,9 +54,10 @@ export function toDsl(schema: Schema, options: DslSerializeOptions = {}): string
 }
 
 function serializeTable(table: Table, indent: string, align: boolean): string[] {
-  const header = table.comment
-    ? `table ${qualified(table)} ${quote(table.comment)} {`
-    : `table ${qualified(table)} {`;
+  const headerParts = [`table ${qualified(table)}`];
+  if (table.comment) headerParts.push(quote(table.comment));
+  if (table.group) headerParts.push(`in ${table.group}`);
+  const header = `${headerParts.join(" ")} {`;
 
   const parts = table.columns.map((column) => columnParts(column));
   const widths = align

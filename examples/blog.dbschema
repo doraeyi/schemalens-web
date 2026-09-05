@@ -1,14 +1,18 @@
 // 部落格系統 —— 用來手動驗證 Preview 的最小範例
 // 開啟後執行：DBSchema: Open Preview
 
-table Users "系統使用者" {
+// 群組（功能模組）：描述集中宣告一次，成員用 `in` 標在各自的 table 上。
+group Identity "使用者與身分"
+group Content  "文章、留言與標籤"
+
+table Users "系統使用者" in Identity {
   PK Id          bigint        not null "使用者 ID"
   UQ Email       nvarchar(255) not null "登入 Email"
      DisplayName nvarchar(100) null     "顯示名稱"
      CreatedAt   datetime2     not null default "sysutcdatetime()"
 }
 
-table Posts "文章" {
+table Posts "文章" in Content {
   PK Id        bigint         not null "文章 ID"
   FK AuthorId  bigint         not null "作者，指向 Users"
      Title     nvarchar(200)  not null "文章標題"
@@ -17,7 +21,7 @@ table Posts "文章" {
      CreatedAt datetime2      not null "發表時間"
 }
 
-table Comments "留言" {
+table Comments "留言" in Content {
   PK Id        bigint         not null "留言 ID"
   FK PostId    bigint         not null "所屬文章"
   FK AuthorId  bigint         not null "留言者"
@@ -25,12 +29,12 @@ table Comments "留言" {
      CreatedAt datetime2      not null "留言時間"
 }
 
-table Tags "標籤" {
+table Tags "標籤" in Content {
   PK Id   bigint       not null "標籤 ID"
   UQ Name nvarchar(50) not null "標籤名稱"
 }
 
-table PostTags "文章標籤" {
+table PostTags "文章標籤" in Content {
   PK Id     bigint not null "關聯 ID"
   FK PostId bigint not null "文章"
   FK TagId  bigint not null "標籤"

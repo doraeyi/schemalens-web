@@ -23,10 +23,25 @@ DBSchema 會把所有 ```dbschema 區塊合併成同一份 Schema。
 
 ---
 
+## 群組（10 個功能模組）
+
+```dbschema
+group Identity "Identity 功能模組"
+group Catalog "Catalog 功能模組"
+group Sales "Sales 功能模組"
+group Billing "Billing 功能模組"
+group Shipping "Shipping 功能模組"
+group Support "Support 功能模組"
+group Analytics "Analytics 功能模組"
+group Content "Content 功能模組"
+group Inventory "Inventory 功能模組"
+group Audit "Audit 功能模組"
+```
+
 ## analytics（15 張表）
 
 ```dbschema
-table analytics.Categories "Analytics 模組的 Categories" {
+table analytics.Categories "Analytics 模組的 Categories" in Analytics {
   PK  Id         bigint           not null "Categories 主鍵"
   UQ  Code       nvarchar(64)     not null "業務代碼"
       Quantity   uniqueidentifier not null "Quantity 欄位說明"
@@ -45,7 +60,7 @@ table analytics.Categories "Analytics 模組的 Categories" {
   IDX CreatedAt  datetime2        not null default "sysutcdatetime()" "建立時間"
 }
 
-table analytics.Payments "Analytics 模組的 Payments" {
+table analytics.Payments "Analytics 模組的 Payments" in Analytics {
   PK  Id          bigint         not null "Payments 主鍵"
   UQ  Code        nvarchar(64)   not null "業務代碼"
       Name        int            null
@@ -56,7 +71,7 @@ table analytics.Payments "Analytics 模組的 Payments" {
   IDX CreatedAt   datetime2      not null default "sysutcdatetime()" "建立時間"
 }
 
-table analytics.Messages "Analytics 模組的 Messages" {
+table analytics.Messages "Analytics 模組的 Messages" in Analytics {
   PK  Id          bigint         not null "Messages 主鍵"
   UQ  Code        nvarchar(64)   not null "業務代碼"
       SortOrder   bigint         null
@@ -73,7 +88,7 @@ table analytics.Messages "Analytics 模組的 Messages" {
   IDX CreatedAt   datetime2      not null default "sysutcdatetime()" "建立時間"
 }
 
-table analytics.Comments "Analytics 模組的 Comments" {
+table analytics.Comments "Analytics 模組的 Comments" in Analytics {
   PK  Id         bigint           not null "Comments 主鍵"
   UQ  Code       nvarchar(64)     not null "業務代碼"
       StartsAt   bit              not null default 0
@@ -83,7 +98,7 @@ table analytics.Comments "Analytics 模組的 Comments" {
   IDX CreatedAt  datetime2        not null default "sysutcdatetime()" "建立時間"
 }
 
-table analytics.Changes "Analytics 模組的 Changes" {
+table analytics.Changes "Analytics 模組的 Changes" in Analytics {
   PK  Id          bigint        not null "Changes 主鍵"
   UQ  Code        nvarchar(64)  not null "業務代碼"
       Title       nvarchar(50)  null     "Title 欄位說明"
@@ -101,7 +116,7 @@ table analytics.Changes "Analytics 模組的 Changes" {
   IDX CreatedAt   datetime2     not null default "sysutcdatetime()" "建立時間"
 }
 
-table analytics.Categories2 "Analytics 模組的 Categories2" {
+table analytics.Categories2 "Analytics 模組的 Categories2" in Analytics {
   PK  Id        bigint         not null "Categories2 主鍵"
   UQ  Code      nvarchar(64)   not null "業務代碼"
       Metadata  bigint         null     "Metadata 欄位說明"
@@ -114,7 +129,7 @@ table analytics.Categories2 "Analytics 模組的 Categories2" {
   IDX CreatedAt datetime2      not null default "sysutcdatetime()" "建立時間"
 }
 
-table analytics.Payments2 "Analytics 模組的 Payments2" {
+table analytics.Payments2 "Analytics 模組的 Payments2" in Analytics {
   PK  Id         bigint           not null "Payments2 主鍵"
   UQ  Code       nvarchar(64)     not null "業務代碼"
       EndsAt     bigint           null
@@ -124,7 +139,7 @@ table analytics.Payments2 "Analytics 模組的 Payments2" {
   IDX CreatedAt  datetime2        not null default "sysutcdatetime()" "建立時間"
 }
 
-table analytics.Messages2 "Analytics 模組的 Messages2" {
+table analytics.Messages2 "Analytics 模組的 Messages2" in Analytics {
   PK  Id          bigint        not null "Messages2 主鍵"
   UQ  Code        nvarchar(64)  not null "業務代碼"
       Title       decimal(18,2) not null
@@ -136,7 +151,7 @@ table analytics.Messages2 "Analytics 模組的 Messages2" {
   IDX CreatedAt   datetime2     not null default "sysutcdatetime()" "建立時間"
 }
 
-table analytics.Comments2 "Analytics 模組的 Comments2" {
+table analytics.Comments2 "Analytics 模組的 Comments2" in Analytics {
   PK    Id        bigint           not null "Comments2 主鍵"
   UQ    Code      nvarchar(64)     not null "業務代碼"
         Version   bit              not null default 0 "Version 欄位說明"
@@ -150,7 +165,7 @@ table analytics.Comments2 "Analytics 模組的 Comments2" {
   IDX   CreatedAt datetime2        not null default "sysutcdatetime()" "建立時間"
 }
 
-table analytics.Changes2 "Analytics 模組的 Changes2" {
+table analytics.Changes2 "Analytics 模組的 Changes2" in Analytics {
   PK  Id         bigint           not null "Changes2 主鍵"
   UQ  Code       nvarchar(64)     not null "業務代碼"
       IsActive   uniqueidentifier not null
@@ -160,7 +175,7 @@ table analytics.Changes2 "Analytics 模組的 Changes2" {
   IDX CreatedAt  datetime2        not null default "sysutcdatetime()" "建立時間"
 }
 
-table analytics.Categories3 "Analytics 模組的 Categories3" {
+table analytics.Categories3 "Analytics 模組的 Categories3" in Analytics {
   PK  Id          bigint           not null "Categories3 主鍵"
   UQ  Code        nvarchar(64)     not null "業務代碼"
       Description uniqueidentifier not null
@@ -171,7 +186,7 @@ table analytics.Categories3 "Analytics 模組的 Categories3" {
   IDX CreatedAt   datetime2        not null default "sysutcdatetime()" "建立時間"
 }
 
-table analytics.Payments3 "Analytics 模組的 Payments3" {
+table analytics.Payments3 "Analytics 模組的 Payments3" in Analytics {
   PK  Id          bigint        not null "Payments3 主鍵"
   UQ  Code        nvarchar(64)  not null "業務代碼"
       Notes       bigint        not null
@@ -186,7 +201,7 @@ table analytics.Payments3 "Analytics 模組的 Payments3" {
   IDX CreatedAt   datetime2     not null default "sysutcdatetime()" "建立時間"
 }
 
-table analytics.Messages3 "Analytics 模組的 Messages3" {
+table analytics.Messages3 "Analytics 模組的 Messages3" in Analytics {
   PK  Id         bigint         not null "Messages3 主鍵"
   UQ  Code       nvarchar(64)   not null "業務代碼"
       ExternalId nvarchar(4000) null
@@ -198,7 +213,7 @@ table analytics.Messages3 "Analytics 模組的 Messages3" {
   IDX CreatedAt  datetime2      not null default "sysutcdatetime()" "建立時間"
 }
 
-table analytics.Comments3 "Analytics 模組的 Comments3" {
+table analytics.Comments3 "Analytics 模組的 Comments3" in Analytics {
   PK  Id           bigint           not null "Comments3 主鍵"
   UQ  Code         nvarchar(64)     not null "業務代碼"
       Status       bigint           not null "Status 欄位說明"
@@ -216,7 +231,7 @@ table analytics.Comments3 "Analytics 模組的 Comments3" {
   IDX CreatedAt    datetime2        not null default "sysutcdatetime()" "建立時間"
 }
 
-table analytics.Changes3 "Analytics 模組的 Changes3" {
+table analytics.Changes3 "Analytics 模組的 Changes3" in Analytics {
   PK  Id          bigint           not null "Changes3 主鍵"
   UQ  Code        nvarchar(64)     not null "業務代碼"
       Priority    uniqueidentifier null
@@ -284,7 +299,7 @@ index IX_Changes3_OrderItemId on analytics.Changes3(OrderItemId)
 ## content（15 張表）
 
 ```dbschema
-table content.Brands "Content 模組的 Brands" {
+table content.Brands "Content 模組的 Brands" in Content {
   PK  Id        bigint        not null "Brands 主鍵"
   UQ  Code      nvarchar(64)  not null "業務代碼"
       SortOrder decimal(18,2) not null "SortOrder 欄位說明"
@@ -299,7 +314,7 @@ table content.Brands "Content 模組的 Brands" {
   IDX CreatedAt datetime2     not null default "sysutcdatetime()" "建立時間"
 }
 
-table content.Refunds "Content 模組的 Refunds" {
+table content.Refunds "Content 模組的 Refunds" in Content {
   PK  Id         bigint           not null "Refunds 主鍵"
   UQ  Code       nvarchar(64)     not null "業務代碼"
       StartsAt   nvarchar(200)    null
@@ -310,7 +325,7 @@ table content.Refunds "Content 模組的 Refunds" {
   IDX CreatedAt  datetime2        not null default "sysutcdatetime()" "建立時間"
 }
 
-table content.Attachments "Content 模組的 Attachments" {
+table content.Attachments "Content 模組的 Attachments" in Content {
   PK  Id          bigint           not null "Attachments 主鍵"
   UQ  Code        nvarchar(64)     not null "業務代碼"
       Title       uniqueidentifier not null
@@ -327,7 +342,7 @@ table content.Attachments "Content 模組的 Attachments" {
   IDX CreatedAt   datetime2        not null default "sysutcdatetime()" "建立時間"
 }
 
-table content.Medias "Content 模組的 Medias" {
+table content.Medias "Content 模組的 Medias" in Content {
   PK  Id        bigint        not null "Medias 主鍵"
   UQ  Code      nvarchar(64)  not null "業務代碼"
       Metadata  nvarchar(50)  null     "Metadata 欄位說明"
@@ -341,7 +356,7 @@ table content.Medias "Content 模組的 Medias" {
   IDX CreatedAt datetime2     not null default "sysutcdatetime()" "建立時間"
 }
 
-table content.Approvals "Content 模組的 Approvals" {
+table content.Approvals "Content 模組的 Approvals" in Content {
   PK  Id          bigint        not null "Approvals 主鍵"
   UQ  Code        nvarchar(64)  not null "業務代碼"
       EndsAt      int           null     "EndsAt 欄位說明"
@@ -352,7 +367,7 @@ table content.Approvals "Content 模組的 Approvals" {
   IDX CreatedAt   datetime2     not null default "sysutcdatetime()" "建立時間"
 }
 
-table content.Brands2 "Content 模組的 Brands2" {
+table content.Brands2 "Content 模組的 Brands2" in Content {
   PK  Id          bigint           not null "Brands2 主鍵"
   UQ  Code        nvarchar(64)     not null "業務代碼"
       Title       decimal(18,2)    null     "Title 欄位說明"
@@ -370,7 +385,7 @@ table content.Brands2 "Content 模組的 Brands2" {
   IDX CreatedAt   datetime2        not null default "sysutcdatetime()" "建立時間"
 }
 
-table content.Refunds2 "Content 模組的 Refunds2" {
+table content.Refunds2 "Content 模組的 Refunds2" in Content {
   PK  Id        bigint         not null "Refunds2 主鍵"
   UQ  Code      nvarchar(64)   not null "業務代碼"
       Version   decimal(18,2)  not null
@@ -381,7 +396,7 @@ table content.Refunds2 "Content 模組的 Refunds2" {
   IDX CreatedAt datetime2      not null default "sysutcdatetime()" "建立時間"
 }
 
-table content.Attachments2 "Content 模組的 Attachments2" {
+table content.Attachments2 "Content 模組的 Attachments2" in Content {
   PK  Id          bigint        not null "Attachments2 主鍵"
   UQ  Code        nvarchar(64)  not null "業務代碼"
       IsActive    int           not null "IsActive 欄位說明"
@@ -392,7 +407,7 @@ table content.Attachments2 "Content 模組的 Attachments2" {
   IDX CreatedAt   datetime2     not null default "sysutcdatetime()" "建立時間"
 }
 
-table content.Medias2 "Content 模組的 Medias2" {
+table content.Medias2 "Content 模組的 Medias2" in Content {
   PK  Id          bigint         not null "Medias2 主鍵"
   UQ  Code        nvarchar(64)   not null "業務代碼"
       Description int            not null
@@ -408,7 +423,7 @@ table content.Medias2 "Content 模組的 Medias2" {
   IDX CreatedAt   datetime2      not null default "sysutcdatetime()" "建立時間"
 }
 
-table content.Approvals2 "Content 模組的 Approvals2" {
+table content.Approvals2 "Content 模組的 Approvals2" in Content {
   PK  Id          bigint           not null "Approvals2 主鍵"
   UQ  Code        nvarchar(64)     not null "業務代碼"
       Notes       decimal(18,2)    not null "Notes 欄位說明"
@@ -421,7 +436,7 @@ table content.Approvals2 "Content 模組的 Approvals2" {
   IDX CreatedAt   datetime2        not null default "sysutcdatetime()" "建立時間"
 }
 
-table content.Brands3 "Content 模組的 Brands3" {
+table content.Brands3 "Content 模組的 Brands3" in Content {
   PK  Id         bigint        not null "Brands3 主鍵"
   UQ  Code       nvarchar(64)  not null "業務代碼"
       ExternalId bit           not null default 0 "ExternalId 欄位說明"
@@ -437,7 +452,7 @@ table content.Brands3 "Content 模組的 Brands3" {
   IDX CreatedAt  datetime2     not null default "sysutcdatetime()" "建立時間"
 }
 
-table content.Refunds3 "Content 模組的 Refunds3" {
+table content.Refunds3 "Content 模組的 Refunds3" in Content {
   PK  Id         bigint           not null "Refunds3 主鍵"
   UQ  Code       nvarchar(64)     not null "業務代碼"
       Status     nvarchar(200)    null     "Status 欄位說明"
@@ -452,7 +467,7 @@ table content.Refunds3 "Content 模組的 Refunds3" {
   IDX CreatedAt  datetime2        not null default "sysutcdatetime()" "建立時間"
 }
 
-table content.Attachments3 "Content 模組的 Attachments3" {
+table content.Attachments3 "Content 模組的 Attachments3" in Content {
   PK  Id           bigint         not null "Attachments3 主鍵"
   UQ  Code         nvarchar(64)   not null "業務代碼"
       Priority     bigint         null
@@ -470,7 +485,7 @@ table content.Attachments3 "Content 模組的 Attachments3" {
   IDX CreatedAt    datetime2      not null default "sysutcdatetime()" "建立時間"
 }
 
-table content.Medias3 "Content 模組的 Medias3" {
+table content.Medias3 "Content 模組的 Medias3" in Content {
   PK  Id        bigint         not null "Medias3 主鍵"
   UQ  Code      nvarchar(64)   not null "業務代碼"
       Slug      nvarchar(4000) not null
@@ -482,7 +497,7 @@ table content.Medias3 "Content 模組的 Medias3" {
   IDX CreatedAt datetime2      not null default "sysutcdatetime()" "建立時間"
 }
 
-table content.Approvals3 "Content 模組的 Approvals3" {
+table content.Approvals3 "Content 模組的 Approvals3" in Content {
   PK  Id         bigint           not null "Approvals3 主鍵"
   UQ  Code       nvarchar(64)     not null "業務代碼"
       Amount     nvarchar(200)    null
@@ -545,7 +560,7 @@ index IX_Approvals3_TokenId on content.Approvals3(TokenId)
 ## inventory（15 張表）
 
 ```dbschema
-table inventory.Variants "Inventory 模組的 Variants" {
+table inventory.Variants "Inventory 模組的 Variants" in Inventory {
   PK  Id          bigint         not null "Variants 主鍵"
   UQ  Code        nvarchar(64)   not null "業務代碼"
       Title       datetime2      not null "Title 欄位說明"
@@ -554,7 +569,7 @@ table inventory.Variants "Inventory 模組的 Variants" {
   IDX CreatedAt   datetime2      not null default "sysutcdatetime()" "建立時間"
 }
 
-table inventory.Ledgers "Inventory 模組的 Ledgers" {
+table inventory.Ledgers "Inventory 模組的 Ledgers" in Inventory {
   PK  Id        bigint         not null "Ledgers 主鍵"
   UQ  Code      nvarchar(64)   not null "業務代碼"
       Metadata  datetime2      not null "Metadata 欄位說明"
@@ -564,7 +579,7 @@ table inventory.Ledgers "Inventory 模組的 Ledgers" {
   IDX CreatedAt datetime2      not null default "sysutcdatetime()" "建立時間"
 }
 
-table inventory.Tags "Inventory 模組的 Tags" {
+table inventory.Tags "Inventory 模組的 Tags" in Inventory {
   PK  Id          bigint         not null "Tags 主鍵"
   UQ  Code        nvarchar(64)   not null "業務代碼"
       EndsAt      nvarchar(4000) not null "EndsAt 欄位說明"
@@ -581,7 +596,7 @@ table inventory.Tags "Inventory 模組的 Tags" {
   IDX CreatedAt   datetime2      not null default "sysutcdatetime()" "建立時間"
 }
 
-table inventory.Pages "Inventory 模組的 Pages" {
+table inventory.Pages "Inventory 模組的 Pages" in Inventory {
   PK  Id            bigint           not null "Pages 主鍵"
   UQ  Code          nvarchar(64)     not null "業務代碼"
       Title         nvarchar(4000)   null
@@ -595,7 +610,7 @@ table inventory.Pages "Inventory 模組的 Pages" {
   IDX CreatedAt     datetime2        not null default "sysutcdatetime()" "建立時間"
 }
 
-table inventory.Policies "Inventory 模組的 Policies" {
+table inventory.Policies "Inventory 模組的 Policies" in Inventory {
   PK  Id          bigint           not null "Policies 主鍵"
   UQ  Code        nvarchar(64)     not null "業務代碼"
       Version     nvarchar(4000)   null
@@ -615,7 +630,7 @@ table inventory.Policies "Inventory 模組的 Policies" {
   IDX CreatedAt   datetime2        not null default "sysutcdatetime()" "建立時間"
 }
 
-table inventory.Variants2 "Inventory 模組的 Variants2" {
+table inventory.Variants2 "Inventory 模組的 Variants2" in Inventory {
   PK  Id         bigint        not null "Variants2 主鍵"
   UQ  Code       nvarchar(64)  not null "業務代碼"
       IsActive   decimal(18,2) null
@@ -624,7 +639,7 @@ table inventory.Variants2 "Inventory 模組的 Variants2" {
   IDX CreatedAt  datetime2     not null default "sysutcdatetime()" "建立時間"
 }
 
-table inventory.Ledgers2 "Inventory 模組的 Ledgers2" {
+table inventory.Ledgers2 "Inventory 模組的 Ledgers2" in Inventory {
   PK  Id           bigint         not null "Ledgers2 主鍵"
   UQ  Code         nvarchar(64)   not null "業務代碼"
       Description  bit            null     default 0
@@ -639,7 +654,7 @@ table inventory.Ledgers2 "Inventory 模組的 Ledgers2" {
   IDX CreatedAt    datetime2      not null default "sysutcdatetime()" "建立時間"
 }
 
-table inventory.Tags2 "Inventory 模組的 Tags2" {
+table inventory.Tags2 "Inventory 模組的 Tags2" in Inventory {
   PK  Id          bigint           not null "Tags2 主鍵"
   UQ  Code        nvarchar(64)     not null "業務代碼"
       Notes       datetime2        not null "Notes 欄位說明"
@@ -652,7 +667,7 @@ table inventory.Tags2 "Inventory 模組的 Tags2" {
   IDX CreatedAt   datetime2        not null default "sysutcdatetime()" "建立時間"
 }
 
-table inventory.Pages2 "Inventory 模組的 Pages2" {
+table inventory.Pages2 "Inventory 模組的 Pages2" in Inventory {
   PK  Id         bigint         not null "Pages2 主鍵"
   UQ  Code       nvarchar(64)   not null "業務代碼"
       ExternalId bit            not null default 0
@@ -664,7 +679,7 @@ table inventory.Pages2 "Inventory 模組的 Pages2" {
   IDX CreatedAt  datetime2      not null default "sysutcdatetime()" "建立時間"
 }
 
-table inventory.Policies2 "Inventory 模組的 Policies2" {
+table inventory.Policies2 "Inventory 模組的 Policies2" in Inventory {
   PK  Id          bigint         not null "Policies2 主鍵"
   UQ  Code        nvarchar(64)   not null "業務代碼"
       Status      nvarchar(50)   not null
@@ -680,7 +695,7 @@ table inventory.Policies2 "Inventory 模組的 Policies2" {
   IDX CreatedAt   datetime2      not null default "sysutcdatetime()" "建立時間"
 }
 
-table inventory.Variants3 "Inventory 模組的 Variants3" {
+table inventory.Variants3 "Inventory 模組的 Variants3" in Inventory {
   PK  Id          bigint        not null "Variants3 主鍵"
   UQ  Code        nvarchar(64)  not null "業務代碼"
       Priority    decimal(18,2) null     "Priority 欄位說明"
@@ -691,7 +706,7 @@ table inventory.Variants3 "Inventory 模組的 Variants3" {
   IDX CreatedAt   datetime2     not null default "sysutcdatetime()" "建立時間"
 }
 
-table inventory.Ledgers3 "Inventory 模組的 Ledgers3" {
+table inventory.Ledgers3 "Inventory 模組的 Ledgers3" in Inventory {
   PK  Id           bigint           not null "Ledgers3 主鍵"
   UQ  Code         nvarchar(64)     not null "業務代碼"
       Slug         bigint           null
@@ -705,7 +720,7 @@ table inventory.Ledgers3 "Inventory 模組的 Ledgers3" {
   IDX CreatedAt    datetime2        not null default "sysutcdatetime()" "建立時間"
 }
 
-table inventory.Tags3 "Inventory 模組的 Tags3" {
+table inventory.Tags3 "Inventory 模組的 Tags3" in Inventory {
   PK  Id          bigint           not null "Tags3 主鍵"
   UQ  Code        nvarchar(64)     not null "業務代碼"
       Amount      nvarchar(200)    not null
@@ -723,7 +738,7 @@ table inventory.Tags3 "Inventory 模組的 Tags3" {
   IDX CreatedAt   datetime2        not null default "sysutcdatetime()" "建立時間"
 }
 
-table inventory.Pages3 "Inventory 模組的 Pages3" {
+table inventory.Pages3 "Inventory 模組的 Pages3" in Inventory {
   PK  Id          bigint           not null "Pages3 主鍵"
   UQ  Code        nvarchar(64)     not null "業務代碼"
       Score       nvarchar(200)    null
@@ -741,7 +756,7 @@ table inventory.Pages3 "Inventory 模組的 Pages3" {
   IDX CreatedAt   datetime2        not null default "sysutcdatetime()" "建立時間"
 }
 
-table inventory.Policies3 "Inventory 模組的 Policies3" {
+table inventory.Policies3 "Inventory 模組的 Policies3" in Inventory {
   PK  Id           bigint        not null "Policies3 主鍵"
   UQ  Code         nvarchar(64)  not null "業務代碼"
       Locale       bit           not null default 0 "Locale 欄位說明"
@@ -816,7 +831,7 @@ index IX_Policies3_TokenId on inventory.Policies3(TokenId)
 ## audit（15 張表）
 
 ```dbschema
-table audit.Prices "Audit 模組的 Prices" {
+table audit.Prices "Audit 模組的 Prices" in Audit {
   PK  Id           bigint           not null "Prices 主鍵"
   UQ  Code         nvarchar(64)     not null "業務代碼"
       EndsAt       uniqueidentifier null     "EndsAt 欄位說明"
@@ -829,7 +844,7 @@ table audit.Prices "Audit 模組的 Prices" {
   IDX CreatedAt    datetime2        not null default "sysutcdatetime()" "建立時間"
 }
 
-table audit.Taxs "Audit 模組的 Taxs" {
+table audit.Taxs "Audit 模組的 Taxs" in Audit {
   PK  Id          bigint           not null "Taxs 主鍵"
   UQ  Code        nvarchar(64)     not null "業務代碼"
       Title       decimal(18,2)    null
@@ -844,7 +859,7 @@ table audit.Taxs "Audit 模組的 Taxs" {
   IDX CreatedAt   datetime2        not null default "sysutcdatetime()" "建立時間"
 }
 
-table audit.Notes "Audit 模組的 Notes" {
+table audit.Notes "Audit 模組的 Notes" in Audit {
   PK  Id          bigint           not null "Notes 主鍵"
   UQ  Code        nvarchar(64)     not null "業務代碼"
       Version     nvarchar(4000)   not null
@@ -862,7 +877,7 @@ table audit.Notes "Audit 模組的 Notes" {
   IDX CreatedAt   datetime2        not null default "sysutcdatetime()" "建立時間"
 }
 
-table audit.Templates "Audit 模組的 Templates" {
+table audit.Templates "Audit 模組的 Templates" in Audit {
   PK  Id          bigint           not null "Templates 主鍵"
   UQ  Code        nvarchar(64)     not null "業務代碼"
       IsActive    datetime2        not null
@@ -881,7 +896,7 @@ table audit.Templates "Audit 模組的 Templates" {
   IDX CreatedAt   datetime2        not null default "sysutcdatetime()" "建立時間"
 }
 
-table audit.Settings "Audit 模組的 Settings" {
+table audit.Settings "Audit 模組的 Settings" in Audit {
   PK  Id          bigint         not null "Settings 主鍵"
   UQ  Code        nvarchar(64)   not null "業務代碼"
       Description datetime2      not null
@@ -899,7 +914,7 @@ table audit.Settings "Audit 模組的 Settings" {
   IDX CreatedAt   datetime2      not null default "sysutcdatetime()" "建立時間"
 }
 
-table audit.Prices2 "Audit 模組的 Prices2" {
+table audit.Prices2 "Audit 模組的 Prices2" in Audit {
   PK  Id          bigint           not null "Prices2 主鍵"
   UQ  Code        nvarchar(64)     not null "業務代碼"
       Notes       decimal(18,2)    not null
@@ -916,7 +931,7 @@ table audit.Prices2 "Audit 模組的 Prices2" {
   IDX CreatedAt   datetime2        not null default "sysutcdatetime()" "建立時間"
 }
 
-table audit.Taxs2 "Audit 模組的 Taxs2" {
+table audit.Taxs2 "Audit 模組的 Taxs2" in Audit {
   PK  Id           bigint           not null "Taxs2 主鍵"
   UQ  Code         nvarchar(64)     not null "業務代碼"
       ExternalId   uniqueidentifier not null "ExternalId 欄位說明"
@@ -933,7 +948,7 @@ table audit.Taxs2 "Audit 模組的 Taxs2" {
   IDX CreatedAt    datetime2        not null default "sysutcdatetime()" "建立時間"
 }
 
-table audit.Notes2 "Audit 模組的 Notes2" {
+table audit.Notes2 "Audit 模組的 Notes2" in Audit {
   PK  Id        bigint       not null "Notes2 主鍵"
   UQ  Code      nvarchar(64) not null "業務代碼"
       Status    bit          not null default 0
@@ -943,7 +958,7 @@ table audit.Notes2 "Audit 模組的 Notes2" {
   IDX CreatedAt datetime2    not null default "sysutcdatetime()" "建立時間"
 }
 
-table audit.Templates2 "Audit 模組的 Templates2" {
+table audit.Templates2 "Audit 模組的 Templates2" in Audit {
   PK  Id          bigint        not null "Templates2 主鍵"
   UQ  Code        nvarchar(64)  not null "業務代碼"
       Priority    datetime2     null
@@ -957,7 +972,7 @@ table audit.Templates2 "Audit 模組的 Templates2" {
   IDX CreatedAt   datetime2     not null default "sysutcdatetime()" "建立時間"
 }
 
-table audit.Settings2 "Audit 模組的 Settings2" {
+table audit.Settings2 "Audit 模組的 Settings2" in Audit {
   PK  Id        bigint           not null "Settings2 主鍵"
   UQ  Code      nvarchar(64)     not null "業務代碼"
       Slug      decimal(18,2)    null     "Slug 欄位說明"
@@ -970,7 +985,7 @@ table audit.Settings2 "Audit 模組的 Settings2" {
   IDX CreatedAt datetime2        not null default "sysutcdatetime()" "建立時間"
 }
 
-table audit.Prices3 "Audit 模組的 Prices3" {
+table audit.Prices3 "Audit 模組的 Prices3" in Audit {
   PK  Id          bigint         not null "Prices3 主鍵"
   UQ  Code        nvarchar(64)   not null "業務代碼"
       Amount      nvarchar(200)  null     "Amount 欄位說明"
@@ -989,7 +1004,7 @@ table audit.Prices3 "Audit 模組的 Prices3" {
   IDX CreatedAt   datetime2      not null default "sysutcdatetime()" "建立時間"
 }
 
-table audit.Taxs3 "Audit 模組的 Taxs3" {
+table audit.Taxs3 "Audit 模組的 Taxs3" in Audit {
   PK  Id          bigint           not null "Taxs3 主鍵"
   UQ  Code        nvarchar(64)     not null "業務代碼"
       Score       nvarchar(200)    not null "Score 欄位說明"
@@ -1002,7 +1017,7 @@ table audit.Taxs3 "Audit 模組的 Taxs3" {
   IDX CreatedAt   datetime2        not null default "sysutcdatetime()" "建立時間"
 }
 
-table audit.Notes3 "Audit 模組的 Notes3" {
+table audit.Notes3 "Audit 模組的 Notes3" in Audit {
   PK  Id        bigint           not null "Notes3 主鍵"
   UQ  Code      nvarchar(64)     not null "業務代碼"
       Locale    int              null     "Locale 欄位說明"
@@ -1018,7 +1033,7 @@ table audit.Notes3 "Audit 模組的 Notes3" {
   IDX CreatedAt datetime2        not null default "sysutcdatetime()" "建立時間"
 }
 
-table audit.Templates3 "Audit 模組的 Templates3" {
+table audit.Templates3 "Audit 模組的 Templates3" in Audit {
   PK    Id         bigint         not null "Templates3 主鍵"
   UQ    Code       nvarchar(64)   not null "業務代碼"
         Quantity   nvarchar(4000) not null
@@ -1034,7 +1049,7 @@ table audit.Templates3 "Audit 模組的 Templates3" {
   IDX   CreatedAt  datetime2      not null default "sysutcdatetime()" "建立時間"
 }
 
-table audit.Settings3 "Audit 模組的 Settings3" {
+table audit.Settings3 "Audit 模組的 Settings3" in Audit {
   PK  Id          bigint         not null "Settings3 主鍵"
   UQ  Code        nvarchar(64)   not null "業務代碼"
       Name        int            null
@@ -1106,7 +1121,7 @@ index IX_Settings3_ProductId on audit.Settings3(ProductId)
 ## identity（14 張表）
 
 ```dbschema
-table identity.Orders "Identity 模組的 Orders" {
+table identity.Orders "Identity 模組的 Orders" in Identity {
   PK  Id        bigint           not null "Orders 主鍵"
   UQ  Code      nvarchar(64)     not null "業務代碼"
       Version   int              null     "Version 欄位說明"
@@ -1117,7 +1132,7 @@ table identity.Orders "Identity 模組的 Orders" {
   IDX CreatedAt datetime2        not null default "sysutcdatetime()" "建立時間"
 }
 
-table identity.Shipments "Identity 模組的 Shipments" {
+table identity.Shipments "Identity 模組的 Shipments" in Identity {
   PK  Id         bigint        not null "Shipments 主鍵"
   UQ  Code       nvarchar(64)  not null "業務代碼"
       IsActive   int           not null "IsActive 欄位說明"
@@ -1130,7 +1145,7 @@ table identity.Shipments "Identity 模組的 Shipments" {
   IDX CreatedAt  datetime2     not null default "sysutcdatetime()" "建立時間"
 }
 
-table identity.Events "Identity 模組的 Events" {
+table identity.Events "Identity 模組的 Events" in Identity {
   PK  Id          bigint           not null "Events 主鍵"
   UQ  Code        nvarchar(64)     not null "業務代碼"
       Description decimal(18,2)    not null "Description 欄位說明"
@@ -1146,7 +1161,7 @@ table identity.Events "Identity 模組的 Events" {
   IDX CreatedAt   datetime2        not null default "sysutcdatetime()" "建立時間"
 }
 
-table identity.Warehouses "Identity 模組的 Warehouses" {
+table identity.Warehouses "Identity 模組的 Warehouses" in Identity {
   PK  Id          bigint         not null "Warehouses 主鍵"
   UQ  Code        nvarchar(64)   not null "業務代碼"
       Notes       int            null
@@ -1160,7 +1175,7 @@ table identity.Warehouses "Identity 模組的 Warehouses" {
   IDX CreatedAt   datetime2      not null default "sysutcdatetime()" "建立時間"
 }
 
-table identity.Users2 "Identity 模組的 Users2" {
+table identity.Users2 "Identity 模組的 Users2" in Identity {
   PK  Id           bigint           not null "Users2 主鍵"
   UQ  Code         nvarchar(64)     not null "業務代碼"
       ExternalId   nvarchar(50)     null
@@ -1174,7 +1189,7 @@ table identity.Users2 "Identity 模組的 Users2" {
   IDX CreatedAt    datetime2        not null default "sysutcdatetime()" "建立時間"
 }
 
-table identity.Orders2 "Identity 模組的 Orders2" {
+table identity.Orders2 "Identity 模組的 Orders2" in Identity {
   PK  Id           bigint         not null "Orders2 主鍵"
   UQ  Code         nvarchar(64)   not null "業務代碼"
       Status       nvarchar(200)  not null
@@ -1192,7 +1207,7 @@ table identity.Orders2 "Identity 模組的 Orders2" {
   IDX CreatedAt    datetime2      not null default "sysutcdatetime()" "建立時間"
 }
 
-table identity.Shipments2 "Identity 模組的 Shipments2" {
+table identity.Shipments2 "Identity 模組的 Shipments2" in Identity {
   PK  Id          bigint           not null "Shipments2 主鍵"
   UQ  Code        nvarchar(64)     not null "業務代碼"
       Priority    nvarchar(4000)   not null
@@ -1208,7 +1223,7 @@ table identity.Shipments2 "Identity 模組的 Shipments2" {
   IDX CreatedAt   datetime2        not null default "sysutcdatetime()" "建立時間"
 }
 
-table identity.Events2 "Identity 模組的 Events2" {
+table identity.Events2 "Identity 模組的 Events2" in Identity {
   PK  Id             bigint         not null "Events2 主鍵"
   UQ  Code           nvarchar(64)   not null "業務代碼"
       Slug           nvarchar(50)   null
@@ -1220,7 +1235,7 @@ table identity.Events2 "Identity 模組的 Events2" {
   IDX CreatedAt      datetime2      not null default "sysutcdatetime()" "建立時間"
 }
 
-table identity.Warehouses2 "Identity 模組的 Warehouses2" {
+table identity.Warehouses2 "Identity 模組的 Warehouses2" in Identity {
   PK  Id         bigint         not null "Warehouses2 主鍵"
   UQ  Code       nvarchar(64)   not null "業務代碼"
       Amount     nvarchar(4000) not null "Amount 欄位說明"
@@ -1235,7 +1250,7 @@ table identity.Warehouses2 "Identity 模組的 Warehouses2" {
   IDX CreatedAt  datetime2      not null default "sysutcdatetime()" "建立時間"
 }
 
-table identity.Users3 "Identity 模組的 Users3" {
+table identity.Users3 "Identity 模組的 Users3" in Identity {
   PK  Id          bigint        not null "Users3 主鍵"
   UQ  Code        nvarchar(64)  not null "業務代碼"
       Score       datetime2     null
@@ -1247,7 +1262,7 @@ table identity.Users3 "Identity 模組的 Users3" {
   IDX CreatedAt   datetime2     not null default "sysutcdatetime()" "建立時間"
 }
 
-table identity.Orders3 "Identity 模組的 Orders3" {
+table identity.Orders3 "Identity 模組的 Orders3" in Identity {
   PK  Id        bigint        not null "Orders3 主鍵"
   UQ  Code      nvarchar(64)  not null "業務代碼"
       Locale    decimal(18,2) null
@@ -1258,7 +1273,7 @@ table identity.Orders3 "Identity 模組的 Orders3" {
   IDX CreatedAt datetime2     not null default "sysutcdatetime()" "建立時間"
 }
 
-table identity.Shipments3 "Identity 模組的 Shipments3" {
+table identity.Shipments3 "Identity 模組的 Shipments3" in Identity {
   PK  Id          bigint       not null "Shipments3 主鍵"
   UQ  Code        nvarchar(64) not null "業務代碼"
       Quantity    bit          null     default 0 "Quantity 欄位說明"
@@ -1272,7 +1287,7 @@ table identity.Shipments3 "Identity 模組的 Shipments3" {
   IDX CreatedAt   datetime2    not null default "sysutcdatetime()" "建立時間"
 }
 
-table identity.Events3 "Identity 模組的 Events3" {
+table identity.Events3 "Identity 模組的 Events3" in Identity {
   PK  Id          bigint           not null "Events3 主鍵"
   UQ  Code        nvarchar(64)     not null "業務代碼"
       Name        nvarchar(50)     not null
@@ -1288,7 +1303,7 @@ table identity.Events3 "Identity 模組的 Events3" {
   IDX CreatedAt   datetime2        not null default "sysutcdatetime()" "建立時間"
 }
 
-table identity.Warehouses3 "Identity 模組的 Warehouses3" {
+table identity.Warehouses3 "Identity 模組的 Warehouses3" in Identity {
   PK  Id        bigint           not null "Warehouses3 主鍵"
   UQ  Code      nvarchar(64)     not null "業務代碼"
       SortOrder nvarchar(200)    not null "SortOrder 欄位說明"
@@ -1351,7 +1366,7 @@ index IX_Warehouses3_CreatedAt on identity.Warehouses3(CreatedAt)
 ## catalog（14 張表）
 
 ```dbschema
-table catalog.OrderItems "Catalog 模組的 OrderItems" {
+table catalog.OrderItems "Catalog 模組的 OrderItems" in Catalog {
   PK    Id          bigint           not null "OrderItems 主鍵"
   UQ    Code        nvarchar(64)     not null "業務代碼"
         Description nvarchar(200)    null
@@ -1370,7 +1385,7 @@ table catalog.OrderItems "Catalog 模組的 OrderItems" {
   IDX   CreatedAt   datetime2        not null default "sysutcdatetime()" "建立時間"
 }
 
-table catalog.Addresses "Catalog 模組的 Addresses" {
+table catalog.Addresses "Catalog 模組的 Addresses" in Catalog {
   PK  Id          bigint           not null "Addresses 主鍵"
   UQ  Code        nvarchar(64)     not null "業務代碼"
       Notes       nvarchar(200)    null
@@ -1387,7 +1402,7 @@ table catalog.Addresses "Catalog 模組的 Addresses" {
   IDX CreatedAt   datetime2        not null default "sysutcdatetime()" "建立時間"
 }
 
-table catalog.Metrics "Catalog 模組的 Metrics" {
+table catalog.Metrics "Catalog 模組的 Metrics" in Catalog {
   PK  Id           bigint         not null "Metrics 主鍵"
   UQ  Code         nvarchar(64)   not null "業務代碼"
       ExternalId   int            null
@@ -1405,7 +1420,7 @@ table catalog.Metrics "Catalog 模組的 Metrics" {
   IDX CreatedAt    datetime2      not null default "sysutcdatetime()" "建立時間"
 }
 
-table catalog.Stocks "Catalog 模組的 Stocks" {
+table catalog.Stocks "Catalog 模組的 Stocks" in Catalog {
   PK  Id         bigint         not null "Stocks 主鍵"
   UQ  Code       nvarchar(64)   not null "業務代碼"
       Status     decimal(18,2)  null     "Status 欄位說明"
@@ -1419,7 +1434,7 @@ table catalog.Stocks "Catalog 模組的 Stocks" {
   IDX CreatedAt  datetime2      not null default "sysutcdatetime()" "建立時間"
 }
 
-table catalog.Roles2 "Catalog 模組的 Roles2" {
+table catalog.Roles2 "Catalog 模組的 Roles2" in Catalog {
   PK  Id          bigint           not null "Roles2 主鍵"
   UQ  Code        nvarchar(64)     not null "業務代碼"
       Priority    uniqueidentifier null
@@ -1432,7 +1447,7 @@ table catalog.Roles2 "Catalog 模組的 Roles2" {
   IDX CreatedAt   datetime2        not null default "sysutcdatetime()" "建立時間"
 }
 
-table catalog.OrderItems2 "Catalog 模組的 OrderItems2" {
+table catalog.OrderItems2 "Catalog 模組的 OrderItems2" in Catalog {
   PK  Id        bigint        not null "OrderItems2 主鍵"
   UQ  Code      nvarchar(64)  not null "業務代碼"
       Slug      bigint        not null "Slug 欄位說明"
@@ -1449,7 +1464,7 @@ table catalog.OrderItems2 "Catalog 模組的 OrderItems2" {
   IDX CreatedAt datetime2     not null default "sysutcdatetime()" "建立時間"
 }
 
-table catalog.Addresses2 "Catalog 模組的 Addresses2" {
+table catalog.Addresses2 "Catalog 模組的 Addresses2" in Catalog {
   PK    Id         bigint           not null "Addresses2 主鍵"
   UQ    Code       nvarchar(64)     not null "業務代碼"
         Amount     nvarchar(50)     not null
@@ -1459,7 +1474,7 @@ table catalog.Addresses2 "Catalog 模組的 Addresses2" {
   IDX   CreatedAt  datetime2        not null default "sysutcdatetime()" "建立時間"
 }
 
-table catalog.Metrics2 "Catalog 模組的 Metrics2" {
+table catalog.Metrics2 "Catalog 模組的 Metrics2" in Catalog {
   PK  Id          bigint         not null "Metrics2 主鍵"
   UQ  Code        nvarchar(64)   not null "業務代碼"
       Score       decimal(18,2)  null
@@ -1471,7 +1486,7 @@ table catalog.Metrics2 "Catalog 模組的 Metrics2" {
   IDX CreatedAt   datetime2      not null default "sysutcdatetime()" "建立時間"
 }
 
-table catalog.Stocks2 "Catalog 模組的 Stocks2" {
+table catalog.Stocks2 "Catalog 模組的 Stocks2" in Catalog {
   PK  Id           bigint           not null "Stocks2 主鍵"
   UQ  Code         nvarchar(64)     not null "業務代碼"
       Locale       uniqueidentifier null     "Locale 欄位說明"
@@ -1483,7 +1498,7 @@ table catalog.Stocks2 "Catalog 模組的 Stocks2" {
   IDX CreatedAt    datetime2        not null default "sysutcdatetime()" "建立時間"
 }
 
-table catalog.Roles3 "Catalog 模組的 Roles3" {
+table catalog.Roles3 "Catalog 模組的 Roles3" in Catalog {
   PK  Id         bigint           not null "Roles3 主鍵"
   UQ  Code       nvarchar(64)     not null "業務代碼"
       Quantity   nvarchar(4000)   null
@@ -1500,7 +1515,7 @@ table catalog.Roles3 "Catalog 模組的 Roles3" {
   IDX CreatedAt  datetime2        not null default "sysutcdatetime()" "建立時間"
 }
 
-table catalog.OrderItems3 "Catalog 模組的 OrderItems3" {
+table catalog.OrderItems3 "Catalog 模組的 OrderItems3" in Catalog {
   PK  Id          bigint           not null "OrderItems3 主鍵"
   UQ  Code        nvarchar(64)     not null "業務代碼"
       Name        bit              not null default 0
@@ -1512,7 +1527,7 @@ table catalog.OrderItems3 "Catalog 模組的 OrderItems3" {
   IDX CreatedAt   datetime2        not null default "sysutcdatetime()" "建立時間"
 }
 
-table catalog.Addresses3 "Catalog 模組的 Addresses3" {
+table catalog.Addresses3 "Catalog 模組的 Addresses3" in Catalog {
   PK  Id          bigint         not null "Addresses3 主鍵"
   UQ  Code        nvarchar(64)   not null "業務代碼"
       SortOrder   int            not null
@@ -1528,7 +1543,7 @@ table catalog.Addresses3 "Catalog 模組的 Addresses3" {
   IDX CreatedAt   datetime2      not null default "sysutcdatetime()" "建立時間"
 }
 
-table catalog.Metrics3 "Catalog 模組的 Metrics3" {
+table catalog.Metrics3 "Catalog 模組的 Metrics3" in Catalog {
   PK  Id          bigint        not null "Metrics3 主鍵"
   UQ  Code        nvarchar(64)  not null "業務代碼"
       StartsAt    nvarchar(50)  null     "StartsAt 欄位說明"
@@ -1545,7 +1560,7 @@ table catalog.Metrics3 "Catalog 模組的 Metrics3" {
   IDX CreatedAt   datetime2     not null default "sysutcdatetime()" "建立時間"
 }
 
-table catalog.Stocks3 "Catalog 模組的 Stocks3" {
+table catalog.Stocks3 "Catalog 模組的 Stocks3" in Catalog {
   PK  Id          bigint           not null "Stocks3 主鍵"
   UQ  Code        nvarchar(64)     not null "業務代碼"
       Title       bigint           null
@@ -1609,7 +1624,7 @@ index IX_Stocks3_CreatedAt on catalog.Stocks3(CreatedAt)
 ## sales（14 張表）
 
 ```dbschema
-table sales.Carts "Sales 模組的 Carts" {
+table sales.Carts "Sales 模組的 Carts" in Sales {
   PK  Id           bigint           not null "Carts 主鍵"
   UQ  Code         nvarchar(64)     not null "業務代碼"
       ExternalId   uniqueidentifier null
@@ -1621,7 +1636,7 @@ table sales.Carts "Sales 模組的 Carts" {
   IDX CreatedAt    datetime2        not null default "sysutcdatetime()" "建立時間"
 }
 
-table sales.Carriers "Sales 模組的 Carriers" {
+table sales.Carriers "Sales 模組的 Carriers" in Sales {
   PK    Id           bigint           not null "Carriers 主鍵"
   UQ    Code         nvarchar(64)     not null "業務代碼"
         Status       bit              not null default 0 "Status 欄位說明"
@@ -1644,7 +1659,7 @@ table sales.Carriers "Sales 模組的 Carriers" {
   IDX   CreatedAt    datetime2        not null default "sysutcdatetime()" "建立時間"
 }
 
-table sales.Reports "Sales 模組的 Reports" {
+table sales.Reports "Sales 模組的 Reports" in Sales {
   PK  Id        bigint       not null "Reports 主鍵"
   UQ  Code      nvarchar(64) not null "業務代碼"
       Priority  bit          not null default 0 "Priority 欄位說明"
@@ -1655,7 +1670,7 @@ table sales.Reports "Sales 模組的 Reports" {
   IDX CreatedAt datetime2    not null default "sysutcdatetime()" "建立時間"
 }
 
-table sales.Transfers "Sales 模組的 Transfers" {
+table sales.Transfers "Sales 模組的 Transfers" in Sales {
   PK  Id        bigint         not null "Transfers 主鍵"
   UQ  Code      nvarchar(64)   not null "業務代碼"
       Slug      int            null     "Slug 欄位說明"
@@ -1664,7 +1679,7 @@ table sales.Transfers "Sales 模組的 Transfers" {
   IDX CreatedAt datetime2      not null default "sysutcdatetime()" "建立時間"
 }
 
-table sales.Permissions2 "Sales 模組的 Permissions2" {
+table sales.Permissions2 "Sales 模組的 Permissions2" in Sales {
   PK  Id          bigint           not null "Permissions2 主鍵"
   UQ  Code        nvarchar(64)     not null "業務代碼"
       Amount      nvarchar(50)     null
@@ -1676,7 +1691,7 @@ table sales.Permissions2 "Sales 模組的 Permissions2" {
   IDX CreatedAt   datetime2        not null default "sysutcdatetime()" "建立時間"
 }
 
-table sales.Carts2 "Sales 模組的 Carts2" {
+table sales.Carts2 "Sales 模組的 Carts2" in Sales {
   PK  Id          bigint       not null "Carts2 主鍵"
   UQ  Code        nvarchar(64) not null "業務代碼"
       Score       bigint       not null
@@ -1687,7 +1702,7 @@ table sales.Carts2 "Sales 模組的 Carts2" {
   IDX CreatedAt   datetime2    not null default "sysutcdatetime()" "建立時間"
 }
 
-table sales.Carriers2 "Sales 模組的 Carriers2" {
+table sales.Carriers2 "Sales 模組的 Carriers2" in Sales {
   PK  Id        bigint           not null "Carriers2 主鍵"
   UQ  Code      nvarchar(64)     not null "業務代碼"
       Locale    decimal(18,2)    not null
@@ -1702,7 +1717,7 @@ table sales.Carriers2 "Sales 模組的 Carriers2" {
   IDX CreatedAt datetime2        not null default "sysutcdatetime()" "建立時間"
 }
 
-table sales.Reports2 "Sales 模組的 Reports2" {
+table sales.Reports2 "Sales 模組的 Reports2" in Sales {
   PK  Id        bigint           not null "Reports2 主鍵"
   UQ  Code      nvarchar(64)     not null "業務代碼"
       Quantity  uniqueidentifier not null
@@ -1711,7 +1726,7 @@ table sales.Reports2 "Sales 模組的 Reports2" {
   IDX CreatedAt datetime2        not null default "sysutcdatetime()" "建立時間"
 }
 
-table sales.Transfers2 "Sales 模組的 Transfers2" {
+table sales.Transfers2 "Sales 模組的 Transfers2" in Sales {
   PK  Id          bigint           not null "Transfers2 主鍵"
   UQ  Code        nvarchar(64)     not null "業務代碼"
       Name        bit              null     default 0
@@ -1724,7 +1739,7 @@ table sales.Transfers2 "Sales 模組的 Transfers2" {
   IDX CreatedAt   datetime2        not null default "sysutcdatetime()" "建立時間"
 }
 
-table sales.Permissions3 "Sales 模組的 Permissions3" {
+table sales.Permissions3 "Sales 模組的 Permissions3" in Sales {
   PK  Id          bigint           not null "Permissions3 主鍵"
   UQ  Code        nvarchar(64)     not null "業務代碼"
       SortOrder   bit              not null default 0
@@ -1740,7 +1755,7 @@ table sales.Permissions3 "Sales 模組的 Permissions3" {
   IDX CreatedAt   datetime2        not null default "sysutcdatetime()" "建立時間"
 }
 
-table sales.Carts3 "Sales 模組的 Carts3" {
+table sales.Carts3 "Sales 模組的 Carts3" in Sales {
   PK  Id         bigint           not null "Carts3 主鍵"
   UQ  Code       nvarchar(64)     not null "業務代碼"
       StartsAt   nvarchar(4000)   not null
@@ -1758,7 +1773,7 @@ table sales.Carts3 "Sales 模組的 Carts3" {
   IDX CreatedAt  datetime2        not null default "sysutcdatetime()" "建立時間"
 }
 
-table sales.Carriers3 "Sales 模組的 Carriers3" {
+table sales.Carriers3 "Sales 模組的 Carriers3" in Sales {
   PK  Id          bigint           not null "Carriers3 主鍵"
   UQ  Code        nvarchar(64)     not null "業務代碼"
       Title       uniqueidentifier not null "Title 欄位說明"
@@ -1768,7 +1783,7 @@ table sales.Carriers3 "Sales 模組的 Carriers3" {
   IDX CreatedAt   datetime2        not null default "sysutcdatetime()" "建立時間"
 }
 
-table sales.Reports3 "Sales 模組的 Reports3" {
+table sales.Reports3 "Sales 模組的 Reports3" in Sales {
   PK  Id        bigint         not null "Reports3 主鍵"
   UQ  Code      nvarchar(64)   not null "業務代碼"
       Metadata  bigint         not null
@@ -1778,7 +1793,7 @@ table sales.Reports3 "Sales 模組的 Reports3" {
   IDX CreatedAt datetime2      not null default "sysutcdatetime()" "建立時間"
 }
 
-table sales.Transfers3 "Sales 模組的 Transfers3" {
+table sales.Transfers3 "Sales 模組的 Transfers3" in Sales {
   PK  Id         bigint         not null "Transfers3 主鍵"
   UQ  Code       nvarchar(64)   not null "業務代碼"
       EndsAt     int            null
@@ -1841,7 +1856,7 @@ index IX_Transfers3_CreatedAt on sales.Transfers3(CreatedAt)
 ## billing（14 張表）
 
 ```dbschema
-table billing.CartItems "Billing 模組的 CartItems" {
+table billing.CartItems "Billing 模組的 CartItems" in Billing {
   PK  Id          bigint           not null "CartItems 主鍵"
   UQ  Code        nvarchar(64)     not null "業務代碼"
       Priority    bigint           not null
@@ -1854,7 +1869,7 @@ table billing.CartItems "Billing 模組的 CartItems" {
   IDX CreatedAt   datetime2        not null default "sysutcdatetime()" "建立時間"
 }
 
-table billing.Packages "Billing 模組的 Packages" {
+table billing.Packages "Billing 模組的 Packages" in Billing {
   PK  Id        bigint           not null "Packages 主鍵"
   UQ  Code      nvarchar(64)     not null "業務代碼"
       Slug      bigint           null     "Slug 欄位說明"
@@ -1869,7 +1884,7 @@ table billing.Packages "Billing 模組的 Packages" {
   IDX CreatedAt datetime2        not null default "sysutcdatetime()" "建立時間"
 }
 
-table billing.Dashboards "Billing 模組的 Dashboards" {
+table billing.Dashboards "Billing 模組的 Dashboards" in Billing {
   PK  Id          bigint         not null "Dashboards 主鍵"
   UQ  Code        nvarchar(64)   not null "業務代碼"
       Amount      nvarchar(4000) null     "Amount 欄位說明"
@@ -1880,7 +1895,7 @@ table billing.Dashboards "Billing 模組的 Dashboards" {
   IDX CreatedAt   datetime2      not null default "sysutcdatetime()" "建立時間"
 }
 
-table billing.Suppliers "Billing 模組的 Suppliers" {
+table billing.Suppliers "Billing 模組的 Suppliers" in Billing {
   PK  Id          bigint           not null "Suppliers 主鍵"
   UQ  Code        nvarchar(64)     not null "業務代碼"
       Score       int              not null
@@ -1898,7 +1913,7 @@ table billing.Suppliers "Billing 模組的 Suppliers" {
   IDX CreatedAt   datetime2        not null default "sysutcdatetime()" "建立時間"
 }
 
-table billing.Sessions2 "Billing 模組的 Sessions2" {
+table billing.Sessions2 "Billing 模組的 Sessions2" in Billing {
   PK  Id           bigint         not null "Sessions2 主鍵"
   UQ  Code         nvarchar(64)   not null "業務代碼"
       Locale       bigint         not null
@@ -1911,7 +1926,7 @@ table billing.Sessions2 "Billing 模組的 Sessions2" {
   IDX CreatedAt    datetime2      not null default "sysutcdatetime()" "建立時間"
 }
 
-table billing.CartItems2 "Billing 模組的 CartItems2" {
+table billing.CartItems2 "Billing 模組的 CartItems2" in Billing {
   PK  Id         bigint           not null "CartItems2 主鍵"
   UQ  Code       nvarchar(64)     not null "業務代碼"
       Quantity   uniqueidentifier null     "Quantity 欄位說明"
@@ -1928,7 +1943,7 @@ table billing.CartItems2 "Billing 模組的 CartItems2" {
   IDX CreatedAt  datetime2        not null default "sysutcdatetime()" "建立時間"
 }
 
-table billing.Packages2 "Billing 模組的 Packages2" {
+table billing.Packages2 "Billing 模組的 Packages2" in Billing {
   PK    Id        bigint       not null "Packages2 主鍵"
   UQ    Code      nvarchar(64) not null "業務代碼"
         Name      nvarchar(50) not null "Name 欄位說明"
@@ -1939,7 +1954,7 @@ table billing.Packages2 "Billing 模組的 Packages2" {
   IDX   CreatedAt datetime2    not null default "sysutcdatetime()" "建立時間"
 }
 
-table billing.Dashboards2 "Billing 模組的 Dashboards2" {
+table billing.Dashboards2 "Billing 模組的 Dashboards2" in Billing {
   PK  Id        bigint        not null "Dashboards2 主鍵"
   UQ  Code      nvarchar(64)  not null "業務代碼"
       SortOrder nvarchar(50)  null
@@ -1951,7 +1966,7 @@ table billing.Dashboards2 "Billing 模組的 Dashboards2" {
   IDX CreatedAt datetime2     not null default "sysutcdatetime()" "建立時間"
 }
 
-table billing.Suppliers2 "Billing 模組的 Suppliers2" {
+table billing.Suppliers2 "Billing 模組的 Suppliers2" in Billing {
   PK  Id         bigint           not null "Suppliers2 主鍵"
   UQ  Code       nvarchar(64)     not null "業務代碼"
       StartsAt   decimal(18,2)    null
@@ -1969,7 +1984,7 @@ table billing.Suppliers2 "Billing 模組的 Suppliers2" {
   IDX CreatedAt  datetime2        not null default "sysutcdatetime()" "建立時間"
 }
 
-table billing.Sessions3 "Billing 模組的 Sessions3" {
+table billing.Sessions3 "Billing 模組的 Sessions3" in Billing {
   PK  Id          bigint           not null "Sessions3 主鍵"
   UQ  Code        nvarchar(64)     not null "業務代碼"
       Title       int              not null
@@ -1980,7 +1995,7 @@ table billing.Sessions3 "Billing 模組的 Sessions3" {
   IDX CreatedAt   datetime2        not null default "sysutcdatetime()" "建立時間"
 }
 
-table billing.CartItems3 "Billing 模組的 CartItems3" {
+table billing.CartItems3 "Billing 模組的 CartItems3" in Billing {
   PK  Id          bigint           not null "CartItems3 主鍵"
   UQ  Code        nvarchar(64)     not null "業務代碼"
       Metadata    nvarchar(200)    null
@@ -1996,7 +2011,7 @@ table billing.CartItems3 "Billing 模組的 CartItems3" {
   IDX CreatedAt   datetime2        not null default "sysutcdatetime()" "建立時間"
 }
 
-table billing.Packages3 "Billing 模組的 Packages3" {
+table billing.Packages3 "Billing 模組的 Packages3" in Billing {
   PK  Id          bigint        not null "Packages3 主鍵"
   UQ  Code        nvarchar(64)  not null "業務代碼"
       EndsAt      int           null
@@ -2013,7 +2028,7 @@ table billing.Packages3 "Billing 模組的 Packages3" {
   IDX CreatedAt   datetime2     not null default "sysutcdatetime()" "建立時間"
 }
 
-table billing.Dashboards3 "Billing 模組的 Dashboards3" {
+table billing.Dashboards3 "Billing 模組的 Dashboards3" in Billing {
   PK  Id          bigint         not null "Dashboards3 主鍵"
   UQ  Code        nvarchar(64)   not null "業務代碼"
       Title       nvarchar(200)  null
@@ -2027,7 +2042,7 @@ table billing.Dashboards3 "Billing 模組的 Dashboards3" {
   IDX CreatedAt   datetime2      not null default "sysutcdatetime()" "建立時間"
 }
 
-table billing.Suppliers3 "Billing 模組的 Suppliers3" {
+table billing.Suppliers3 "Billing 模組的 Suppliers3" in Billing {
   PK  Id          bigint           not null "Suppliers3 主鍵"
   UQ  Code        nvarchar(64)     not null "業務代碼"
       Version     datetime2        null
@@ -2094,7 +2109,7 @@ index IX_Suppliers3_OrderItemId on billing.Suppliers3(OrderItemId)
 ## shipping（14 張表）
 
 ```dbschema
-table shipping.Coupons "Shipping 模組的 Coupons" {
+table shipping.Coupons "Shipping 模組的 Coupons" in Shipping {
   PK  Id         bigint           not null "Coupons 主鍵"
   UQ  Code       nvarchar(64)     not null "業務代碼"
       Amount     uniqueidentifier null
@@ -2106,7 +2121,7 @@ table shipping.Coupons "Shipping 模組的 Coupons" {
   IDX CreatedAt  datetime2        not null default "sysutcdatetime()" "建立時間"
 }
 
-table shipping.Trackings "Shipping 模組的 Trackings" {
+table shipping.Trackings "Shipping 模組的 Trackings" in Shipping {
   PK  Id          bigint         not null "Trackings 主鍵"
   UQ  Code        nvarchar(64)   not null "業務代碼"
       Score       nvarchar(4000) null
@@ -2117,7 +2132,7 @@ table shipping.Trackings "Shipping 模組的 Trackings" {
   IDX CreatedAt   datetime2      not null default "sysutcdatetime()" "建立時間"
 }
 
-table shipping.Snapshots "Shipping 模組的 Snapshots" {
+table shipping.Snapshots "Shipping 模組的 Snapshots" in Shipping {
   PK  Id          bigint           not null "Snapshots 主鍵"
   UQ  Code        nvarchar(64)     not null "業務代碼"
       Locale      nvarchar(50)     not null "Locale 欄位說明"
@@ -2131,7 +2146,7 @@ table shipping.Snapshots "Shipping 模組的 Snapshots" {
   IDX CreatedAt   datetime2        not null default "sysutcdatetime()" "建立時間"
 }
 
-table shipping.Purchases "Shipping 模組的 Purchases" {
+table shipping.Purchases "Shipping 模組的 Purchases" in Shipping {
   PK  Id         bigint           not null "Purchases 主鍵"
   UQ  Code       nvarchar(64)     not null "業務代碼"
       Quantity   nvarchar(200)    null     "Quantity 欄位說明"
@@ -2150,7 +2165,7 @@ table shipping.Purchases "Shipping 模組的 Purchases" {
   IDX CreatedAt  datetime2        not null default "sysutcdatetime()" "建立時間"
 }
 
-table shipping.Tokens2 "Shipping 模組的 Tokens2" {
+table shipping.Tokens2 "Shipping 模組的 Tokens2" in Shipping {
   PK  Id          bigint           not null "Tokens2 主鍵"
   UQ  Code        nvarchar(64)     not null "業務代碼"
       Name        uniqueidentifier null     "Name 欄位說明"
@@ -2162,7 +2177,7 @@ table shipping.Tokens2 "Shipping 模組的 Tokens2" {
   IDX CreatedAt   datetime2        not null default "sysutcdatetime()" "建立時間"
 }
 
-table shipping.Coupons2 "Shipping 模組的 Coupons2" {
+table shipping.Coupons2 "Shipping 模組的 Coupons2" in Shipping {
   PK  Id        bigint           not null "Coupons2 主鍵"
   UQ  Code      nvarchar(64)     not null "業務代碼"
       SortOrder nvarchar(200)    not null "SortOrder 欄位說明"
@@ -2176,7 +2191,7 @@ table shipping.Coupons2 "Shipping 模組的 Coupons2" {
   IDX CreatedAt datetime2        not null default "sysutcdatetime()" "建立時間"
 }
 
-table shipping.Trackings2 "Shipping 模組的 Trackings2" {
+table shipping.Trackings2 "Shipping 模組的 Trackings2" in Shipping {
   PK  Id         bigint           not null "Trackings2 主鍵"
   UQ  Code       nvarchar(64)     not null "業務代碼"
       StartsAt   decimal(18,2)    not null "StartsAt 欄位說明"
@@ -2194,7 +2209,7 @@ table shipping.Trackings2 "Shipping 模組的 Trackings2" {
   IDX CreatedAt  datetime2        not null default "sysutcdatetime()" "建立時間"
 }
 
-table shipping.Snapshots2 "Shipping 模組的 Snapshots2" {
+table shipping.Snapshots2 "Shipping 模組的 Snapshots2" in Shipping {
   PK  Id          bigint         not null "Snapshots2 主鍵"
   UQ  Code        nvarchar(64)   not null "業務代碼"
       Title       bit            null     default 0 "Title 欄位說明"
@@ -2206,7 +2221,7 @@ table shipping.Snapshots2 "Shipping 模組的 Snapshots2" {
   IDX CreatedAt   datetime2      not null default "sysutcdatetime()" "建立時間"
 }
 
-table shipping.Purchases2 "Shipping 模組的 Purchases2" {
+table shipping.Purchases2 "Shipping 模組的 Purchases2" in Shipping {
   PK  Id           bigint           not null "Purchases2 主鍵"
   UQ  Code         nvarchar(64)     not null "業務代碼"
       Metadata     datetime2        not null "Metadata 欄位說明"
@@ -2222,7 +2237,7 @@ table shipping.Purchases2 "Shipping 模組的 Purchases2" {
   IDX CreatedAt    datetime2        not null default "sysutcdatetime()" "建立時間"
 }
 
-table shipping.Tokens3 "Shipping 模組的 Tokens3" {
+table shipping.Tokens3 "Shipping 模組的 Tokens3" in Shipping {
   PK  Id         bigint           not null "Tokens3 主鍵"
   UQ  Code       nvarchar(64)     not null "業務代碼"
       EndsAt     int              null     "EndsAt 欄位說明"
@@ -2240,7 +2255,7 @@ table shipping.Tokens3 "Shipping 模組的 Tokens3" {
   IDX CreatedAt  datetime2        not null default "sysutcdatetime()" "建立時間"
 }
 
-table shipping.Coupons3 "Shipping 模組的 Coupons3" {
+table shipping.Coupons3 "Shipping 模組的 Coupons3" in Shipping {
   PK  Id          bigint           not null "Coupons3 主鍵"
   UQ  Code        nvarchar(64)     not null "業務代碼"
       Title       nvarchar(200)    not null
@@ -2254,7 +2269,7 @@ table shipping.Coupons3 "Shipping 模組的 Coupons3" {
   IDX CreatedAt   datetime2        not null default "sysutcdatetime()" "建立時間"
 }
 
-table shipping.Trackings3 "Shipping 模組的 Trackings3" {
+table shipping.Trackings3 "Shipping 模組的 Trackings3" in Shipping {
   PK  Id           bigint           not null "Trackings3 主鍵"
   UQ  Code         nvarchar(64)     not null "業務代碼"
       Version      uniqueidentifier null
@@ -2275,7 +2290,7 @@ table shipping.Trackings3 "Shipping 模組的 Trackings3" {
   IDX CreatedAt    datetime2        not null default "sysutcdatetime()" "建立時間"
 }
 
-table shipping.Snapshots3 "Shipping 模組的 Snapshots3" {
+table shipping.Snapshots3 "Shipping 模組的 Snapshots3" in Shipping {
   PK  Id           bigint           not null "Snapshots3 主鍵"
   UQ  Code         nvarchar(64)     not null "業務代碼"
       IsActive     nvarchar(200)    null
@@ -2288,7 +2303,7 @@ table shipping.Snapshots3 "Shipping 模組的 Snapshots3" {
   IDX CreatedAt    datetime2        not null default "sysutcdatetime()" "建立時間"
 }
 
-table shipping.Purchases3 "Shipping 模組的 Purchases3" {
+table shipping.Purchases3 "Shipping 模組的 Purchases3" in Shipping {
   PK  Id          bigint        not null "Purchases3 主鍵"
   UQ  Code        nvarchar(64)  not null "業務代碼"
       Description bit           null     default 0
@@ -2355,7 +2370,7 @@ index IX_Purchases3_CategorieId on shipping.Purchases3(CategorieId)
 ## support（14 張表）
 
 ```dbschema
-table support.Invoices "Support 模組的 Invoices" {
+table support.Invoices "Support 模組的 Invoices" in Support {
   PK  Id        bigint           not null "Invoices 主鍵"
   UQ  Code      nvarchar(64)     not null "業務代碼"
       Locale    uniqueidentifier null     "Locale 欄位說明"
@@ -2369,7 +2384,7 @@ table support.Invoices "Support 模組的 Invoices" {
   IDX CreatedAt datetime2        not null default "sysutcdatetime()" "建立時間"
 }
 
-table support.Tickets "Support 模組的 Tickets" {
+table support.Tickets "Support 模組的 Tickets" in Support {
   PK  Id          bigint        not null "Tickets 主鍵"
   UQ  Code        nvarchar(64)  not null "業務代碼"
       Quantity    bigint        null     "Quantity 欄位說明"
@@ -2379,7 +2394,7 @@ table support.Tickets "Support 模組的 Tickets" {
   IDX CreatedAt   datetime2     not null default "sysutcdatetime()" "建立時間"
 }
 
-table support.Posts "Support 模組的 Posts" {
+table support.Posts "Support 模組的 Posts" in Support {
   PK  Id          bigint           not null "Posts 主鍵"
   UQ  Code        nvarchar(64)     not null "業務代碼"
       Name        datetime2        not null
@@ -2388,7 +2403,7 @@ table support.Posts "Support 模組的 Posts" {
   IDX CreatedAt   datetime2        not null default "sysutcdatetime()" "建立時間"
 }
 
-table support.AuditLogs "Support 模組的 AuditLogs" {
+table support.AuditLogs "Support 模組的 AuditLogs" in Support {
   PK  Id          bigint           not null "AuditLogs 主鍵"
   UQ  Code        nvarchar(64)     not null "業務代碼"
       SortOrder   nvarchar(50)     not null
@@ -2406,7 +2421,7 @@ table support.AuditLogs "Support 模組的 AuditLogs" {
   IDX CreatedAt   datetime2        not null default "sysutcdatetime()" "建立時間"
 }
 
-table support.Products2 "Support 模組的 Products2" {
+table support.Products2 "Support 模組的 Products2" in Support {
   PK  Id         bigint           not null "Products2 主鍵"
   UQ  Code       nvarchar(64)     not null "業務代碼"
       StartsAt   nvarchar(4000)   not null
@@ -2419,7 +2434,7 @@ table support.Products2 "Support 模組的 Products2" {
   IDX CreatedAt  datetime2        not null default "sysutcdatetime()" "建立時間"
 }
 
-table support.Invoices2 "Support 模組的 Invoices2" {
+table support.Invoices2 "Support 模組的 Invoices2" in Support {
   PK  Id          bigint           not null "Invoices2 主鍵"
   UQ  Code        nvarchar(64)     not null "業務代碼"
       Title       nvarchar(200)    not null
@@ -2429,7 +2444,7 @@ table support.Invoices2 "Support 模組的 Invoices2" {
   IDX CreatedAt   datetime2        not null default "sysutcdatetime()" "建立時間"
 }
 
-table support.Tickets2 "Support 模組的 Tickets2" {
+table support.Tickets2 "Support 模組的 Tickets2" in Support {
   PK  Id            bigint         not null "Tickets2 主鍵"
   UQ  Code          nvarchar(64)   not null "業務代碼"
       Metadata      datetime2      not null
@@ -2446,7 +2461,7 @@ table support.Tickets2 "Support 模組的 Tickets2" {
   IDX CreatedAt     datetime2      not null default "sysutcdatetime()" "建立時間"
 }
 
-table support.Posts2 "Support 模組的 Posts2" {
+table support.Posts2 "Support 模組的 Posts2" in Support {
   PK  Id         bigint           not null "Posts2 主鍵"
   UQ  Code       nvarchar(64)     not null "業務代碼"
       EndsAt     bigint           null
@@ -2461,7 +2476,7 @@ table support.Posts2 "Support 模組的 Posts2" {
   IDX CreatedAt  datetime2        not null default "sysutcdatetime()" "建立時間"
 }
 
-table support.AuditLogs2 "Support 模組的 AuditLogs2" {
+table support.AuditLogs2 "Support 模組的 AuditLogs2" in Support {
   PK  Id          bigint         not null "AuditLogs2 主鍵"
   UQ  Code        nvarchar(64)   not null "業務代碼"
       Title       nvarchar(4000) null
@@ -2473,7 +2488,7 @@ table support.AuditLogs2 "Support 模組的 AuditLogs2" {
   IDX CreatedAt   datetime2      not null default "sysutcdatetime()" "建立時間"
 }
 
-table support.Products3 "Support 模組的 Products3" {
+table support.Products3 "Support 模組的 Products3" in Support {
   PK  Id          bigint           not null "Products3 主鍵"
   UQ  Code        nvarchar(64)     not null "業務代碼"
       Version     int              not null
@@ -2486,7 +2501,7 @@ table support.Products3 "Support 模組的 Products3" {
   IDX CreatedAt   datetime2        not null default "sysutcdatetime()" "建立時間"
 }
 
-table support.Invoices3 "Support 模組的 Invoices3" {
+table support.Invoices3 "Support 模組的 Invoices3" in Support {
   PK    Id         bigint         not null "Invoices3 主鍵"
   UQ    Code       nvarchar(64)   not null "業務代碼"
         IsActive   nvarchar(50)   null
@@ -2501,7 +2516,7 @@ table support.Invoices3 "Support 模組的 Invoices3" {
   IDX   CreatedAt  datetime2      not null default "sysutcdatetime()" "建立時間"
 }
 
-table support.Tickets3 "Support 模組的 Tickets3" {
+table support.Tickets3 "Support 模組的 Tickets3" in Support {
   PK  Id          bigint           not null "Tickets3 主鍵"
   UQ  Code        nvarchar(64)     not null "業務代碼"
       Description uniqueidentifier null
@@ -2515,7 +2530,7 @@ table support.Tickets3 "Support 模組的 Tickets3" {
   IDX CreatedAt   datetime2        not null default "sysutcdatetime()" "建立時間"
 }
 
-table support.Posts3 "Support 模組的 Posts3" {
+table support.Posts3 "Support 模組的 Posts3" in Support {
   PK  Id           bigint           not null "Posts3 主鍵"
   UQ  Code         nvarchar(64)     not null "業務代碼"
       Notes        int              null
@@ -2529,7 +2544,7 @@ table support.Posts3 "Support 模組的 Posts3" {
   IDX CreatedAt    datetime2        not null default "sysutcdatetime()" "建立時間"
 }
 
-table support.AuditLogs3 "Support 模組的 AuditLogs3" {
+table support.AuditLogs3 "Support 模組的 AuditLogs3" in Support {
   PK  Id           bigint           not null "AuditLogs3 主鍵"
   UQ  Code         nvarchar(64)     not null "業務代碼"
       ExternalId   nvarchar(50)     null
@@ -2604,7 +2619,7 @@ index IX_AuditLogs3_CommentId on support.AuditLogs3(CommentId)
 ## dbo（6 張表）
 
 ```dbschema
-table dbo.Users "Identity 模組的 Users" {
+table dbo.Users "Identity 模組的 Users" in Identity {
   PK  Id          bigint         not null "Users 主鍵"
   UQ  Code        nvarchar(64)   not null "業務代碼"
       Title       nvarchar(4000) not null
@@ -2624,7 +2639,7 @@ table dbo.Users "Identity 模組的 Users" {
   IDX CreatedAt   datetime2      not null default "sysutcdatetime()" "建立時間"
 }
 
-table dbo.Roles "Catalog 模組的 Roles" {
+table dbo.Roles "Catalog 模組的 Roles" in Catalog {
   PK  Id         bigint           not null "Roles 主鍵"
   UQ  Code       nvarchar(64)     not null "業務代碼"
       IsActive   uniqueidentifier not null
@@ -2635,7 +2650,7 @@ table dbo.Roles "Catalog 模組的 Roles" {
   IDX CreatedAt  datetime2        not null default "sysutcdatetime()" "建立時間"
 }
 
-table dbo.Permissions "Sales 模組的 Permissions" {
+table dbo.Permissions "Sales 模組的 Permissions" in Sales {
   PK  Id        bigint       not null "Permissions 主鍵"
   UQ  Code      nvarchar(64) not null "業務代碼"
       Notes     nvarchar(50) null
@@ -2646,7 +2661,7 @@ table dbo.Permissions "Sales 模組的 Permissions" {
   IDX CreatedAt datetime2    not null default "sysutcdatetime()" "建立時間"
 }
 
-table dbo.Sessions "Billing 模組的 Sessions" {
+table dbo.Sessions "Billing 模組的 Sessions" in Billing {
   PK  Id         bigint           not null "Sessions 主鍵"
   UQ  Code       nvarchar(64)     not null "業務代碼"
       Status     int              null     "Status 欄位說明"
@@ -2662,7 +2677,7 @@ table dbo.Sessions "Billing 模組的 Sessions" {
   IDX CreatedAt  datetime2        not null default "sysutcdatetime()" "建立時間"
 }
 
-table dbo.Tokens "Shipping 模組的 Tokens" {
+table dbo.Tokens "Shipping 模組的 Tokens" in Shipping {
   PK  Id           bigint           not null "Tokens 主鍵"
   UQ  Code         nvarchar(64)     not null "業務代碼"
       Slug         datetime2        null     "Slug 欄位說明"
@@ -2675,7 +2690,7 @@ table dbo.Tokens "Shipping 模組的 Tokens" {
   IDX CreatedAt    datetime2        not null default "sysutcdatetime()" "建立時間"
 }
 
-table dbo.Products "Support 模組的 Products" {
+table dbo.Products "Support 模組的 Products" in Support {
   PK  Id          bigint        not null "Products 主鍵"
   UQ  Code        nvarchar(64)  not null "業務代碼"
       Score       bit           null     default 0

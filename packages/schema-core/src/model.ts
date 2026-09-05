@@ -56,8 +56,27 @@ export interface Table {
   schema: string;
   name: string;
   comment?: string;
+  /**
+   * 所屬群組名稱（功能模組）。
+   *
+   * 與 `schema` 是不同維度：schema 是資料庫命名空間，
+   * group 是人為的功能分類，可以跨 schema。
+   */
+  group?: string;
   columns: Column[];
   indexes: Index[];
+  location?: SourceLocation;
+}
+
+/**
+ * 群組（功能模組）宣告。
+ *
+ * 成員關係存在 `Table.group`，這裡只保存名稱與描述，
+ * 避免同一件事有兩份可能互相矛盾的紀錄。
+ */
+export interface TableGroup {
+  name: string;
+  description?: string;
   location?: SourceLocation;
 }
 
@@ -84,6 +103,12 @@ export interface Schema {
   metadata: SchemaMetadata;
   tables: Table[];
   relations: Relation[];
+  /**
+   * 群組宣告；未宣告而被 table 直接引用的群組視為隱含存在。
+   *
+   * 選填是為了向後相容：v0.1.x 產生的 `*.schema.json` 沒有這個欄位。
+   */
+  groups?: TableGroup[];
 }
 
 export const SCHEMA_VERSION = "1";

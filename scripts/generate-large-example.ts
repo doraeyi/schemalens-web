@@ -24,8 +24,12 @@ for (const table of schema.tables) {
   else byModule.set(table.schema, [table]);
 }
 
+/** 群組宣告只輸出一次，各模組區塊只帶自己的 table。 */
 const dslFor = (tables: Table[], relations: Schema["relations"]): string =>
-  toDsl({ ...schema, tables, relations }).trimEnd();
+  toDsl({ ...schema, tables, relations, groups: [] }).trimEnd();
+
+const groupsBlock = (): string =>
+  toDsl({ ...schema, tables: [], relations: [], groups: schema.groups ?? [] }).trimEnd();
 
 const modules = [...byModule.entries()].sort((a, b) => b[1].length - a[1].length);
 
@@ -54,6 +58,12 @@ const lines: string[] = [
   "> 本檔由 `npm run example:large` 產生，請勿手動編輯。",
   "",
   "---",
+  "",
+  `## 群組（${(schema.groups ?? []).length} 個功能模組）`,
+  "",
+  "```dbschema",
+  groupsBlock(),
+  "```",
   "",
 ];
 

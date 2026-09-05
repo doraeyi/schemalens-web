@@ -10,6 +10,7 @@ import {
   type Schema,
   type SchemaDiagnostic,
   type Table,
+  type TableGroup,
 } from "@schemalens/schema-core";
 
 export interface JsonSerializeOptions {
@@ -33,6 +34,7 @@ export function toJson(schema: Schema, options: JsonSerializeOptions = {}): stri
 
 export function toJsonObject(schema: Schema, options: JsonSerializeOptions = {}): unknown {
   const tables = [...schema.tables].sort((a, b) => a.id.localeCompare(b.id));
+  const groups = [...(schema.groups ?? [])].sort((a, b) => a.name.localeCompare(b.name));
   const relations = [...schema.relations].sort((a, b) => a.name.localeCompare(b.name));
 
   return {
@@ -46,6 +48,7 @@ export function toJsonObject(schema: Schema, options: JsonSerializeOptions = {})
       schema: table.schema,
       name: table.name,
       comment: table.comment,
+      group: table.group,
       columns: table.columns.map((column) => ({
         name: column.name,
         type: column.type,
@@ -68,6 +71,11 @@ export function toJsonObject(schema: Schema, options: JsonSerializeOptions = {})
         ...(options.includeLocations && index.location ? { location: index.location } : {}),
       })),
       ...(options.includeLocations && table.location ? { location: table.location } : {}),
+    })),
+    groups: groups.map((group) => ({
+      name: group.name,
+      description: group.description,
+      ...(options.includeLocations && group.location ? { location: group.location } : {}),
     })),
     relations: relations.map((relation) => ({
       name: relation.name,
@@ -176,8 +184,24 @@ export function fromJson(input: string | unknown, file?: string): FromJsonResult
       schema: tableSchema,
       name: entry.name,
       comment: typeof entry.comment === "string" ? entry.comment : undefined,
+      group: typeof entry.group === "string" ? entry.group : undefined,
       columns,
       indexes,
+    });
+  }
+
+  const groups: TableGroup[] = [];
+  const seenGroups = new Set<string>();
+  for (const entry of asArray(raw.groups, "groups", report)) {
+    if (!isRecord(entry) || typeof entry.name !== "string") {
+      report("group 缺少 name，已跳過");
+      continue;
+    }
+    if (seenGroups.has(entry.name)) continue;
+    seenGroups.add(entry.name);
+    groups.push({
+      name: entry.name,
+      description: typeof entry.description === "string" ? entry.description : undefined,
     });
   }
 
@@ -215,6 +239,7 @@ export function fromJson(input: string | unknown, file?: string): FromJsonResult
     metadata: { name: schemaName, defaultSchema },
     tables,
     relations,
+    groups,
   };
   // JSON 內的 foreignKey / indexed 可能沒寫或過期，一律重新推導。
   const declared = snapshotFlags(schema);
@@ -230,6 +255,7 @@ function emptySchemaWith(name: string | undefined): Schema {
     metadata: { name, defaultSchema: DEFAULT_SCHEMA_NAME },
     tables: [],
     relations: [],
+    groups: [],
   };
 }
 

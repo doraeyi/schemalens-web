@@ -9,6 +9,7 @@ import {
   type Relation,
   type Schema,
   type Table,
+  type TableGroup,
 } from "@schemalens/schema-core";
 
 /**
@@ -198,6 +199,8 @@ export function generateSchema(options: GenerateOptions): Schema {
       schema,
       name,
       comment: `${MODULES[i % MODULES.length]!} 模組的 ${name}`,
+      // 群組 = 功能模組，與 schema（資料庫命名空間）是不同維度。
+      group: MODULES[i % MODULES.length]!,
       columns,
       indexes,
     });
@@ -261,11 +264,18 @@ export function generateSchema(options: GenerateOptions): Schema {
     addRelation(source, target, `${target.name.replace(/s$/, "")}Id`, cardinality);
   }
 
+  const usedModules = new Set(tables.map((table) => table.group!).filter(Boolean));
+  const groups: TableGroup[] = MODULES.filter((name) => usedModules.has(name)).map((name) => ({
+    name,
+    description: `${name} 功能模組`,
+  }));
+
   const schema: Schema = {
     version: SCHEMA_VERSION,
     metadata: { name: `Synthetic ${tableCount} Tables`, defaultSchema: DEFAULT_SCHEMA_NAME },
     tables,
     relations,
+    groups,
   };
   deriveColumnFlags(schema);
   return schema;

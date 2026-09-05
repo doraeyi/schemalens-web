@@ -31,7 +31,18 @@ export interface TableNode {
   kind: "table";
   name: QualifiedNameNode;
   comment?: string;
+  /** `table X ... in Identity { }` 的群組名稱。 */
+  group?: string;
   columns: ColumnNode[];
+  location: SourceLocation;
+}
+
+export interface GroupNode {
+  kind: "group";
+  name: string;
+  description?: string;
+  /** 區塊形式列出的成員；沒有區塊時為空陣列。 */
+  members: QualifiedNameNode[];
   location: SourceLocation;
 }
 
@@ -65,7 +76,7 @@ export interface RelationNode {
   location: SourceLocation;
 }
 
-export type StatementNode = TableNode | IndexNode | RelationNode;
+export type StatementNode = TableNode | IndexNode | RelationNode | GroupNode;
 
 export interface SchemaFileNode {
   file?: string;
