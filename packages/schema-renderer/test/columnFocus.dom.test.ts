@@ -314,3 +314,69 @@ describe("table focus 與欄位聚焦同時存在", () => {
     );
   });
 });
+
+/**
+ * 使用者回報的順序：點表聚焦 → 點該表欄位 → 再點另一張表的欄位。
+ * 原本第一張表仍掛著 selected 外框，裡面卻沒有任何亮起的欄位，
+ * 畫面上兩個焦點各說各話。
+ */
+describe("點欄位時 table focus 一起跟過去", () => {
+  const clickRow = (host: HTMLElement, table: string, column: string): void => {
+    row(host, table, column).dispatchEvent(new MouseEvent("click", { bubbles: true }));
+  };
+  const clickHeader = (host: HTMLElement, tableId: string): void => {
+    host
+      .querySelector(`[data-table-id="${tableId}"] .dbs-card-header`)!
+      .dispatchEvent(new MouseEvent("click", { bubbles: true }));
+  };
+
+  it("點另一張表的欄位後，原本的表不再是 selected", () => {
+    const { host, renderer } = mount();
+    clickHeader(host, "dbo.Orders");
+    expect(host.querySelector('[data-table-id="dbo.Orders"]')!.classList.contains("is-selected")).toBe(true);
+
+    clickRow(host, "Users", "Id");
+
+    expect(host.querySelector('[data-table-id="dbo.Orders"]')!.classList.contains("is-selected")).toBe(false);
+    expect(renderer.getViewState().focus.tableId).toBe("dbo.Users");
+  });
+
+  it("同一張表內先點表再點欄位，狀態一致", () => {
+    const { host, renderer } = mount();
+    clickHeader(host, "dbo.Users");
+    clickRow(host, "Users", "Id");
+
+    expect(renderer.getViewState().focus.tableId).toBe("dbo.Users");
+    expect(renderer.getViewState().columnFocus).toEqual({ tableId: "dbo.Users", column: "Id" });
+    expect(row(host, "Users", "Id").classList.contains("is-column-focus")).toBe(true);
+  });
+
+  it("不會有「外框亮著但裡面沒有亮起欄位」的卡片", () => {
+    const { host } = mount();
+    clickHeader(host, "dbo.Orders");
+    clickRow(host, "Users", "Id");
+
+    const selected = host.querySelector<HTMLElement>(".dbs-card.is-selected")!;
+    expect(selected.getAttribute("data-table-id")).toBe("dbo.Users");
+    expect(selected.querySelector(".dbs-row.is-column-focus")).not.toBeNull();
+  });
+
+  it("點欄位不會把視角移走——使用者點的是眼前看得到的欄位", () => {
+    const { host } = mount();
+    const viewport = host.querySelector<HTMLElement>(".dbs-viewport")!;
+    clickHeader(host, "dbo.Orders");
+    const before = viewport.style.transform;
+
+    clickRow(host, "Users", "Id");
+    expect(viewport.style.transform).toBe(before);
+  });
+
+  it("再點同一個欄位取消聚焦，但 table focus 留著", () => {
+    const { host, renderer } = mount();
+    clickRow(host, "Users", "Id");
+    clickRow(host, "Users", "Id");
+
+    expect(renderer.getViewState().columnFocus).toBeNull();
+    expect(renderer.getViewState().focus.tableId).toBe("dbo.Users");
+  });
+});
