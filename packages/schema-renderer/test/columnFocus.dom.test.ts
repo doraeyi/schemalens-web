@@ -99,17 +99,28 @@ describe("點欄位聚焦", () => {
     const { host, renderer } = mount();
     renderer.focusColumn("dbo.Users", "Id");
 
-    const participants = [...host.querySelectorAll(".dbs-card.is-column-participant")].map((el) =>
+    // 起點表是 selected，其餘參與者是 related。
+    expect(host.querySelector('[data-table-id="dbo.Users"]')!.classList.contains("is-selected")).toBe(true);
+    const lit = [...host.querySelectorAll(".dbs-card.is-related")].map((el) =>
       el.getAttribute("data-table-id"),
     );
-    expect(participants.sort()).toEqual(["dbo.Comments", "dbo.Orders", "dbo.Users"]);
+    expect(lit.sort()).toEqual(["dbo.Comments", "dbo.Orders"]);
+  });
+
+  it("與該欄位無關的表不會亮起——即使它在表層級與焦點表相鄰", () => {
+    const { host, renderer } = mount();
+    // Users.Email 沒有任何 FK 對應，因此除了 Users 自己都不該亮。
+    renderer.focusColumn("dbo.Users", "Email");
+
+    expect(host.querySelectorAll(".dbs-card.is-related")).toHaveLength(0);
+    expect(host.querySelector('[data-table-id="dbo.Orders"]')!.classList.contains("is-dimmed")).toBe(true);
   });
 
   it("取消聚焦後卡片標記也移除", () => {
     const { host, renderer } = mount();
     renderer.focusColumn("dbo.Users", "Id");
     renderer.clearColumnFocus();
-    expect(host.querySelectorAll(".is-column-participant")).toHaveLength(0);
+    expect(host.querySelectorAll(".dbs-card.is-related, .dbs-card.is-selected")).toHaveLength(0);
   });
 
   it("雜訊欄位是降低透明度而不是隱藏，使用者才不會以為欄位不存在", () => {
@@ -239,7 +250,7 @@ describe("table focus 與欄位聚焦同時存在", () => {
 
     const users = host.querySelector('[data-table-id="dbo.Users"]')!;
     expect(users.classList.contains("is-dimmed")).toBe(false);
-    expect(users.classList.contains("is-column-participant")).toBe(true);
+    expect(users.classList.contains("is-selected")).toBe(true);
   });
 
   it("該欄位確實亮起，而不是被卡片的透明度壓掉", () => {
@@ -262,7 +273,7 @@ describe("table focus 與欄位聚焦同時存在", () => {
     // Comments.UserId 也指向 Users.Id，同樣是參與者。
     const comments = host.querySelector('[data-table-id="dbo.Comments"]')!;
     expect(comments.classList.contains("is-dimmed")).toBe(false);
-    expect(comments.classList.contains("is-column-participant")).toBe(true);
+    expect(comments.classList.contains("is-related")).toBe(true);
   });
 
   it("參與的關聯線會 highlight，即使原本在 focus 範圍外", () => {

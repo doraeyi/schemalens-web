@@ -1,5 +1,5 @@
 import type { Schema, TableId } from "@schemalens/schema-core";
-import { getRelatedTables, type SchemaGraph } from "@schemalens/schema-graph";
+import { getRelatedColumns, getRelatedTables, type SchemaGraph } from "@schemalens/schema-graph";
 import type { ViewState } from "./viewState.js";
 
 /**
@@ -39,6 +39,34 @@ export function resolveVisibility(
     return table?.group === state.groupFilter;
   };
 
+  const unrelatedTable: TableEmphasis = state.unrelated === "hide" ? "hidden" : "dimmed";
+  const unrelatedEdge: EdgeEmphasis = state.unrelated === "hide" ? "hidden" : "dimmed";
+
+  // 欄位聚焦啟用時，強調**完全由欄位決定**。
+  //
+  // 否則會出現：焦點表在表層級有一堆鄰居，那些鄰居跟著亮起來，
+  // 但它們與使用者剛點的欄位毫無關係——畫面說「這些有關」，其實沒有。
+  // 欄位聚焦是比表更細的鏡頭，啟用時就該由它說了算。
+  const columnFocus = state.columnFocus;
+  if (columnFocus && schema) {
+    const related = getRelatedColumns(schema, graph, columnFocus.tableId, columnFocus.column);
+
+    for (const id of graph.tableIds) {
+      if (!inFilter(id)) tables.set(id, "filtered");
+      else if (id === columnFocus.tableId) tables.set(id, "selected");
+      else if (related.tables.has(id)) tables.set(id, "related");
+      else tables.set(id, unrelatedTable);
+    }
+
+    for (const edge of graph.edges) {
+      if (!inFilter(edge.source) || !inFilter(edge.target)) edges.set(edge.id, "filtered");
+      else if (related.relations.has(edge.id)) edges.set(edge.id, "highlight");
+      else edges.set(edge.id, unrelatedEdge);
+    }
+
+    return { tables, edges, relatedCount: related.tables.size };
+  }
+
   if (!focusId || !graph.outgoing.has(focusId)) {
     for (const id of graph.tableIds) tables.set(id, inFilter(id) ? "active" : "filtered");
     for (const edge of graph.edges) {
@@ -56,9 +84,6 @@ export function resolveVisibility(
     depth: state.focus.depth ?? graph.tableIds.length,
     direction: state.focus.direction,
   });
-
-  const unrelatedTable: TableEmphasis = state.unrelated === "hide" ? "hidden" : "dimmed";
-  const unrelatedEdge: EdgeEmphasis = state.unrelated === "hide" ? "hidden" : "dimmed";
 
   for (const id of graph.tableIds) {
     if (!inFilter(id)) tables.set(id, "filtered");
