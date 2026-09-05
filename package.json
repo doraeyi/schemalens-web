@@ -12,7 +12,8 @@
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run",
     "test:watch": "vitest",
-    "package:vsix": "npm run build -w dbschema && npm run package:vsix -w dbschema"
+    "package:vsix": "npm run build -w dbschema && npm run package:vsix -w dbschema",
+    "example:large": "esbuild scripts/generate-large-example.ts --bundle --platform=node --format=cjs --outfile=dist/generate-large-example.cjs --log-level=error && node dist/generate-large-example.cjs"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
