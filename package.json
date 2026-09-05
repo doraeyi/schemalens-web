@@ -1,0 +1,36 @@
+{
+	"name": "schemalens-web",
+	"private": true,
+	"version": "0.0.1",
+	"type": "module",
+	"scripts": {
+		"dev": "vite dev",
+		"build": "vite build",
+		"preview": "vite preview",
+		"prepare": "svelte-kit sync || echo ''",
+		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch"
+	},
+	"devDependencies": {
+		"@sveltejs/adapter-auto": "^7.0.1",
+		"@sveltejs/kit": "^2.63.0",
+		"@sveltejs/vite-plugin-svelte": "^7.1.2",
+		"@tailwindcss/vite": "^4.1.16",
+		"svelte": "^5.56.1",
+		"svelte-check": "^4.6.0",
+		"tailwindcss": "^4.1.16",
+		"typescript": "^6.0.3",
+		"vite": "^8.0.16"
+	},
+	"dependencies": {
+		"@lucide/svelte": "^0.545.0",
+		"@schemalens/schema-core": "workspace:*",
+		"@schemalens/schema-graph": "workspace:*",
+		"@schemalens/schema-layout": "workspace:*",
+		"@schemalens/schema-parser": "workspace:*",
+		"@schemalens/schema-renderer": "workspace:*",
+		"@schemalens/schema-serializer": "workspace:*",
+		"gsap": "^3.13.0",
+		"html-to-image": "^1.11.11"
+	}
+}
