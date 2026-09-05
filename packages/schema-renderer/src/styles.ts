@@ -88,6 +88,12 @@ export const RENDERER_CSS = `
   contain: layout paint;
 }
 .dbs-card.is-dimmed { opacity: 0.15; }
+/* 量測用：算「不含備註時至少需要多寬」。
+   欄位名稱與型別永遠不該被截斷，備註才可以。 */
+.dbs-card.is-measuring-essential .dbs-row-comment,
+.dbs-card.is-measuring-essential .dbs-card-comment {
+  display: none;
+}
 /* 拖曳中的卡片浮起來，並讓游標明確表示可以移動。 */
 .dbs-card-header { cursor: grab; }
 .dbs-card.is-dragging {

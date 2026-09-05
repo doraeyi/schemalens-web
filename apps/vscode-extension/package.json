@@ -2,7 +2,7 @@
   "name": "dbschema",
   "displayName": "DBSchema",
   "description": "Database Schema Visualization for VS Code",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "publisher": "kaikaizhen",
   "license": "SEE LICENSE IN LICENSE",

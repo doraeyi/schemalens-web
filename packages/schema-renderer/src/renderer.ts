@@ -7,7 +7,7 @@ import {
   type PositionedGraph,
   type Point,
 } from "@schemalens/schema-layout";
-import { buildCardModels, toLayoutNodes, type CardModel } from "./cardModel.js";
+import { CARD_METRICS, buildCardModels, toLayoutNodes, type CardModel } from "./cardModel.js";
 import { stringsFor, type Locale, type RendererStrings } from "./i18n.js";
 import {
   describeRelation,
@@ -278,8 +278,80 @@ export class SchemaRenderer {
     });
     this.applyManualPositions();
     this.renderNodes();
+
+    // 估算只是起點；實際寬度取決於使用者的字型，量到之後要重排一次，
+    // 否則卡片會太窄而把欄位名稱或型別截掉。
+    if (this.measureCardWidths()) {
+      this.positioned = this.layoutEngine.layout({
+        nodes: toLayoutNodes(this.cards),
+        edges: this.graph.edges.map((e) => ({ id: e.id, source: e.source, target: e.target })),
+      });
+      this.applyManualPositions();
+      this.repositionNodes();
+    }
+
     this.renderEdges();
     this.applyEmphasis();
+  }
+
+  /**
+   * 量測卡片實際需要的寬度，並回寫到 CardModel。
+   *
+   * 規則：**欄位名稱與型別永遠不截斷**，只有備註可以。
+   * 因此先量「不含備註」的必要寬度當下限，再讓備註使用剩餘空間，
+   * 上限是 maxWidth——除非必要寬度本身就超過它。
+   *
+   * 讀寫分批進行，避免每張卡片各觸發一次 reflow（200 張表時差很多）。
+   * 回傳是否有任何寬度改變。
+   */
+  private measureCardWidths(): boolean {
+    const entries = [...this.cardElements];
+    if (entries.length === 0) return false;
+
+    // 沒有版面計算的環境（例如 jsdom 測試）量不到東西，維持估算值。
+    if (entries[0]![1].root.offsetWidth === 0) return false;
+
+    const { minWidth, maxWidth } = CARD_METRICS;
+
+    // 寫入：先切成「內容自然寬度」且暫時隱藏備註。
+    for (const [, elements] of entries) {
+      elements.root.style.width = "max-content";
+      elements.root.classList.add("is-measuring-essential");
+    }
+    // 讀取：不含備註的必要寬度。
+    const essential = entries.map(([, elements]) => elements.root.offsetWidth);
+
+    // 寫入：放回備註。
+    for (const [, elements] of entries) elements.root.classList.remove("is-measuring-essential");
+    // 讀取：含備註的自然寬度。
+    const natural = entries.map(([, elements]) => elements.root.offsetWidth);
+
+    let changed = false;
+    entries.forEach(([tableId, elements], index) => {
+      const need = Math.max(essential[index]!, minWidth);
+      // 備註可以被截斷，但不能讓卡片窄到連欄位名稱都放不下。
+      const width = Math.round(Math.max(need, Math.min(natural[index]!, Math.max(maxWidth, need))));
+
+      elements.root.style.width = `${width}px`;
+      const card = this.cards.get(tableId);
+      if (card && card.width !== width) {
+        card.width = width;
+        changed = true;
+      }
+    });
+
+    return changed;
+  }
+
+  /** 重排後只更新位置，不重建 DOM。 */
+  private repositionNodes(): void {
+    if (!this.positioned) return;
+    for (const [tableId, elements] of this.cardElements) {
+      const node = this.positioned.positionById.get(tableId);
+      if (!node) continue;
+      elements.root.style.left = `${node.x}px`;
+      elements.root.style.top = `${node.y}px`;
+    }
   }
 
   private renderNodes(): void {
