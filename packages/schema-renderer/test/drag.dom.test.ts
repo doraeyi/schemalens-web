@@ -278,3 +278,162 @@ describe("手動位置與 Auto Layout 的關係", () => {
     expect(JSON.stringify(schema)).toBe(snapshot);
   });
 });
+
+/**
+ * 聚焦後畫面上多數表都是淡化的背景資訊。
+ * 在密集的畫面上很容易誤拉到它們，所以淡化的表不給拖——
+ * 但點擊仍要有效，因為「點淡掉的表把焦點移過去」是正常的導覽方式。
+ */
+describe("淡化的表不可拖曳", () => {
+  it("聚焦後，被淡化的表拖不動", () => {
+    const { host, renderer } = mount();
+    // Posts 參照 Users，所以從 Posts 看 downstream 是空的，Users 會被淡化。
+    renderer.focusTable("dbo.Posts", { direction: "downstream", depth: 1 });
+
+    const users = card(host, "dbo.Users");
+    expect(users.classList.contains("is-dimmed")).toBe(true);
+    const before = users.style.left;
+
+    pointer(users, "pointerdown", 100, 100);
+    pointer(users, "pointermove", 300, 300);
+    pointer(users, "pointerup", 300, 300);
+
+    expect(card(host, "dbo.Users").style.left).toBe(before);
+    expect(renderer.hasManualPositions()).toBe(false);
+  });
+
+  it("同樣情境下，沒被淡化的表仍然拖得動", () => {
+    const { host, renderer } = mount();
+    renderer.focusTable("dbo.Posts", { direction: "downstream", depth: 1 });
+
+    const posts = card(host, "dbo.Posts");
+    expect(posts.classList.contains("is-dimmed")).toBe(false);
+    const before = Number.parseFloat(posts.style.left);
+
+    pointer(posts, "pointerdown", 100, 100);
+    pointer(posts, "pointermove", 200, 100);
+    pointer(posts, "pointerup", 200, 100);
+
+    expect(Number.parseFloat(card(host, "dbo.Posts").style.left)).toBeCloseTo(before + 100, 1);
+  });
+
+  it("被群組篩掉的表拖不動", () => {
+    const { host, renderer } = mount();
+    renderer.setViewState({ groupFilter: "NotAGroup" });
+
+    const posts = card(host, "dbo.Posts");
+    expect(posts.classList.contains("is-filtered-out")).toBe(true);
+    const before = posts.style.left;
+
+    pointer(posts, "pointerdown", 100, 100);
+    pointer(posts, "pointermove", 300, 300);
+    pointer(posts, "pointerup", 300, 300);
+
+    expect(card(host, "dbo.Posts").style.left).toBe(before);
+    expect(renderer.hasManualPositions()).toBe(false);
+  });
+
+  it("淡化的表仍然可以點擊，用來把焦點移過去", () => {
+    const tableSelected = vi.fn();
+    const { host, renderer } = mount({ tableSelected });
+    renderer.setViewState({ groupFilter: "NotAGroup" });
+
+    const posts = card(host, "dbo.Posts");
+    posts.querySelector(".dbs-card-header")!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(tableSelected).toHaveBeenCalledWith("dbo.Posts");
+  });
+
+  it("沒有聚焦時所有表都拖得動", () => {
+    const { host, renderer } = mount();
+    const posts = card(host, "dbo.Posts");
+    const before = Number.parseFloat(posts.style.left);
+
+    pointer(posts, "pointerdown", 100, 100);
+    pointer(posts, "pointermove", 200, 100);
+    pointer(posts, "pointerup", 200, 100);
+
+    expect(Number.parseFloat(card(host, "dbo.Posts").style.left)).toBeCloseTo(before + 100, 1);
+    expect(renderer.hasManualPositions()).toBe(true);
+  });
+
+  it("游標樣式也要反映不可拖曳", () => {
+    const { host } = mount();
+    const css = host.querySelector("style")!.textContent!;
+    expect(css).toContain(".dbs-card.is-dimmed .dbs-card-header");
+    expect(css).toContain(".dbs-card.is-filtered-out .dbs-card-header");
+  });
+});
+
+/**
+ * 淡化的卡片在聚焦時佔了大半畫面。
+ * 不給拖卡片是對的，但不能因此連視窗都平移不了——
+ * 那一大片會變成完全動不了的死區。
+ */
+describe("從淡化的表也要能平移視窗", () => {
+  const transform = (host: HTMLElement): string =>
+    host.querySelector<HTMLElement>(".dbs-viewport")!.style.transform;
+
+  it("在淡化的表上拖曳會平移視窗", () => {
+    const { host, renderer } = mount();
+    renderer.focusTable("dbo.Posts", { direction: "downstream", depth: 1 });
+
+    const users = card(host, "dbo.Users");
+    expect(users.classList.contains("is-dimmed")).toBe(true);
+    const before = transform(host);
+
+    pointer(users, "pointerdown", 100, 100);
+    pointer(users, "pointermove", 220, 180);
+    pointer(users, "pointerup", 220, 180);
+
+    expect(transform(host)).not.toBe(before);
+    // 平移不該把卡片本身移走。
+    expect(renderer.hasManualPositions()).toBe(false);
+  });
+
+  it("平移後不會誤觸該表的 Focus", () => {
+    const tableSelected = vi.fn();
+    const { host, renderer } = mount({ tableSelected });
+    renderer.focusTable("dbo.Posts", { direction: "downstream", depth: 1 });
+
+    const users = card(host, "dbo.Users");
+    pointer(users, "pointerdown", 100, 100);
+    pointer(users, "pointermove", 260, 260);
+    pointer(users, "pointerup", 260, 260);
+    users.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+
+    expect(tableSelected).not.toHaveBeenCalled();
+  });
+
+  it("只是點一下（沒移動）仍然把焦點移過去", () => {
+    const tableSelected = vi.fn();
+    const { host, renderer } = mount({ tableSelected });
+    renderer.focusTable("dbo.Posts", { direction: "downstream", depth: 1 });
+
+    const users = card(host, "dbo.Users");
+    pointer(users, "pointerdown", 100, 100);
+    pointer(users, "pointerup", 100, 100);
+    users.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+
+    expect(tableSelected).toHaveBeenCalledWith("dbo.Users");
+  });
+
+  it("在背景平移仍然正常", () => {
+    const { host } = mount();
+    const root = host.querySelector<HTMLElement>(".dbs-root")!;
+    const before = transform(host);
+
+    pointer(root, "pointerdown", 50, 50);
+    pointer(root, "pointermove", 180, 120);
+    pointer(root, "pointerup", 180, 120);
+
+    expect(transform(host)).not.toBe(before);
+  });
+
+  it("平移不會立刻捕捉指標，點擊才不會被重新指向", () => {
+    const { host, renderer, captures } = mount();
+    renderer.focusTable("dbo.Posts", { direction: "downstream", depth: 1 });
+
+    pointer(card(host, "dbo.Users"), "pointerdown", 100, 100);
+    expect(captures).toEqual([]);
+  });
+});

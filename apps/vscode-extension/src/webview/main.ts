@@ -6,6 +6,7 @@ import {
   SchemaRenderer,
   stringsFor,
   type DetailLevel,
+  type LayoutMode,
   type Locale,
   type UnrelatedMode,
 } from "@schemalens/schema-renderer";
@@ -37,6 +38,9 @@ const renderer = new SchemaRenderer(canvas, {
   events: {
     openSource: (target) => post({ type: "openSource", tableId: target.tableId, column: target.column }),
     tableSelected: () => syncToolbar(),
+    columnSelected: (target) => {
+      toolbar.setColumnFocus(target ? `${target.tableId}.${target.column}` : null);
+    },
     viewStateChanged: () => syncToolbar(),
     layoutChanged: () => toolbar.setLayoutDirty(true),
   },
@@ -62,6 +66,20 @@ const handlers: ToolbarHandlers = {
   onComments: (expanded: boolean) => {
     renderer.setViewState({ expandComments: expanded });
     syncToolbar();
+  },
+  onLayoutMode: (mode: LayoutMode) => {
+    renderer.setViewState({ layoutMode: mode });
+    // 換排版會清掉手動拖曳的位置，「還原版面」也就沒有東西可還原了。
+    toolbar.setLayoutDirty(false);
+    syncToolbar();
+  },
+  onGroupFilter: (group: string | null) => {
+    renderer.setViewState({ groupFilter: group });
+    syncToolbar();
+  },
+  onClearColumnFocus: () => {
+    renderer.clearColumnFocus();
+    toolbar.setColumnFocus(null);
   },
   onResetFocus: () => {
     resetFocus();
@@ -120,9 +138,11 @@ function applyLocale(next: Locale): void {
 function resetFocus(): void {
   renderer.setViewState({
     focus: { ...renderer.getViewState().focus, tableId: null },
+    columnFocus: null,
     highlightedColumn: null,
     searchMatches: new Set(),
   });
+  toolbar.setColumnFocus(null);
   syncToolbar();
 }
 
@@ -134,6 +154,8 @@ function syncToolbar(): void {
     direction: state.focus.direction,
     unrelated: state.unrelated,
     expandComments: state.expandComments,
+    layoutMode: state.layoutMode,
+    groupFilter: state.groupFilter,
     locale,
   });
 }

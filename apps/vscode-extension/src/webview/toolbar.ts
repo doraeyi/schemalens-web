@@ -1,6 +1,12 @@
-import type { Schema } from "@schemalens/schema-core";
+import { groupNames, type Schema } from "@schemalens/schema-core";
 import { search, type SearchHit } from "@schemalens/schema-graph";
-import type { DetailLevel, Locale, RendererStrings, UnrelatedMode } from "@schemalens/schema-renderer";
+import type {
+  DetailLevel,
+  LayoutMode,
+  Locale,
+  RendererStrings,
+  UnrelatedMode,
+} from "@schemalens/schema-renderer";
 import type { TraversalDirection } from "@schemalens/schema-graph";
 
 export const TOOLBAR_CSS = `
@@ -76,6 +82,20 @@ export const TOOLBAR_CSS = `
 }
 .dbs-result-label { font-family: var(--vscode-editor-font-family, monospace); }
 .dbs-result-meta { margin-left: auto; color: var(--vscode-descriptionForeground, #9d9d9d); font-size: 10px; }
+.dbs-select {
+  padding: 3px 6px;
+  border: 1px solid var(--vscode-dropdown-border, #3c3c3c);
+  border-radius: 3px;
+  background: var(--vscode-dropdown-background, #3c3c3c);
+  color: var(--vscode-dropdown-foreground, #ccc);
+  font: inherit;
+  max-width: 220px;
+}
+.dbs-column-focus {
+  margin-left: auto;
+  border-color: var(--vscode-focusBorder, #007fd4);
+  color: var(--vscode-focusBorder, #007fd4);
+}
 .dbs-metrics { margin-left: auto; color: var(--vscode-descriptionForeground, #9d9d9d); }
 `;
 
@@ -86,6 +106,12 @@ export interface ToolbarHandlers {
   onUnrelated(mode: UnrelatedMode): void;
   /** 欄位備註要截斷成 … 還是完整展開成多行。 */
   onComments(expanded: boolean): void;
+  /** 只顯示某個群組；null 代表全部。 */
+  onGroupFilter(group: string | null): void;
+  /** 依群組聚攏排版，還是純依關聯排版。 */
+  onLayoutMode(mode: LayoutMode): void;
+  /** 取消欄位聚焦。 */
+  onClearColumnFocus(): void;
   onResetFocus(): void;
   onFitView(): void;
   /** 丟掉手動拖曳的位置，回到 Auto Layout。 */
@@ -147,7 +173,11 @@ export class Toolbar {
   private readonly depthGroup: ButtonGroup<1 | 2 | null>;
   private readonly directionGroup: ButtonGroup<TraversalDirection>;
   private readonly unrelatedGroup: ButtonGroup<UnrelatedMode>;
+  private readonly layoutModeGroup: ButtonGroup<LayoutMode>;
   private readonly commentsGroup: ButtonGroup<boolean>;
+  private readonly groupSelect: HTMLSelectElement;
+  private readonly groupWrap: HTMLElement;
+  private readonly columnFocusChip: HTMLElement;
   private readonly localeGroup: ButtonGroup<Locale>;
   private schema: Schema | null = null;
   private hits: SearchHit[] = [];
@@ -206,6 +236,33 @@ export class Toolbar {
       handlers.onUnrelated,
     );
 
+    // 依群組聚攏會讓跨群組的線拉得比較遠；純依關聯排版線最短，
+    // 但同群組的表會散開。兩種各有適用場合，交給使用者切換。
+    this.layoutModeGroup = buttonGroup<LayoutMode>(
+      this.strings.layoutGroup,
+      [
+        { label: this.strings.layoutByGroup, value: "group" },
+        { label: this.strings.layoutByRelation, value: "relation" },
+      ],
+      handlers.onLayoutMode,
+    );
+
+    // 群組是動態的（來自 Schema），用下拉而不是按鈕列，
+    // 否則 10 個以上的模組會把 Toolbar 撐爆。
+    const groupWrap = document.createElement("div");
+    groupWrap.className = "dbs-group";
+    const groupCaption = document.createElement("span");
+    groupCaption.className = "dbs-group-label";
+    groupCaption.textContent = this.strings.groupLabel;
+    this.groupSelect = document.createElement("select");
+    this.groupSelect.className = "dbs-select";
+    this.groupSelect.addEventListener("change", () => {
+      const value = this.groupSelect.value;
+      handlers.onGroupFilter(value === "" ? null : value);
+    });
+    groupWrap.append(groupCaption, this.groupSelect);
+    this.groupWrap = groupWrap;
+
     this.commentsGroup = buttonGroup<boolean>(
       this.strings.commentsGroup,
       [
@@ -245,6 +302,12 @@ export class Toolbar {
 
     actions.append(reset, fit, this.resetLayoutButton);
 
+    // 欄位聚焦的狀態要看得見，否則使用者會不知道畫面為什麼變暗。
+    this.columnFocusChip = document.createElement("button");
+    this.columnFocusChip.className = "dbs-btn dbs-column-focus";
+    this.columnFocusChip.hidden = true;
+    this.columnFocusChip.addEventListener("click", () => handlers.onClearColumnFocus());
+
     this.metrics = document.createElement("div");
     this.metrics.className = "dbs-metrics";
 
@@ -254,8 +317,11 @@ export class Toolbar {
       this.depthGroup.element,
       this.directionGroup.element,
       this.unrelatedGroup.element,
+      this.layoutModeGroup.element,
+      this.groupWrap,
       this.commentsGroup.element,
       actions,
+      this.columnFocusChip,
       this.metrics,
       this.localeGroup.element,
     );
@@ -267,10 +333,37 @@ export class Toolbar {
     this.schema = schema;
     this.input.value = "";
     this.renderResults([]);
+    this.renderGroups(schema);
+  }
+
+  /** 沒有任何群組時整組隱藏，不佔 Toolbar 空間。 */
+  private renderGroups(schema: Schema): void {
+    const names = groupNames(schema);
+    this.groupWrap.hidden = names.length === 0;
+    this.groupSelect.replaceChildren();
+
+    const all = document.createElement("option");
+    all.value = "";
+    all.textContent = this.strings.allGroups;
+    this.groupSelect.append(all);
+
+    for (const name of names) {
+      const option = document.createElement("option");
+      option.value = name;
+      const description = schema.groups?.find((g) => g.name === name)?.description;
+      option.textContent = description ? `${name} — ${description}` : name;
+      this.groupSelect.append(option);
+    }
   }
 
   setMetrics(text: string): void {
     this.metrics.textContent = text;
+  }
+
+  /** 顯示目前聚焦的欄位；null 代表沒有聚焦。 */
+  setColumnFocus(label: string | null): void {
+    this.columnFocusChip.hidden = label === null;
+    this.columnFocusChip.textContent = label ? `${this.strings.columnFocus}: ${label} ✕` : "";
   }
 
   setLayoutDirty(dirty: boolean): void {
@@ -283,6 +376,8 @@ export class Toolbar {
     direction: TraversalDirection;
     unrelated: UnrelatedMode;
     expandComments: boolean;
+    layoutMode: LayoutMode;
+    groupFilter: string | null;
     locale: Locale;
   }): void {
     this.detailGroup.setActive(state.detailLevel);
@@ -290,6 +385,8 @@ export class Toolbar {
     this.directionGroup.setActive(state.direction);
     this.unrelatedGroup.setActive(state.unrelated);
     this.commentsGroup.setActive(state.expandComments);
+    this.layoutModeGroup.setActive(state.layoutMode);
+    this.groupSelect.value = state.groupFilter ?? "";
     this.localeGroup.setActive(state.locale);
   }
 

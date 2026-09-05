@@ -1,5 +1,6 @@
 import type { PositionedNode } from "@schemalens/schema-layout";
 import type { CardModel } from "./cardModel.js";
+import { groupBadgeColor, groupColor } from "./groupColor.js";
 import { stringsFor, type RendererStrings } from "./i18n.js";
 
 export interface CardElements {
@@ -29,6 +30,12 @@ export function renderCard(
 ): CardElements {
   const root = el("div", "dbs-card");
   root.dataset.tableId = card.table.id;
+  if (card.group) {
+    root.dataset.group = card.group;
+    // 左緣色條：掃視 150 張表時，顏色比文字更快辨識模組。
+    root.style.borderLeftColor = groupColor(card.group);
+    root.classList.add("has-group");
+  }
   root.style.left = `${position.x}px`;
   root.style.top = `${position.y}px`;
   root.style.width = `${card.width}px`;
@@ -40,6 +47,12 @@ export function renderCard(
   toggle.dataset.action = "toggle-collapse";
   header.append(toggle, el("span", "dbs-card-name", card.table.name));
   header.append(el("span", "dbs-card-schema", card.table.schema));
+  if (card.group) {
+    const badge = el("span", "dbs-card-group", card.group);
+    badge.style.backgroundColor = groupBadgeColor(card.group);
+    badge.style.color = groupColor(card.group);
+    header.append(badge);
+  }
   if (card.showComment && card.table.comment) {
     const comment = el("span", "dbs-card-comment", card.table.comment);
     comment.title = card.table.comment;

@@ -26,20 +26,58 @@ export const RENDERER_CSS = `
   will-change: transform;
 }
 
-/* 關聯線畫在卡片「之上」。
-   否則長距離的線會被中間的卡片整條蓋掉，使用者根本看不到關聯。
-   .dbs-edges 本身 pointer-events: none，只有線本身接受點擊，卡片照常可按。 */
+/* 關聯線分成兩層。
+   一般與淡化的線在卡片「之下」：100+ 張表時線非常多，
+   疊在上面會像一張網把欄位內容整片蓋掉。
+   只有「亮起」的線（聚焦時的相關關聯）浮到卡片之上，才不會被卡片擋住。
+   .dbs-edges 本身 pointer-events: none，只有線接受點擊，卡片照常可按。 */
 .dbs-edges {
   position: absolute;
   top: 0;
   left: 0;
   overflow: visible;
   pointer-events: none;
-  z-index: 2;
+  z-index: 1;
 }
+.dbs-edges-top { z-index: 3; }
 .dbs-nodes {
   position: relative;
-  z-index: 1;
+  z-index: 2;
+}
+/* 群組外框在最底層：只圈範圍，不擋卡片也不擋線。 */
+.dbs-groups {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+.dbs-group-box {
+  position: absolute;
+  box-sizing: border-box;
+  border: 2px dashed;
+  border-radius: 10px;
+}
+.dbs-group-box.is-filtered-out { opacity: 0.12; }
+.dbs-group-box-label {
+  position: absolute;
+  top: 10px;
+  left: 14px;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 2px 10px;
+  border: 1px solid;
+  border-radius: 10px;
+  background: var(--vscode-editor-background, #1e1e1e);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.dbs-group-box-desc {
+  color: var(--vscode-descriptionForeground, #9d9d9d);
+  font-size: 10px;
+  font-weight: 400;
 }
 /* 與線同形的底線，用背景色描粗一點，
    讓線經過卡片時有一圈「空隙」，兩者都還看得清楚。 */
@@ -87,6 +125,20 @@ export const RENDERER_CSS = `
   cursor: pointer;
   contain: layout paint;
 }
+.dbs-card.has-group { border-left-width: 3px; }
+.dbs-card-group {
+  flex: none;
+  font-size: 9px;
+  font-weight: 600;
+  padding: 1px 5px;
+  border-radius: 8px;
+  white-space: nowrap;
+}
+/* 被群組篩選排除的表：比 dim 更弱，但仍看得到輪廓，
+   使用者才知道「還有東西在那裡」而不是以為資料不見了。 */
+.dbs-card.is-filtered-out { opacity: 0.06; }
+.dbs-edge.is-filtered-out { opacity: 0.05; }
+
 .dbs-card.is-dimmed { opacity: 0.15; }
 /* 量測用：算「不含備註時至少需要多寬」。
    欄位名稱與型別永遠不該被截斷，備註才可以。 */
@@ -96,6 +148,11 @@ export const RENDERER_CSS = `
 }
 /* 拖曳中的卡片浮起來，並讓游標明確表示可以移動。 */
 .dbs-card-header { cursor: grab; }
+/* 淡化的表不可拖曳，游標也要說清楚——否則使用者會以為拖不動是壞掉。 */
+.dbs-card.is-dimmed .dbs-card-header,
+.dbs-card.is-filtered-out .dbs-card-header {
+  cursor: pointer;
+}
 .dbs-card.is-dragging {
   cursor: grabbing;
   z-index: 3;
@@ -103,12 +160,21 @@ export const RENDERER_CSS = `
   opacity: 0.95;
 }
 .dbs-card.is-hidden { display: none; }
+/* 邊框強調：同一時間只有一個會被套上（由 renderer 決定），
+   因此這三條規則不會互相打架。 */
 .dbs-card.is-selected {
   border-color: var(--vscode-focusBorder, #007fd4);
-  box-shadow: 0 0 0 1px var(--vscode-focusBorder, #007fd4);
+  box-shadow: 0 0 0 2px var(--vscode-focusBorder, #007fd4);
 }
+/* 因聚焦而被點亮的相關表：比焦點弱，但明顯有別於「沒被淡化」。 */
+.dbs-card.is-related {
+  border-color: var(--vscode-focusBorder, #007fd4);
+  box-shadow: 0 0 0 1px rgba(0, 127, 212, 0.45);
+}
+/* 搜尋命中用 outline，與 border 是不同屬性，可以和上面並存。 */
 .dbs-card.is-search-match {
-  border-color: var(--vscode-charts-orange, #d18616);
+  outline: 1px dashed var(--vscode-charts-orange, #d18616);
+  outline-offset: 2px;
 }
 
 .dbs-card-header {
@@ -179,6 +245,28 @@ export const RENDERER_CSS = `
   border-top: 1px solid var(--vscode-panel-border, #3c3c3c);
 }
 .dbs-row:hover { background: var(--vscode-list-hoverBackground, #2a2d2e); }
+/* 欄位聚焦：起點最亮、對應欄位次之、其餘視為雜訊。
+   用降低不相關欄位的方式而不是隱藏——欄位一旦消失，
+   使用者會誤以為這張表沒有那些欄位。 */
+/* 用與「高亮關聯線」同一個藍色系：亮起的欄位與亮起的線一眼就對得起來。
+   先前用 list-activeSelectionBackground，在多數深色主題下與卡片底色幾乎同色，
+   看起來只有「其他變暗」而沒有「這個亮起」。
+   rgba 先寫一次當後備，色彩混合不支援時仍有底色。 */
+.dbs-row.is-column-focus {
+  background: rgba(77, 170, 252, 0.3);
+  background: color-mix(in srgb, var(--vscode-charts-blue, #4daafc) 30%, transparent);
+  box-shadow: inset 3px 0 0 var(--vscode-charts-blue, #4daafc);
+  font-weight: 700;
+}
+.dbs-row.is-column-related {
+  background: rgba(77, 170, 252, 0.14);
+  background: color-mix(in srgb, var(--vscode-charts-blue, #4daafc) 14%, transparent);
+  box-shadow: inset 3px 0 0 rgba(77, 170, 252, 0.55);
+}
+.dbs-row.is-column-muted { opacity: 0.2; }
+
+
+
 .dbs-row.is-highlight {
   background: var(--vscode-editor-findMatchHighlightBackground, rgba(234, 92, 0, 0.33));
 }

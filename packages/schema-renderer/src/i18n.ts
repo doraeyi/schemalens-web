@@ -14,6 +14,13 @@ export interface RendererStrings {
   depthGroup: string;
   directionGroup: string;
   unrelatedGroup: string;
+  layoutGroup: string;
+  layoutByGroup: string;
+  layoutByRelation: string;
+  columnFocus: string;
+  groupLabel: string;
+  allGroups: string;
+  ungrouped: string;
   commentsGroup: string;
   commentsTruncate: string;
   commentsExpand: string;
@@ -48,6 +55,13 @@ const en: RendererStrings = {
   depthGroup: "Depth",
   directionGroup: "Direction",
   unrelatedGroup: "Unrelated",
+  layoutGroup: "Layout",
+  layoutByGroup: "By group",
+  layoutByRelation: "By relations",
+  columnFocus: "Column",
+  groupLabel: "Group",
+  allGroups: "All groups",
+  ungrouped: "Ungrouped",
   commentsGroup: "Comments",
   commentsTruncate: "Truncate",
   commentsExpand: "Full",
@@ -81,6 +95,13 @@ const zhHant: RendererStrings = {
   depthGroup: "深度",
   directionGroup: "方向",
   unrelatedGroup: "不相關",
+  layoutGroup: "排版",
+  layoutByGroup: "依群組",
+  layoutByRelation: "依關聯",
+  columnFocus: "欄位聚焦",
+  groupLabel: "群組",
+  allGroups: "全部群組",
+  ungrouped: "未分類",
   commentsGroup: "備註",
   commentsTruncate: "截斷",
   commentsExpand: "完整",

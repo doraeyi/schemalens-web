@@ -183,14 +183,52 @@ describe("SchemaRenderer 預設畫面", () => {
     expect(emailRow.title).toContain("登入帳號");
   });
 
-  it("關聯線畫在卡片之上，才不會被卡片蓋住", () => {
+  it("一般的線在卡片之下，不會蓋住欄位內容", () => {
     const viewport = host.querySelector(".dbs-viewport")!;
-    const children = [...viewport.children].map((node) => node.getAttribute("class"));
-    // 兩層都在，且線層帶有 z-index 讓它疊在卡片上（見 RENDERER_CSS）。
-    expect(children).toContain("dbs-edges");
-    expect(children).toContain("dbs-nodes");
-    expect(host.querySelector("style")!.textContent).toMatch(/\.dbs-edges\s*{[^}]*z-index:\s*2/);
-    expect(host.querySelector("style")!.textContent).toMatch(/\.dbs-nodes\s*{[^}]*z-index:\s*1/);
+    const classes = [...viewport.children].map((node) => node.getAttribute("class"));
+    expect(classes).toContain("dbs-edges");
+    expect(classes).toContain("dbs-nodes");
+
+    const css = host.querySelector("style")!.textContent!;
+    const block = (selector: string): string => {
+      const at = css.indexOf(`${selector} {`);
+      return css.slice(at, css.indexOf("}", at));
+    };
+    expect(block(".dbs-edges")).toContain("z-index: 1");
+    expect(block(".dbs-nodes")).toContain("z-index: 2");
+    expect(block(".dbs-edges-top")).toContain("z-index: 3");
+  });
+
+  it("沒有聚焦時，所有線都留在下層", () => {
+    const top = host.querySelector(".dbs-edges-top")!;
+    expect(top.children).toHaveLength(0);
+    expect(host.querySelector('.dbs-edges:not(.dbs-edges-top) [data-relation]')).not.toBeNull();
+  });
+
+  it("聚焦後只有亮起的線浮到上層，淡化的線留在卡片之下", () => {
+    renderer.focusTable("dbo.Posts");
+
+    const top = host.querySelector(".dbs-edges-top")!;
+    const highlighted = [...top.querySelectorAll("[data-relation]")];
+    expect(highlighted.length).toBeGreaterThan(0);
+    // 上層只能有亮起的線——整層浮上去等於用一張網蓋住卡片。
+    expect(highlighted.every((el) => el.classList.contains("is-highlight"))).toBe(true);
+  });
+
+  it("取消聚焦後線回到下層", () => {
+    renderer.focusTable("dbo.Posts");
+    expect(host.querySelector(".dbs-edges-top")!.children.length).toBeGreaterThan(0);
+
+    renderer.setViewState({ focus: { ...renderer.getViewState().focus, tableId: null } });
+    expect(host.querySelector(".dbs-edges-top")!.children).toHaveLength(0);
+  });
+
+  it("欄位聚焦同樣只把參與的線提到上層", () => {
+    renderer.focusColumn("dbo.Posts", "AuthorId");
+    const top = host.querySelector(".dbs-edges-top")!;
+    expect([...top.querySelectorAll("[data-relation]")].map((el) => el.getAttribute("data-relation"))).toEqual(
+      ["FK_Posts_Users"],
+    );
   });
 
   it("每條線都有背景色底線（halo），經過卡片時仍看得清楚", () => {

@@ -252,3 +252,69 @@ describe("Round Trip（AC-19 / plan §36）", () => {
     expect(normalize(final)).toEqual(normalize(synthetic));
   });
 });
+
+describe("群組 round trip", () => {
+  const source = `group Identity "身分與權限模組"
+group Sales "訂單與金流"
+
+table Users "系統使用者" in Identity {
+  PK Id bigint not null
+}
+
+table Orders in Sales {
+  PK Id bigint not null
+}
+
+table Logs {
+  PK Id bigint not null
+}
+`;
+  const { schema: base } = parseSchema(source, "groups.dbschema");
+
+  it("DSL 輸出保留群組宣告與成員關係", () => {
+    const dsl = toDsl(base);
+    expect(dsl).toContain('group Identity "身分與權限模組"');
+    expect(dsl).toContain("table dbo.Users \"系統使用者\" in Identity {");
+    expect(dsl).toContain("table dbo.Orders in Sales {");
+    // 沒有群組的表不會被硬塞一個
+    expect(dsl).toContain("table dbo.Logs {");
+  });
+
+  it("重新解析後群組完全一致", () => {
+    const reparsed = parseSchema(toDsl(base), "round-trip.dbschema");
+    expect(reparsed.diagnostics).toEqual([]);
+    expect(reparsed.schema.groups).toEqual(
+      base.groups!.map((g) => expect.objectContaining({ name: g.name, description: g.description })),
+    );
+    expect(reparsed.schema.tables.map((t) => t.group)).toEqual(base.tables.map((t) => t.group));
+  });
+
+  it("JSON 保留群組，且依名稱排序", () => {
+    const parsed = JSON.parse(toJson(base));
+    expect(parsed.groups.map((g: { name: string }) => g.name)).toEqual(["Identity", "Sales"]);
+    expect(parsed.tables.find((t: { name: string }) => t.name === "Users").group).toBe("Identity");
+  });
+
+  it("DSL → JSON → DSL 群組語意一致", () => {
+    const restored = fromJson(toJson(base)).schema;
+    const final = parseSchema(toDsl(restored), "round-trip.dbschema").schema;
+
+    expect(final.groups).toEqual(base.groups!.map((g) => expect.objectContaining({ name: g.name })));
+    const groupOf = (s: typeof final, name: string): string | undefined =>
+      s.tables.find((t) => t.name === name)?.group;
+    for (const name of ["Users", "Orders", "Logs"]) {
+      expect(groupOf(final, name)).toBe(groupOf(base, name));
+    }
+  });
+
+  it("舊版沒有 groups 欄位的 JSON 仍可匯入（向後相容）", () => {
+    const legacy = JSON.parse(toJson(base));
+    delete legacy.groups;
+    for (const table of legacy.tables) delete table.group;
+
+    const { schema, diagnostics } = fromJson(JSON.stringify(legacy));
+    expect(diagnostics).toEqual([]);
+    expect(schema.groups).toEqual([]);
+    expect(schema.tables.every((t) => t.group === undefined)).toBe(true);
+  });
+});

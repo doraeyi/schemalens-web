@@ -64,6 +64,8 @@ export interface CardModel {
   showComment: boolean;
   /** 欄位備註是否展開成多行（否則單行截斷成 …）。 */
   commentsExpanded: boolean;
+  /** 所屬群組（功能模組）；沒有分類時為 undefined。 */
+  group?: string;
   width: number;
   height: number;
 }
@@ -152,6 +154,7 @@ function estimateWidth(
     textWidth(table.name) +
     textWidth(table.schema) +
     2 +
+    (table.group ? textWidth(table.group) + 3 : 0) +
     (table.comment ? textWidth(table.comment) + 3 : 0);
   let widest = headerChars * charWidth + 24;
 
@@ -211,6 +214,7 @@ export function buildCardModel(table: Table, state: ViewState): CardModel {
     hiddenColumnCount,
     showComment,
     commentsExpanded,
+    group: table.group,
     width,
     height,
   };
@@ -256,5 +260,7 @@ export function toLayoutNodes(models: ReadonlyMap<TableId, CardModel>): LayoutNo
     id: card.table.id,
     width: card.width,
     height: card.height,
+    // 帶上群組，Layout 才能把同群組的表聚在一起、外框才有意義。
+    group: card.group,
   }));
 }
