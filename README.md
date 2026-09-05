@@ -91,6 +91,14 @@ npm run build -w dbschema
 在 VS Code 按 `F5`（Run DBSchema Extension），於新視窗開啟 [examples/blog.dbschema](examples/blog.dbschema)，
 按右上角的圖示或執行 `DBSchema: Open Preview`。
 
+範例檔：
+
+| 檔案 | 用途 |
+|---|---|
+| [examples/blog.dbschema](examples/blog.dbschema) | 5 張表的最小範例，涵蓋 PK / FK / UQ / IDX 與 composite index |
+| [examples/design.schema.md](examples/design.schema.md) | Markdown 內嵌，跨多個區塊組成一份 Schema |
+| [examples/large-schema.schema.md](examples/large-schema.schema.md) | 150 張表、195 條關聯，用來驗證大型 Schema 的探索體驗（AC-20）。由 `npm run example:large` 產生 |
+
 ## DSL
 
 ```text

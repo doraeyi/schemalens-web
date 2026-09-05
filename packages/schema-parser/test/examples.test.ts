@@ -36,6 +36,45 @@ describe("examples/blog.dbschema", () => {
   });
 });
 
+describe("examples/large-schema.schema.md", () => {
+  const source = example("large-schema.schema.md");
+  const { schema, diagnostics } = parseMarkdownSchema(source, "large-schema.schema.md");
+
+  it("解析與驗證都沒有診斷", () => {
+    expect(diagnostics).toEqual([]);
+    expect(validateSchema(schema, { file: "large-schema.schema.md" })).toEqual([]);
+  });
+
+  it("規模落在 AC-20 要求的範圍內（100 張表以上）", () => {
+    expect(schema.tables.length).toBeGreaterThanOrEqual(100);
+    expect(schema.tables.length).toBeLessThanOrEqual(200);
+    expect(schema.relations.length).toBeGreaterThan(100);
+  });
+
+  it("跨模組區塊的關聯都解析得到（兩端 table 都存在）", () => {
+    const ids = new Set(schema.tables.map((table) => table.id));
+    for (const relation of schema.relations) {
+      expect(ids.has(relation.sourceTable)).toBe(true);
+      expect(ids.has(relation.targetTable)).toBe(true);
+    }
+  });
+
+  it("有跨 schema 的關聯，才測得到多模組情境", () => {
+    const crossSchema = schema.relations.filter(
+      (relation) => relation.sourceTable.split(".")[0] !== relation.targetTable.split(".")[0],
+    );
+    expect(crossSchema.length).toBeGreaterThan(0);
+  });
+
+  it("SourceLocation 指向 Markdown 的實際行，雙擊才跳得準", () => {
+    const lines = source.split(/\r?\n/);
+    for (const table of schema.tables.slice(0, 20)) {
+      const line = lines[table.location!.line - 1] ?? "";
+      expect(line).toContain(`table ${table.id}`);
+    }
+  });
+});
+
 describe("examples/design.schema.md", () => {
   const source = example("design.schema.md");
   const { schema, diagnostics } = parseMarkdownSchema(source, "design.schema.md");
