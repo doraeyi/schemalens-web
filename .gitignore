@@ -7,7 +7,10 @@ coverage/
 .vscode-test/
 .DS_Store
 Thumbs.db
-docs/
+# 內部規劃文件不進版控，但 DSL 規格是使用者要看的，必須例外。
+# 用 docs/* 而不是 docs/：整個目錄被排除時 git 不會進入目錄，否定規則不會生效。
+docs/*
+!docs/dsl-spec.md
 
 # 金鑰與憑證：一律不進版控。
 # Release 流程只使用 GitHub Actions 內建的 GITHUB_TOKEN，

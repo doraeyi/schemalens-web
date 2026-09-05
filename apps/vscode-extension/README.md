@@ -9,15 +9,13 @@ Table / Column / Type 與欄位級 Relation；就算有 100 張表，也能快�
 
 ---
 
-## Distribution
+## 安裝
 
-**This project is distributed through a private GitHub repository.
-You must have repository access before downloading a release.**
+從 [GitHub Releases](https://github.com/kaikaizhen/schemaLen/releases/latest) 下載
+`dbschema-<version>.vsix`，再用 `Extensions → ... → Install from VSIX...`
+或 `code --install-extension dbschema-<version>.vsix` 安裝。
 
-DBSchema 目前透過 Private GitHub Repository 發布。
-只有具有 Repository 權限的使用者才能下載 Release 中的 VSIX。
-
-本擴充套件**不會**發布到 Visual Studio Marketplace 或 Open VSX。
+> 目前尚未上架 Visual Studio Marketplace 與 Open VSX。
 
 ---
 
@@ -110,6 +108,10 @@ DSL 有錯時，錯誤會出現在編輯器的紅色波浪線與 Problems Panel�
 
 ---
 
+## 原始碼
+
+<https://github.com/kaikaizhen/schemaLen>
+
 ## License
 
-見 [LICENSE](LICENSE)。本軟體僅授權給取得 Private Repository 權限的使用者。
+見 [LICENSE](LICENSE)。
