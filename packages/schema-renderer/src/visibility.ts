@@ -2,7 +2,12 @@ import type { Schema, TableId } from "@schemalens/schema-core";
 import { getRelatedTables, type SchemaGraph } from "@schemalens/schema-graph";
 import type { ViewState } from "./viewState.js";
 
-export type TableEmphasis = "selected" | "active" | "dimmed" | "hidden" | "filtered";
+/**
+ * `active` 是「沒有聚焦時的常態」；`related` 是「因為聚焦而被點亮」。
+ * 兩者分開，Renderer 才能給相關表正向的視覺標示，
+ * 而不是只讓其他表變暗、相關表看起來與平常無異。
+ */
+export type TableEmphasis = "selected" | "related" | "active" | "dimmed" | "hidden" | "filtered";
 export type EdgeEmphasis = "highlight" | "normal" | "dimmed" | "hidden" | "filtered";
 
 export interface VisibilityResult {
@@ -58,7 +63,7 @@ export function resolveVisibility(
   for (const id of graph.tableIds) {
     if (!inFilter(id)) tables.set(id, "filtered");
     else if (id === focusId) tables.set(id, "selected");
-    else if (related.tables.has(id)) tables.set(id, "active");
+    else if (related.tables.has(id)) tables.set(id, "related");
     else tables.set(id, unrelatedTable);
   }
 

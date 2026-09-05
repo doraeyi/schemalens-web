@@ -260,5 +260,7 @@ export function toLayoutNodes(models: ReadonlyMap<TableId, CardModel>): LayoutNo
     id: card.table.id,
     width: card.width,
     height: card.height,
+    // 帶上群組，Layout 才能把同群組的表聚在一起、外框才有意義。
+    group: card.group,
   }));
 }

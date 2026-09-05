@@ -71,6 +71,47 @@ describe("點欄位聚焦", () => {
     expect(row(host, "Orders", "Id").classList.contains("is-column-muted")).toBe(true);
   });
 
+  it("亮起的欄位用的是與高亮關聯線同一個色系，兩者對得起來", () => {
+    const { host, renderer } = mount();
+    renderer.focusColumn("dbo.Users", "Id");
+    const css = host.querySelector("style")!.textContent!;
+    const block = (selector: string): string => {
+      const at = css.indexOf(`${selector} {`);
+      return css.slice(at, css.indexOf("}", at));
+    };
+    // 先前用 list-activeSelectionBackground，在深色主題下與卡片底色幾乎同色。
+    expect(block(".dbs-row.is-column-focus")).not.toContain("list-activeSelectionBackground");
+    expect(block(".dbs-row.is-column-focus")).toContain("charts-blue");
+    expect(block(".dbs-edge.is-highlight .dbs-edge-path")).toContain("charts-blue");
+  });
+
+  it("亮起的欄位有明確的視覺標記，不只是別人變暗", () => {
+    const { host, renderer } = mount();
+    renderer.focusColumn("dbo.Users", "Id");
+    const css = host.querySelector("style")!.textContent!;
+    const at = css.indexOf(".dbs-row.is-column-focus {");
+    const block = css.slice(at, css.indexOf("}", at));
+    expect(block).toContain("box-shadow");
+    expect(block).toContain("font-weight");
+  });
+
+  it("含有亮起欄位的卡片會被標出來，大型 schema 才找得到", () => {
+    const { host, renderer } = mount();
+    renderer.focusColumn("dbo.Users", "Id");
+
+    const participants = [...host.querySelectorAll(".dbs-card.is-column-participant")].map((el) =>
+      el.getAttribute("data-table-id"),
+    );
+    expect(participants.sort()).toEqual(["dbo.Comments", "dbo.Orders", "dbo.Users"]);
+  });
+
+  it("取消聚焦後卡片標記也移除", () => {
+    const { host, renderer } = mount();
+    renderer.focusColumn("dbo.Users", "Id");
+    renderer.clearColumnFocus();
+    expect(host.querySelectorAll(".is-column-participant")).toHaveLength(0);
+  });
+
   it("雜訊欄位是降低透明度而不是隱藏，使用者才不會以為欄位不存在", () => {
     const { host, renderer } = mount();
     renderer.focusColumn("dbo.Users", "Id");

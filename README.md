@@ -97,7 +97,7 @@ npm run build -w dbschema
 |---|---|
 | [examples/blog.dbschema](examples/blog.dbschema) | 5 張表的最小範例，涵蓋 PK / FK / UQ / IDX 與 composite index |
 | [examples/design.schema.md](examples/design.schema.md) | Markdown 內嵌，跨多個區塊組成一份 Schema |
-| [examples/large-schema.schema.md](examples/large-schema.schema.md) | 150 張表、195 條關聯，用來驗證大型 Schema 的探索體驗（AC-20）。由 `npm run example:large` 產生 |
+| [examples/large-schema.schema.md](examples/large-schema.schema.md) | 150 張表、191 條關聯，用來驗證大型 Schema 的探索體驗（AC-20）。由 `npm run example:large` 產生 |
 
 ## DSL
 
@@ -157,8 +157,15 @@ relation FK_Posts_Users {
 | `Esc` | Reset Focus |
 | 卡片標題的 ▾ | Collapse / Expand |
 
-Toolbar：View（Overview / Keys / **Full**，預設 Full）、Depth（All / 1-Hop / 2-Hop）、
-Direction（All / Upstream / Downstream）、Unrelated（Dim / Hide）。
+Toolbar：**View**（Overview / Keys / Full，預設 Full）、**Depth**（All / 1-Hop / 2-Hop）、
+**Direction**（All / Upstream / Downstream）、**Unrelated**（Dim / Hide）、
+**排版**（依群組 / 依關聯）、**Group**（依功能模組篩選）、**備註**（截斷 / 完整）。
+
+排版有兩種依據：**依群組**把同模組的表聚成一塊並畫出外框，適合理解系統結構；
+**依關聯**純粹讓關聯線最短，適合追蹤跨模組的資料流。
+
+關聯線預設畫在卡片**之下**（線太多會蓋住欄位內容），聚焦後才浮到卡片之上——
+此時無關的線已經被淡化，剩下的正是要看的。
 
 ## 架構
 

@@ -183,14 +183,44 @@ describe("SchemaRenderer 預設畫面", () => {
     expect(emailRow.title).toContain("登入帳號");
   });
 
-  it("關聯線畫在卡片之上，才不會被卡片蓋住", () => {
+  it("預設關聯線在卡片之下，不會蓋住欄位內容", () => {
     const viewport = host.querySelector(".dbs-viewport")!;
     const children = [...viewport.children].map((node) => node.getAttribute("class"));
-    // 兩層都在，且線層帶有 z-index 讓它疊在卡片上（見 RENDERER_CSS）。
     expect(children).toContain("dbs-edges");
     expect(children).toContain("dbs-nodes");
-    expect(host.querySelector("style")!.textContent).toMatch(/\.dbs-edges\s*{[^}]*z-index:\s*2/);
-    expect(host.querySelector("style")!.textContent).toMatch(/\.dbs-nodes\s*{[^}]*z-index:\s*1/);
+
+    const css = host.querySelector("style")!.textContent!;
+    const block = (selector: string): string => {
+      const at = css.indexOf(`${selector} {`);
+      return css.slice(at, css.indexOf("}", at));
+    };
+    // 線層的層級必須低於卡片層。
+    expect(block(".dbs-edges")).toContain("z-index: 1");
+    expect(block(".dbs-nodes")).toContain("z-index: 2");
+    expect(host.querySelector(".dbs-edges")!.classList.contains("is-above")).toBe(false);
+  });
+
+  it("聚焦後線才浮到卡片之上——此時無關的線已被淡化", () => {
+    renderer.focusTable("dbo.Posts");
+    expect(host.querySelector(".dbs-edges")!.classList.contains("is-above")).toBe(true);
+
+    const css = host.querySelector("style")!.textContent!;
+    const at = css.indexOf(".dbs-edges.is-above {");
+    expect(css.slice(at, css.indexOf("}", at))).toContain("z-index: 3");
+  });
+
+  it("取消聚焦後線回到卡片之下", () => {
+    renderer.focusTable("dbo.Posts");
+    renderer.setViewState({ focus: { ...renderer.getViewState().focus, tableId: null } });
+    expect(host.querySelector(".dbs-edges")!.classList.contains("is-above")).toBe(false);
+  });
+
+  it("欄位聚焦同樣會讓線浮上來", () => {
+    renderer.focusColumn("dbo.Posts", "AuthorId");
+    expect(host.querySelector(".dbs-edges")!.classList.contains("is-above")).toBe(true);
+
+    renderer.clearColumnFocus();
+    expect(host.querySelector(".dbs-edges")!.classList.contains("is-above")).toBe(false);
   });
 
   it("每條線都有背景色底線（halo），經過卡片時仍看得清楚", () => {

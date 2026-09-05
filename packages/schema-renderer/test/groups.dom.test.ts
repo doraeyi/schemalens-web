@@ -3,7 +3,15 @@
  */
 import { beforeEach, describe, expect, it } from "vitest";
 import { SCHEMA_VERSION, type Schema } from "@schemalens/schema-core";
-import { DEFAULT_VIEW_STATE, SchemaRenderer, groupColor, groupHue, resolveVisibility } from "@schemalens/schema-renderer";
+import {
+  DEFAULT_VIEW_STATE,
+  SchemaRenderer,
+  groupBorderColor,
+  groupColor,
+  groupHue,
+  groupTintColor,
+  resolveVisibility,
+} from "@schemalens/schema-renderer";
 import { buildGraph } from "@schemalens/schema-graph";
 
 function table(name: string, group?: string) {
@@ -59,6 +67,21 @@ describe("群組配色", () => {
 
   it("不同名稱通常得到不同色相", () => {
     expect(groupHue("Identity")).not.toBe(groupHue("Sales"));
+  });
+
+  it("底色、邊框與標籤共用同一個色相", () => {
+    const hueOf = (color: string): string => /hsla?\((\d+)/.exec(color)![1]!;
+    for (const name of ["Identity", "Sales"]) {
+      expect(hueOf(groupTintColor(name))).toBe(hueOf(groupBorderColor(name)));
+      expect(hueOf(groupTintColor(name))).toBe(hueOf(groupColor(name)));
+    }
+  });
+
+  it("底色的透明度遠低於邊框，只在卡片縫隙間透出來", () => {
+    const alphaOf = (color: string): number =>
+      Number.parseFloat(/,\s*([\d.]+)\s*\)$/.exec(color)![1]!);
+    expect(alphaOf(groupTintColor("Identity"))).toBeLessThan(alphaOf(groupBorderColor("Identity")));
+    expect(alphaOf(groupTintColor("Identity"))).toBeLessThanOrEqual(0.15);
   });
 
   it("色相落在 0–360", () => {
@@ -148,5 +171,161 @@ describe("群組篩選", () => {
     renderer.setViewState({ groupFilter: "Identity" });
     renderer.setViewState({ groupFilter: null });
     expect(host.querySelectorAll(".is-filtered-out")).toHaveLength(0);
+  });
+});
+
+describe("群組外框", () => {
+  const box = (host: HTMLElement, group: string): HTMLElement =>
+    host.querySelector<HTMLElement>(`.dbs-group-box[data-group="${group}"]`)!;
+
+  it("每個群組畫出一個外框", () => {
+    const { host } = mount();
+    expect(host.querySelectorAll(".dbs-group-box")).toHaveLength(2);
+    expect(box(host, "Identity")).not.toBeNull();
+    expect(box(host, "Sales")).not.toBeNull();
+  });
+
+  it("外框帶群組名稱與描述", () => {
+    const { host } = mount();
+    const label = box(host, "Identity").querySelector(".dbs-group-box-label")!;
+    expect(label.textContent).toContain("Identity");
+    expect(label.textContent).toContain("身分與權限");
+  });
+
+  it("不同群組的邊框顏色不同", () => {
+    const { host } = mount();
+    expect(box(host, "Identity").style.borderColor).not.toBe("");
+    expect(box(host, "Identity").style.borderColor).not.toBe(box(host, "Sales").style.borderColor);
+  });
+
+  it("有底色，且透明度低到不會壓掉卡片對比", () => {
+    const { host } = mount();
+    // jsdom 會把 hsla() 正規化成 rgba()，所以這裡只驗實際生效的性質。
+    const color = box(host, "Identity").style.backgroundColor;
+    expect(color).not.toBe("");
+
+    const alpha = Number.parseFloat(/,\s*([\d.]+)\s*\)$/.exec(color)![1]!);
+    expect(alpha).toBeGreaterThan(0);
+    expect(alpha).toBeLessThanOrEqual(0.15);
+  });
+
+  it("不同群組的底色不同", () => {
+    const { host } = mount();
+    expect(box(host, "Identity").style.backgroundColor).not.toBe(
+      box(host, "Sales").style.backgroundColor,
+    );
+  });
+
+  it("不使用點陣底紋——群組一多會讓整片畫面變吵", () => {
+    const { host } = mount();
+    expect(box(host, "Identity").style.backgroundImage).toBe("");
+  });
+
+  it("外框有明確的位置與尺寸", () => {
+    const { host } = mount();
+    const el = box(host, "Identity");
+    expect(el.style.width).toMatch(/px$/);
+    expect(el.style.height).toMatch(/px$/);
+    expect(el.style.left).toMatch(/px$/);
+  });
+
+  it("沒有群組的表不會產生外框", () => {
+    const { host } = mount();
+    expect(host.querySelector('.dbs-group-box[data-group="Logs"]')).toBeNull();
+  });
+
+  it("外框在卡片之下，不會擋住互動", () => {
+    const { host } = mount();
+    const viewport = host.querySelector(".dbs-viewport")!;
+    const order = [...viewport.children].map((n) => n.getAttribute("class"));
+    expect(order.indexOf("dbs-groups")).toBeLessThan(order.indexOf("dbs-nodes"));
+
+    const css = host.querySelector("style")!.textContent!;
+    const block = css.slice(css.indexOf(".dbs-groups {"), css.indexOf("}", css.indexOf(".dbs-groups {")));
+    expect(block).toContain("z-index: 0");
+    expect(block).toContain("pointer-events: none");
+  });
+
+  it("群組篩選時，非目標群組的外框跟著淡化", () => {
+    const { host, renderer } = mount();
+    renderer.setViewState({ groupFilter: "Identity" });
+    expect(box(host, "Identity").classList.contains("is-filtered-out")).toBe(false);
+    expect(box(host, "Sales").classList.contains("is-filtered-out")).toBe(true);
+  });
+
+  it("同群組的卡片被排在自己的外框內", () => {
+    const { host } = mount();
+    const el = box(host, "Identity");
+    const rect = {
+      x: Number.parseFloat(el.style.left),
+      y: Number.parseFloat(el.style.top),
+      w: Number.parseFloat(el.style.width),
+      h: Number.parseFloat(el.style.height),
+    };
+    const card = host.querySelector<HTMLElement>('[data-table-id="dbo.Users"]')!;
+    const x = Number.parseFloat(card.style.left);
+    const y = Number.parseFloat(card.style.top);
+
+    expect(x).toBeGreaterThanOrEqual(rect.x);
+    expect(y).toBeGreaterThanOrEqual(rect.y);
+    expect(x).toBeLessThanOrEqual(rect.x + rect.w);
+    expect(y).toBeLessThanOrEqual(rect.y + rect.h);
+  });
+});
+
+describe("排版依據", () => {
+  it("預設依群組聚攏，並畫出外框", () => {
+    const { host, renderer } = mount();
+    expect(renderer.getViewState().layoutMode).toBe("group");
+    expect(host.querySelectorAll(".dbs-group-box").length).toBeGreaterThan(0);
+  });
+
+  it("切成依關聯後不畫外框——成員散開時外框沒有意義", () => {
+    const { host, renderer } = mount();
+    renderer.setViewState({ layoutMode: "relation" });
+    expect(host.querySelectorAll(".dbs-group-box")).toHaveLength(0);
+  });
+
+  it("依關聯排版時，卡片仍保留群組標籤與色條", () => {
+    const { host, renderer } = mount();
+    renderer.setViewState({ layoutMode: "relation" });
+    const users = host.querySelector<HTMLElement>('[data-table-id="dbo.Users"]')!;
+    expect(users.querySelector(".dbs-card-group")?.textContent).toBe("Identity");
+    expect(users.style.borderLeftColor).not.toBe("");
+  });
+
+  it("兩種模式的卡片座標不同（確實重新排過）", () => {
+    const { host, renderer } = mount();
+    const left = () =>
+      host.querySelector<HTMLElement>('[data-table-id="dbo.Orders"]')!.style.left;
+    const grouped = left();
+    renderer.setViewState({ layoutMode: "relation" });
+    expect(left()).not.toBe(grouped);
+  });
+
+  it("切回依群組會重新出現外框", () => {
+    const { host, renderer } = mount();
+    renderer.setViewState({ layoutMode: "relation" });
+    renderer.setViewState({ layoutMode: "group" });
+    expect(host.querySelectorAll(".dbs-group-box").length).toBeGreaterThan(0);
+  });
+
+  it("換排版會清掉手動拖曳的位置", () => {
+    const { host, renderer } = mount();
+    const card = host.querySelector<HTMLElement>('[data-table-id="dbo.Orders"]')!;
+
+    const down = new MouseEvent("pointerdown", { bubbles: true, clientX: 10, clientY: 10, button: 0 });
+    Object.defineProperty(down, "pointerId", { value: 1 });
+    card.dispatchEvent(down);
+    const move = new MouseEvent("pointermove", { bubbles: true, clientX: 200, clientY: 200 });
+    Object.defineProperty(move, "pointerId", { value: 1 });
+    card.dispatchEvent(move);
+    const up = new MouseEvent("pointerup", { bubbles: true, clientX: 200, clientY: 200 });
+    Object.defineProperty(up, "pointerId", { value: 1 });
+    card.dispatchEvent(up);
+    expect(renderer.hasManualPositions()).toBe(true);
+
+    renderer.setViewState({ layoutMode: "relation" });
+    expect(renderer.hasManualPositions()).toBe(false);
   });
 });

@@ -44,14 +44,16 @@ describe("resolveVisibility", () => {
     expect([...result.edges.values()].every((v) => v === "normal")).toBe(true);
   });
 
-  it("focus 後：自己 selected、相關 active、其餘 dimmed（plan §22）", () => {
+  it("focus 後：自己 selected、相關 related、其餘 dimmed（plan §22）", () => {
     const result = resolveVisibility(
       graph,
       state({ focus: { tableId: id("Orders"), depth: 1, direction: "all" } }),
     );
     expect(result.tables.get(id("Orders"))).toBe("selected");
-    expect(result.tables.get(id("Users"))).toBe("active");
-    expect(result.tables.get(id("OrderItems"))).toBe("active");
+    // related 而不是 active：相關表要有正向標示，
+    // 否則畫面上只有「其他變暗」，看不出誰被點亮。
+    expect(result.tables.get(id("Users"))).toBe("related");
+    expect(result.tables.get(id("OrderItems"))).toBe("related");
     expect(result.tables.get(id("Products"))).toBe("dimmed");
     expect(result.tables.get(id("Logs"))).toBe("dimmed");
   });
@@ -80,7 +82,7 @@ describe("resolveVisibility", () => {
       graph,
       state({ focus: { tableId: id("Orders"), depth: 1, direction: "upstream" } }),
     );
-    expect(result.tables.get(id("Users"))).toBe("active");
+    expect(result.tables.get(id("Users"))).toBe("related");
     expect(result.tables.get(id("OrderItems"))).toBe("dimmed");
   });
 
@@ -89,7 +91,7 @@ describe("resolveVisibility", () => {
       graph,
       state({ focus: { tableId: id("Orders"), depth: 1, direction: "downstream" } }),
     );
-    expect(result.tables.get(id("OrderItems"))).toBe("active");
+    expect(result.tables.get(id("OrderItems"))).toBe("related");
     expect(result.tables.get(id("Users"))).toBe("dimmed");
   });
 
@@ -98,7 +100,7 @@ describe("resolveVisibility", () => {
       graph,
       state({ focus: { tableId: id("Orders"), depth: null, direction: "all" } }),
     );
-    expect(result.tables.get(id("Products"))).toBe("active");
+    expect(result.tables.get(id("Products"))).toBe("related");
     expect(result.tables.get(id("Logs"))).toBe("dimmed");
   });
 
