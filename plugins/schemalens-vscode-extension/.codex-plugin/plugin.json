@@ -1,6 +1,6 @@
 {
   "name": "schemalens-vscode-extension",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Design, document and explore relational database schemas as version-controlled text with the DBSchema VS Code extension: a .dbschema DSL plus an interactive diagram with search, dependency tracing and module grouping. Installs the extension from public GitHub Releases when missing; the VS Code Marketplace is not used.",
   "author": {
     "name": "SchemaLens",
