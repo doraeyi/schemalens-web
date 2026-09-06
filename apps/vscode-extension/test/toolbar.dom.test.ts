@@ -89,18 +89,34 @@ describe("語系切換鈕", () => {
 });
 
 describe("備註切換", () => {
-  it("提供截斷與完整兩個選項", () => {
+  it("提供單行與換行兩個選項", () => {
     const { toolbar } = makeToolbar();
     const labels = buttons(toolbar).map((b) => b.textContent);
-    expect(labels).toContain("Truncate");
-    expect(labels).toContain("Full");
+    expect(labels).toContain("One line");
+    expect(labels).toContain("Wrap");
   });
 
-  it("中文標籤是截斷 / 完整", () => {
+  it("中文標籤是單行 / 換行", () => {
     const { toolbar } = makeToolbar("zh-hant");
     const labels = buttons(toolbar).map((b) => b.textContent);
-    expect(labels).toContain("截斷");
-    expect(labels).toContain("完整");
+    expect(labels).toContain("單行");
+    expect(labels).toContain("換行");
+  });
+
+  it("「完整」不再同時出現在欄位顯示與備註兩組，避免混淆", () => {
+    for (const locale of ["en", "zh-hant"] as const) {
+      document.body.replaceChildren();
+      const { toolbar } = makeToolbar(locale);
+      const labels = buttons(toolbar).map((b) => b.textContent);
+      const duplicated = labels.filter((l, i) => labels.indexOf(l) !== i);
+      expect(duplicated).toEqual([]);
+    }
+  });
+
+  it("每個選項都有說明用途的 tooltip", () => {
+    const { toolbar } = makeToolbar("zh-hant");
+    const withHint = buttons(toolbar).filter((b) => b.title.length > 0);
+    expect(withHint.length).toBeGreaterThanOrEqual(5);
   });
 
   it("setActive 標示目前是截斷還是完整", () => {
@@ -118,8 +134,8 @@ describe("備註切換", () => {
     const active = buttons(toolbar)
       .filter((b) => b.classList.contains("is-active"))
       .map((b) => b.textContent);
-    expect(active).toContain("完整");
-    expect(active).not.toContain("截斷");
+    expect(active).toContain("換行");
+    expect(active).not.toContain("單行");
   });
 });
 
@@ -148,15 +164,23 @@ describe("Toolbar 語系", () => {
   it("英文時 Toolbar 標籤是英文", () => {
     const { toolbar } = makeToolbar("en");
     const labels = buttons(toolbar).map((b) => b.textContent);
-    expect(labels).toContain("Overview");
+    expect(labels).toContain("Names only");
     expect(labels).toContain("Reset Focus");
   });
 
   it("中文時 Toolbar 標籤是中文", () => {
     const { toolbar } = makeToolbar("zh-hant");
     const labels = buttons(toolbar).map((b) => b.textContent);
-    expect(labels).toContain("總覽");
+    expect(labels).toContain("只有表名");
     expect(labels).toContain("取消聚焦");
+  });
+
+  it("欄位顯示的三個選項用途一看就懂，不是抽象名詞", () => {
+    const { toolbar } = makeToolbar("zh-hant");
+    const labels = buttons(toolbar).map((b) => b.textContent);
+    // 原本是「總覽 / 索引鍵 / 完整」，看不出各自顯示什麼。
+    expect(labels).toEqual(expect.arrayContaining(["只有表名", "主要欄位", "全部欄位"]));
+    expect(labels).not.toContain("索引鍵");
   });
 
   it("搜尋框的提示文字跟著語系走", () => {
@@ -340,5 +364,124 @@ describe("排版依據切換", () => {
       .map((b) => b.textContent);
     expect(active).toContain("By relations");
     expect(active).not.toContain("By group");
+  });
+});
+
+/**
+ * 層數原本只有 1 / 2 / 全部三個選項。
+ * 中型 schema 常常需要 3～4 層才看得到全貌，選 1、2 太少、選全部又整片攤開。
+ */
+describe("層數可自由增減", () => {
+  const stepper = (toolbar: Toolbar) => {
+    const minus = buttons(toolbar).find((b) => b.textContent === "−")!;
+    const plus = buttons(toolbar).find((b) => b.textContent === "+")!;
+    const all = buttons(toolbar).find((b) => b.textContent === "All" || b.textContent === "全部")!;
+    const readout = toolbar.element.querySelector<HTMLElement>(".dbs-depth-value")!;
+    return { minus, plus, all, readout };
+  };
+
+  function make(onDepth = vi.fn()): { toolbar: Toolbar; onDepth: ReturnType<typeof vi.fn> } {
+    const handlers: ToolbarHandlers = {
+      onDetailLevel: vi.fn(), onDepth, onDirection: vi.fn(), onUnrelated: vi.fn(),
+      onResetFocus: vi.fn(), onFitView: vi.fn(), onResetLayout: vi.fn(), onComments: vi.fn(),
+      onPickHit: vi.fn(), onSearchResults: vi.fn(), onLocale: vi.fn(), onGroupFilter: vi.fn(),
+      onClearColumnFocus: vi.fn(), onLayoutMode: vi.fn(),
+    };
+    const toolbar = new Toolbar(handlers, stringsFor("en"));
+    document.body.append(toolbar.element);
+    return { toolbar, onDepth };
+  }
+
+  it("顯示目前層數", () => {
+    const { toolbar } = make();
+    toolbar.setActive({
+      detailLevel: "full", depth: 3, direction: "all", unrelated: "dim",
+      expandComments: false, layoutMode: "group", groupFilter: null, locale: "en",
+    });
+    expect(stepper(toolbar).readout.textContent).toBe("3 levels");
+  });
+
+  it("單數層用單數字", () => {
+    const { toolbar } = make();
+    toolbar.setActive({
+      detailLevel: "full", depth: 1, direction: "all", unrelated: "dim",
+      expandComments: false, layoutMode: "group", groupFilter: null, locale: "en",
+    });
+    expect(stepper(toolbar).readout.textContent).toBe("1 level");
+  });
+
+  it("加號往上調，可超過 2——這正是原本做不到的", () => {
+    const { toolbar, onDepth } = make();
+    toolbar.setActive({
+      detailLevel: "full", depth: 2, direction: "all", unrelated: "dim",
+      expandComments: false, layoutMode: "group", groupFilter: null, locale: "en",
+    });
+    stepper(toolbar).plus.click();
+    expect(onDepth).toHaveBeenCalledWith(3);
+  });
+
+  it("減號往下調", () => {
+    const { toolbar, onDepth } = make();
+    toolbar.setActive({
+      detailLevel: "full", depth: 4, direction: "all", unrelated: "dim",
+      expandComments: false, layoutMode: "group", groupFilter: null, locale: "en",
+    });
+    stepper(toolbar).minus.click();
+    expect(onDepth).toHaveBeenCalledWith(3);
+  });
+
+  it("最少 1 層，減號會被停用", () => {
+    const { toolbar, onDepth } = make();
+    toolbar.setActive({
+      detailLevel: "full", depth: 1, direction: "all", unrelated: "dim",
+      expandComments: false, layoutMode: "group", groupFilter: null, locale: "en",
+    });
+    const { minus } = stepper(toolbar);
+    expect(minus.disabled).toBe(true);
+    minus.click();
+    expect(onDepth).not.toHaveBeenCalled();
+  });
+
+  it("有上限，再深與「全部」沒有差別", () => {
+    const { toolbar, onDepth } = make();
+    toolbar.setActive({
+      detailLevel: "full", depth: 9, direction: "all", unrelated: "dim",
+      expandComments: false, layoutMode: "group", groupFilter: null, locale: "en",
+    });
+    const { plus } = stepper(toolbar);
+    expect(plus.disabled).toBe(true);
+    plus.click();
+    expect(onDepth).not.toHaveBeenCalled();
+  });
+
+  it("按「全部」送出 null", () => {
+    const { toolbar, onDepth } = make();
+    toolbar.setActive({
+      detailLevel: "full", depth: 2, direction: "all", unrelated: "dim",
+      expandComments: false, layoutMode: "group", groupFilter: null, locale: "en",
+    });
+    stepper(toolbar).all.click();
+    expect(onDepth).toHaveBeenCalledWith(null);
+  });
+
+  it("全部狀態下再按一次，回到先前記住的層數", () => {
+    const { toolbar, onDepth } = make();
+    toolbar.setActive({
+      detailLevel: "full", depth: 4, direction: "all", unrelated: "dim",
+      expandComments: false, layoutMode: "group", groupFilter: null, locale: "en",
+    });
+    toolbar.setActive({
+      detailLevel: "full", depth: null, direction: "all", unrelated: "dim",
+      expandComments: false, layoutMode: "group", groupFilter: null, locale: "en",
+    });
+
+    const { all, minus, plus } = stepper(toolbar);
+    expect(all.classList.contains("is-active")).toBe(true);
+    // 全部狀態下不該還能調層數。
+    expect(minus.disabled).toBe(true);
+    expect(plus.disabled).toBe(true);
+
+    all.click();
+    expect(onDepth).toHaveBeenCalledWith(4);
   });
 });

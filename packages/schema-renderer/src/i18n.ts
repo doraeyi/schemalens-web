@@ -28,8 +28,19 @@ export interface RendererStrings {
   viewKeys: string;
   viewFull: string;
   depthAll: string;
-  depth1Hop: string;
-  depth2Hop: string;
+  /** 例如「3 層」 */
+  depthLevels: (levels: number) => string;
+  depthDecrease: string;
+  depthIncrease: string;
+  /** 按鈕的 tooltip，說明各選項的用途。 */
+  viewOverviewHint: string;
+  viewKeysHint: string;
+  viewFullHint: string;
+  commentsTruncateHint: string;
+  commentsExpandHint: string;
+  directionAllHint: string;
+  directionUpstreamHint: string;
+  directionDownstreamHint: string;
   directionAll: string;
   directionUpstream: string;
   directionDownstream: string;
@@ -51,7 +62,7 @@ export interface RendererStrings {
 
 const en: RendererStrings = {
   searchPlaceholder: "Search tables or columns…",
-  viewGroup: "View",
+  viewGroup: "Columns",
   depthGroup: "Depth",
   directionGroup: "Direction",
   unrelatedGroup: "Unrelated",
@@ -63,15 +74,24 @@ const en: RendererStrings = {
   allGroups: "All groups",
   ungrouped: "Ungrouped",
   commentsGroup: "Comments",
-  commentsTruncate: "Truncate",
-  commentsExpand: "Full",
-  viewOverview: "Overview",
-  viewKeys: "Keys",
-  viewFull: "Full",
+  commentsTruncate: "One line",
+  commentsExpand: "Wrap",
+  viewOverview: "Names only",
+  viewKeys: "Key columns",
+  viewFull: "All columns",
   depthAll: "All",
-  depth1Hop: "1-Hop",
-  depth2Hop: "2-Hop",
-  directionAll: "All",
+  depthLevels: (levels) => `${levels} ${levels === 1 ? "level" : "levels"}`,
+  depthDecrease: "Fewer levels",
+  depthIncrease: "More levels",
+  viewOverviewHint: "Table names and relations only — good for seeing the whole shape",
+  viewKeysHint: "Only PK / FK / UQ / IDX columns",
+  viewFullHint: "Show every column",
+  commentsTruncateHint: "Keep each comment on one line, truncated with …",
+  commentsExpandHint: "Wrap long comments onto multiple lines",
+  directionAllHint: "Follow relations in both directions",
+  directionUpstreamHint: "Tables this one depends on",
+  directionDownstreamHint: "Tables that depend on this one",
+  directionAll: "Both",
   directionUpstream: "Upstream",
   directionDownstream: "Downstream",
   unrelatedDim: "Dim",
@@ -91,7 +111,7 @@ const en: RendererStrings = {
 
 const zhHant: RendererStrings = {
   searchPlaceholder: "搜尋 Table 或 Column…",
-  viewGroup: "檢視",
+  viewGroup: "欄位顯示",
   depthGroup: "深度",
   directionGroup: "方向",
   unrelatedGroup: "不相關",
@@ -103,15 +123,24 @@ const zhHant: RendererStrings = {
   allGroups: "全部群組",
   ungrouped: "未分類",
   commentsGroup: "備註",
-  commentsTruncate: "截斷",
-  commentsExpand: "完整",
-  viewOverview: "總覽",
-  viewKeys: "索引鍵",
-  viewFull: "完整",
+  commentsTruncate: "單行",
+  commentsExpand: "換行",
+  viewOverview: "只有表名",
+  viewKeys: "主要欄位",
+  viewFull: "全部欄位",
   depthAll: "全部",
-  depth1Hop: "1 層",
-  depth2Hop: "2 層",
-  directionAll: "全部",
+  depthLevels: (levels) => `${levels} 層`,
+  depthDecrease: "減少層數",
+  depthIncrease: "增加層數",
+  viewOverviewHint: "只顯示表名與關聯，適合先看整體結構",
+  viewKeysHint: "只顯示 PK / FK / UQ / IDX 欄位",
+  viewFullHint: "顯示每一個欄位",
+  commentsTruncateHint: "備註只佔一行，過長以 … 省略",
+  commentsExpandHint: "備註換行，完整顯示",
+  directionAllHint: "兩個方向的關聯都看",
+  directionUpstreamHint: "這張表依賴哪些表",
+  directionDownstreamHint: "哪些表依賴這張表",
+  directionAll: "雙向",
   directionUpstream: "上游",
   directionDownstream: "下游",
   unrelatedDim: "淡化",

@@ -97,6 +97,22 @@ describe("getRelatedTables", () => {
     );
   });
 
+  it("支援任意層數，不限於 1 / 2", () => {
+    // Users ← Orders ← OrderItems ← （3 層才走得到 Products）
+    const result3 = getRelatedTables(graph, id("Users"), { depth: 3, direction: "all" });
+    expect(result3.tables.has(id("Products"))).toBe(true);
+    expect(result3.distance.get(id("Products"))).toBe(3);
+
+    const result2 = getRelatedTables(graph, id("Users"), { depth: 2, direction: "all" });
+    expect(result2.tables.has(id("Products"))).toBe(false);
+  });
+
+  it("層數超過圖的直徑時等同於全部", () => {
+    const deep = getRelatedTables(graph, id("Users"), { depth: 99, direction: "all" });
+    const all = getRelatedTables(graph, id("Users"), { depth: graph.tableIds.length, direction: "all" });
+    expect([...deep.tables].sort()).toEqual([...all.tables].sort());
+  });
+
   it("孤立 table 只回傳自己", () => {
     const result = getRelatedTables(graph, id("Logs"), { depth: 2, direction: "all" });
     expect([...result.tables]).toEqual([id("Logs")]);
