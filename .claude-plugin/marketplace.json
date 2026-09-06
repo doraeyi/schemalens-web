@@ -5,14 +5,14 @@
     "url": "https://github.com/kaikaizhen"
   },
   "description": "Plugins for SchemaLens / DBSchema — design, document and explore relational database schemas from inside VS Code.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "plugins": [
     {
       "name": "schemalens-vscode-extension",
       "source": "./plugins/schemalens-vscode-extension",
       "displayName": "Database Schema Diagrams (DBSchema)",
       "description": "Design, document and explore relational database schemas as version-controlled text with the DBSchema VS Code extension: a .dbschema DSL plus an interactive diagram with search, dependency tracing and module grouping. Installs the extension from public GitHub Releases when missing; the VS Code Marketplace is not used.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "author": {
         "name": "kaikaizhen",
         "url": "https://github.com/kaikaizhen"
