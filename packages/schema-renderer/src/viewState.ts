@@ -21,8 +21,11 @@ export type UnrelatedMode = "dim" | "hide";
 
 export interface FocusState {
   tableId: TableId | null;
-  /** 1-Hop / 2-Hop；null 代表 All（不限制深度）。 */
-  depth: 1 | 2 | null;
+  /**
+   * 往外展開幾層關聯；null 代表不限制（整個連通元件）。
+   * 之前只開放 1 / 2 兩種，實務上不夠——中型 schema 常需要 3～4 層才看得到全貌。
+   */
+  depth: number | null;
   direction: TraversalDirection;
 }
 
