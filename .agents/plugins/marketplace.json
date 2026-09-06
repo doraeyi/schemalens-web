@@ -1,0 +1,20 @@
+{
+  "name": "schemalens",
+  "interface": {
+    "displayName": "SchemaLens Plugins"
+  },
+  "plugins": [
+    {
+      "name": "schemalens-vscode-extension",
+      "source": {
+        "source": "local",
+        "path": "./plugins/schemalens-vscode-extension"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}
