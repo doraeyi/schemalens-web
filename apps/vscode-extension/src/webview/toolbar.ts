@@ -82,6 +82,15 @@ export const TOOLBAR_CSS = `
 }
 .dbs-result-label { font-family: var(--vscode-editor-font-family, monospace); }
 .dbs-result-meta { margin-left: auto; color: var(--vscode-descriptionForeground, #9d9d9d); font-size: 10px; }
+.dbs-step { min-width: 22px; padding: 3px 6px; }
+.dbs-btn:disabled { opacity: 0.35; cursor: default; }
+.dbs-depth-value {
+  min-width: 46px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+/* 切到「全部」時，層數只是記住的值，不該看起來還在生效。 */
+.dbs-group.is-unlimited .dbs-depth-value { opacity: 0.4; }
 .dbs-select {
   padding: 3px 6px;
   border: 1px solid var(--vscode-dropdown-border, #3c3c3c);
@@ -101,7 +110,8 @@ export const TOOLBAR_CSS = `
 
 export interface ToolbarHandlers {
   onDetailLevel(level: DetailLevel): void;
-  onDepth(depth: 1 | 2 | null): void;
+  /** 往外展開幾層；null 代表不限制。 */
+  onDepth(depth: number | null): void;
   onDirection(direction: TraversalDirection): void;
   onUnrelated(mode: UnrelatedMode): void;
   /** 欄位備註要截斷成 … 還是完整展開成多行。 */
@@ -122,6 +132,82 @@ export interface ToolbarHandlers {
   onLocale(locale: Locale): void;
 }
 
+/** 深度上限。再深就與「全部」幾乎沒有差別，卻讓按鈕變得難按。 */
+const MAX_DEPTH = 9;
+
+interface DepthStepper {
+  element: HTMLElement;
+  setValue(depth: number | null): void;
+}
+
+/**
+ * 層數控制：`− 3 層 + 全部`。
+ *
+ * 原本只給 1 / 2 / 全部三個選項，中型 schema 常常需要 3～4 層才看得到全貌，
+ * 選 1、2 太少、選全部又整片攤開。改成可自由增減。
+ */
+function depthStepper(
+  strings: RendererStrings,
+  onDepth: (depth: number | null) => void,
+): DepthStepper {
+  const element = document.createElement("div");
+  element.className = "dbs-group";
+
+  const caption = document.createElement("span");
+  caption.className = "dbs-group-label";
+  caption.textContent = strings.depthGroup;
+
+  const minus = document.createElement("button");
+  minus.className = "dbs-btn dbs-step";
+  minus.textContent = "−";
+  minus.title = strings.depthDecrease;
+
+  const readout = document.createElement("span");
+  readout.className = "dbs-depth-value";
+
+  const plus = document.createElement("button");
+  plus.className = "dbs-btn dbs-step";
+  plus.textContent = "+";
+  plus.title = strings.depthIncrease;
+
+  const all = document.createElement("button");
+  all.className = "dbs-btn";
+  all.textContent = strings.depthAll;
+
+  // 記住切到「全部」之前的層數，切回來時不用重新按。
+  let levels = 1;
+  let unlimited = false;
+
+  const paint = (): void => {
+    readout.textContent = strings.depthLevels(levels);
+    all.classList.toggle("is-active", unlimited);
+    element.classList.toggle("is-unlimited", unlimited);
+    minus.disabled = unlimited || levels <= 1;
+    plus.disabled = unlimited || levels >= MAX_DEPTH;
+  };
+
+  minus.addEventListener("click", () => {
+    if (unlimited || levels <= 1) return;
+    onDepth(levels - 1);
+  });
+  plus.addEventListener("click", () => {
+    if (unlimited || levels >= MAX_DEPTH) return;
+    onDepth(levels + 1);
+  });
+  all.addEventListener("click", () => onDepth(unlimited ? levels : null));
+
+  element.append(caption, minus, readout, plus, all);
+
+  return {
+    element,
+    setValue(depth) {
+      unlimited = depth === null;
+      if (depth !== null) levels = Math.min(MAX_DEPTH, Math.max(1, depth));
+      paint();
+    },
+  };
+}
+
 interface ButtonGroup<T> {
   element: HTMLElement;
   setActive(value: T): void;
@@ -129,7 +215,7 @@ interface ButtonGroup<T> {
 
 function buttonGroup<T extends string | number | boolean | null>(
   label: string,
-  options: Array<{ label: string; value: T }>,
+  options: Array<{ label: string; value: T; hint?: string }>,
   onPick: (value: T) => void,
 ): ButtonGroup<T> {
   const group = document.createElement("div");
@@ -144,6 +230,7 @@ function buttonGroup<T extends string | number | boolean | null>(
     const button = document.createElement("button");
     button.className = "dbs-btn";
     button.textContent = option.label;
+    if (option.hint) button.title = option.hint;
     button.addEventListener("click", () => onPick(option.value));
     buttons.set(option.value, button);
     group.append(button);
@@ -170,7 +257,7 @@ export class Toolbar {
   private readonly metrics: HTMLElement;
   private readonly resetLayoutButton: HTMLButtonElement;
   private readonly detailGroup: ButtonGroup<DetailLevel>;
-  private readonly depthGroup: ButtonGroup<1 | 2 | null>;
+  private readonly depthControl: DepthStepper;
   private readonly directionGroup: ButtonGroup<TraversalDirection>;
   private readonly unrelatedGroup: ButtonGroup<UnrelatedMode>;
   private readonly layoutModeGroup: ButtonGroup<LayoutMode>;
@@ -203,27 +290,27 @@ export class Toolbar {
     this.detailGroup = buttonGroup<DetailLevel>(
       this.strings.viewGroup,
       [
-        { label: this.strings.viewOverview, value: "overview" },
-        { label: this.strings.viewKeys, value: "keys" },
-        { label: this.strings.viewFull, value: "full" },
+        { label: this.strings.viewOverview, value: "overview", hint: this.strings.viewOverviewHint },
+        { label: this.strings.viewKeys, value: "keys", hint: this.strings.viewKeysHint },
+        { label: this.strings.viewFull, value: "full", hint: this.strings.viewFullHint },
       ],
       handlers.onDetailLevel,
     );
-    this.depthGroup = buttonGroup<1 | 2 | null>(
-      this.strings.depthGroup,
-      [
-        { label: this.strings.depthAll, value: null },
-        { label: this.strings.depth1Hop, value: 1 },
-        { label: this.strings.depth2Hop, value: 2 },
-      ],
-      handlers.onDepth,
-    );
+    this.depthControl = depthStepper(this.strings, handlers.onDepth);
     this.directionGroup = buttonGroup<TraversalDirection>(
       this.strings.directionGroup,
       [
-        { label: this.strings.directionAll, value: "all" },
-        { label: this.strings.directionUpstream, value: "upstream" },
-        { label: this.strings.directionDownstream, value: "downstream" },
+        { label: this.strings.directionAll, value: "all", hint: this.strings.directionAllHint },
+        {
+          label: this.strings.directionUpstream,
+          value: "upstream",
+          hint: this.strings.directionUpstreamHint,
+        },
+        {
+          label: this.strings.directionDownstream,
+          value: "downstream",
+          hint: this.strings.directionDownstreamHint,
+        },
       ],
       handlers.onDirection,
     );
@@ -266,8 +353,8 @@ export class Toolbar {
     this.commentsGroup = buttonGroup<boolean>(
       this.strings.commentsGroup,
       [
-        { label: this.strings.commentsTruncate, value: false },
-        { label: this.strings.commentsExpand, value: true },
+        { label: this.strings.commentsTruncate, value: false, hint: this.strings.commentsTruncateHint },
+        { label: this.strings.commentsExpand, value: true, hint: this.strings.commentsExpandHint },
       ],
       handlers.onComments,
     );
@@ -314,7 +401,7 @@ export class Toolbar {
     this.element.append(
       searchWrap,
       this.detailGroup.element,
-      this.depthGroup.element,
+      this.depthControl.element,
       this.directionGroup.element,
       this.unrelatedGroup.element,
       this.layoutModeGroup.element,
@@ -372,7 +459,7 @@ export class Toolbar {
 
   setActive(state: {
     detailLevel: DetailLevel;
-    depth: 1 | 2 | null;
+    depth: number | null;
     direction: TraversalDirection;
     unrelated: UnrelatedMode;
     expandComments: boolean;
@@ -381,7 +468,7 @@ export class Toolbar {
     locale: Locale;
   }): void {
     this.detailGroup.setActive(state.detailLevel);
-    this.depthGroup.setActive(state.depth);
+    this.depthControl.setValue(state.depth);
     this.directionGroup.setActive(state.direction);
     this.unrelatedGroup.setActive(state.unrelated);
     this.commentsGroup.setActive(state.expandComments);

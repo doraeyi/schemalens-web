@@ -51,7 +51,7 @@ const handlers: ToolbarHandlers = {
     renderer.setViewState({ detailLevel: level });
     syncToolbar();
   },
-  onDepth: (depth: 1 | 2 | null) => {
+  onDepth: (depth: number | null) => {
     renderer.setViewState({ focus: { ...renderer.getViewState().focus, depth } });
     syncToolbar();
   },
