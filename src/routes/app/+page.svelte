@@ -10,9 +10,10 @@
 	} from '@schemalens/schema-renderer';
 
 	const t = stringsFor('zh-hant');
-	import type { Schema, SchemaDiagnostic, TableId } from '@schemalens/schema-core';
+	import { validateSchema, type Column, type Schema, type SchemaDiagnostic, type TableId } from '@schemalens/schema-core';
 	import type { SearchHit, TraversalDirection } from '@schemalens/schema-graph';
-	import { loadSchemaFromText } from '$lib/schema/documentSchema';
+	import { loadSchemaFromText, loadSchemaFromSql, type LoadedSchema } from '$lib/schema/documentSchema';
+	import type { SqlDialectId } from '$lib/import/sql/types';
 	import { BLOG_EXAMPLE_DSL, BLOG_EXAMPLE_FILENAME } from '$lib/examples/blog';
 	import {
 		clearDraft,
@@ -31,23 +32,31 @@
 	} from '$lib/export/exportImage';
 	import { getTheme, initTheme, toggleTheme } from '$lib/stores/theme.svelte';
 	import type { ViewMode } from '$lib/stores/viewMode';
-	import { syncCompactOverlay, clearCompactOverlay } from '$lib/canvas/compactOverlay';
+	import { syncCompactOverlay, clearCompactOverlay, applyGroupVisibility } from '$lib/canvas/compactOverlay';
 	import { createCompactLayoutEngine } from '$lib/canvas/compactLayout';
 	import { layeredLayout } from '@schemalens/schema-layout';
 	import { toJson, toDsl } from '@schemalens/schema-serializer';
+	import * as mutate from '$lib/schema/mutations';
 	import SchemaCanvas from '$lib/components/SchemaCanvas.svelte';
 	import Toolbar from '$lib/components/Toolbar.svelte';
 	import BottomBar from '$lib/components/BottomBar.svelte';
-	import CompactSidebar from '$lib/components/CompactSidebar.svelte';
-	import TableInspector from '$lib/components/TableInspector.svelte';
+	import AppSidebar from '$lib/components/AppSidebar.svelte';
 	import ContextMenu, { type ContextMenuItem } from '$lib/components/ContextMenu.svelte';
 	import DiagnosticsPanel from '$lib/components/DiagnosticsPanel.svelte';
 	import ImportDialog from '$lib/components/ImportDialog.svelte';
+	import type { PageSummary } from '$lib/components/AppSidebar.svelte';
+	import type { Session } from '@auth/sveltekit';
+	import type { PageData } from './$types';
+
+	let { data }: { data: PageData } = $props();
+	// 不依賴 PageData 一定有 session 欄位——沒有 +layout.server.ts 提供登入狀態時
+	// （例如這個部署還沒接上 GitHub OAuth／MySQL）安全地退回訪客模式，不讓型別檢查卡住。
+	const session = $derived(((data as { session?: Session | null }).session ?? null));
 
 	let renderer: SchemaRenderer | null = null;
 	let canvasHost: HTMLDivElement | null = null;
 	let toolbarRef: Toolbar | undefined = $state();
-	let compactSidebarRef: CompactSidebar | undefined = $state();
+	let appSidebarRef: AppSidebar | undefined = $state();
 
 	let schema = $state<Schema | null>(null);
 	let diagnostics = $state<SchemaDiagnostic[]>([]);
@@ -72,6 +81,8 @@
 	let viewMode = $state<ViewMode>('full');
 	let hiddenGroups = $state<Set<string>>(new Set());
 	let focusedTableId = $state<TableId | null>(null);
+	let pages = $state<PageSummary[]>([]);
+	let activePageId = $state<string | null>(null);
 	let previousDetailLevel: DetailLevel | null = null;
 	const compactLayoutEngine = createCompactLayoutEngine(() => schema);
 
@@ -105,11 +116,19 @@
 		scheduleDraftSave();
 	}
 
-	/** Compact mode's zone boxes + column counts live entirely in the app layer — see compactOverlay.ts. */
+	/**
+	 * Compact mode's zone boxes + connectors live entirely in the app layer —
+	 * see compactOverlay.ts. Group visibility (主題區域 tab) applies in both
+	 * modes, so full mode re-applies it after clearing the compact-only DOM.
+	 */
 	function syncCompactState(): void {
 		if (!canvasHost) return;
-		if (viewMode === 'compact' && schema) syncCompactOverlay(canvasHost, schema, hiddenGroups);
-		else clearCompactOverlay(canvasHost);
+		if (viewMode === 'compact' && schema) {
+			syncCompactOverlay(canvasHost, schema, hiddenGroups);
+		} else {
+			clearCompactOverlay(canvasHost);
+			applyGroupVisibility(canvasHost, hiddenGroups);
+		}
 	}
 
 	function toggleGroupVisibility(name: string): void {
@@ -175,11 +194,25 @@
 				source: currentSource,
 				viewState: toSerializable(renderer.getViewState())
 			});
+			saveToCloud();
 		}, 400);
 	}
 
-	function loadSchema(source: string, fileName: string, viewState = DEFAULT_VIEW_STATE): void {
-		const result = loadSchemaFromText(source, fileName);
+	/**
+	 * Guests (or a logged-in user with no page open yet) only ever get the
+	 * localStorage draft above — this is purely additive for logged-in users
+	 * with an active cloud page, fired alongside it, never instead of it.
+	 */
+	function saveToCloud(): void {
+		if (!session?.user || !activePageId) return;
+		fetch(`/api/pages/${activePageId}`, {
+			method: 'PATCH',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ source: currentSource, fileName: currentFileName })
+		}).catch(() => {});
+	}
+
+	function applyLoadedSchema(result: LoadedSchema, source: string, fileName: string, viewState?: typeof DEFAULT_VIEW_STATE): void {
 		schema = result.schema;
 		diagnostics = result.diagnostics;
 		currentSource = source;
@@ -187,14 +220,93 @@
 		selectedTables = new Set();
 
 		if (!renderer) return;
+		// 沒有明確帶入 viewState（例如匯入、範例載入）時，不能無條件套用 DEFAULT_VIEW_STATE——
+		// 那樣會把 detailLevel 蓋回 'full'，讓使用者明明在精簡模式匯入，畫面卻變回完整模式，
+		// 要手動切一次完整→精簡才會恢復。這裡改成照目前的 viewMode 決定要恢復成哪種預設值。
+		const resolvedViewState =
+			viewState ?? (viewMode === 'compact' ? { ...DEFAULT_VIEW_STATE, detailLevel: 'compact' as DetailLevel } : DEFAULT_VIEW_STATE);
 		const start = performance.now();
-		renderer.setViewState(viewState);
+		renderer.setViewState(resolvedViewState);
 		renderer.setSchema(result.schema);
 		const elapsed = Math.round(performance.now() - start);
 		renderer.setDiagnostics(result.diagnostics);
 		metricsText = t.metrics(result.schema.tables.length, result.schema.relations.length, elapsed);
 		syncToolbarState();
 		saveDraft({ fileName, source, viewState: toSerializable(renderer.getViewState()) });
+		saveToCloud();
+	}
+
+	function loadSchema(source: string, fileName: string, viewState?: typeof DEFAULT_VIEW_STATE): void {
+		applyLoadedSchema(loadSchemaFromText(source, fileName), source, fileName, viewState);
+	}
+
+	/** SQL 匯入是唯一 async 的載入路徑（要動態載入 node-sql-parser），其餘 loadSchema() 呼叫點不受影響。 */
+	async function loadSchemaFromSqlAndApply(source: string, fileName: string, dialect: SqlDialectId): Promise<void> {
+		const result = await loadSchemaFromSql(source, fileName, dialect);
+		applyLoadedSchema(result, source, fileName);
+	}
+
+	/**
+	 * Shared landing spot for every table/column edit. `refit: true` (table
+	 * count actually changed) uses renderer.setSchema, which re-fits the
+	 * view; `refit: false` (renaming/tweaking a column on an existing table)
+	 * uses the lighter updateSchema so the camera doesn't jump around while
+	 * someone is mid-edit.
+	 */
+	function commitSchema(next: Schema, options: { refit?: boolean } = {}): void {
+		schema = next;
+		diagnostics = validateSchema(next, { file: currentFileName });
+		currentSource = toDsl(next);
+		if (!renderer) return;
+		if (options.refit) renderer.setSchema(next);
+		else renderer.updateSchema(next);
+		renderer.setDiagnostics(diagnostics);
+		metricsText = t.metrics(next.tables.length, next.relations.length, 0);
+		syncToolbarState();
+		saveDraft({ fileName: currentFileName, source: currentSource, viewState: toSerializable(renderer.getViewState()) });
+		saveToCloud();
+	}
+
+	function handleCreateTable(): void {
+		if (!schema) return;
+		commitSchema(mutate.createTable(schema), { refit: true });
+	}
+
+	function handleDuplicateTable(tableId: TableId): void {
+		if (!schema) return;
+		commitSchema(mutate.duplicateTable(schema, tableId), { refit: true });
+	}
+
+	function handleDeleteTable(tableId: TableId): void {
+		if (!schema) return;
+		commitSchema(mutate.deleteTable(schema, tableId), { refit: true });
+	}
+
+	function handleDeleteSelected(): void {
+		if (!schema || selectedTables.size === 0) return;
+		const next = [...selectedTables].reduce((acc, id) => mutate.deleteTable(acc, id), schema);
+		commitSchema(next, { refit: true });
+		clearSelection();
+	}
+
+	function handleRenameTable(tableId: TableId, name: string): void {
+		if (!schema) return;
+		commitSchema(mutate.renameTable(schema, tableId, name));
+	}
+
+	function handleAddColumn(tableId: TableId): void {
+		if (!schema) return;
+		commitSchema(mutate.addColumn(schema, tableId));
+	}
+
+	function handleUpdateColumn(tableId: TableId, columnName: string, patch: Partial<Column>): void {
+		if (!schema) return;
+		commitSchema(mutate.updateColumn(schema, tableId, columnName, patch));
+	}
+
+	function handleDeleteColumn(tableId: TableId, columnName: string): void {
+		if (!schema) return;
+		commitSchema(mutate.deleteColumn(schema, tableId, columnName));
 	}
 
 	function handleReady(instance: SchemaRenderer, host: HTMLDivElement): void {
@@ -203,11 +315,71 @@
 		renderer.setInteractionMode(interactionMode);
 		scalePercent = Math.round(renderer.getScale() * 100);
 
+		if (session?.user) {
+			initCloudPages();
+			return;
+		}
 		const draft = loadDraft();
 		if (draft) {
 			loadSchema(draft.source, draft.fileName, draft.viewState ? fromSerializable(draft.viewState) : undefined);
 		} else {
 			loadSchema(BLOG_EXAMPLE_DSL, BLOG_EXAMPLE_FILENAME);
+		}
+	}
+
+	/** Logged-in users skip the localStorage draft entirely and go straight to their most recently edited cloud page. */
+	async function initCloudPages(): Promise<void> {
+		const res = await fetch('/api/pages');
+		pages = res.ok ? await res.json() : [];
+		if (pages.length > 0) {
+			await handleSelectPage(pages[0].id);
+		} else {
+			loadSchema(BLOG_EXAMPLE_DSL, BLOG_EXAMPLE_FILENAME);
+		}
+	}
+
+	async function handleSelectPage(pageId: string): Promise<void> {
+		if (pageId === activePageId) return;
+		const res = await fetch(`/api/pages/${pageId}`);
+		if (!res.ok) return;
+		const page = await res.json();
+		activePageId = pageId;
+		loadSchema(page.source, page.fileName);
+	}
+
+	async function handleCreatePage(): Promise<void> {
+		const res = await fetch('/api/pages', { method: 'POST' });
+		if (!res.ok) return;
+		const page = await res.json();
+		pages = [{ id: page.id, title: page.title, updatedAt: page.updatedAt }, ...pages];
+		activePageId = page.id;
+		loadSchema(page.source, page.fileName);
+	}
+
+	async function handleRenamePage(pageId: string, title: string): Promise<void> {
+		pages = pages.map((p) => (p.id === pageId ? { ...p, title } : p));
+		try {
+			await fetch(`/api/pages/${pageId}`, {
+				method: 'PATCH',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ title })
+			});
+		} catch {
+			// best-effort — local list already reflects the rename, next save/reload reconciles
+		}
+	}
+
+	async function handleDeletePage(pageId: string): Promise<void> {
+		pages = pages.filter((p) => p.id !== pageId);
+		if (activePageId === pageId) {
+			activePageId = null;
+			if (pages.length > 0) await handleSelectPage(pages[0].id);
+			else loadSchema(BLOG_EXAMPLE_DSL, BLOG_EXAMPLE_FILENAME);
+		}
+		try {
+			await fetch(`/api/pages/${pageId}`, { method: 'DELETE' });
+		} catch {
+			// best-effort — it's already gone from the visible list
 		}
 	}
 
@@ -247,7 +419,37 @@
 				: [];
 		const isMulti = effectiveIds.length > 1;
 
-		const items: ContextMenuItem[] = [
+		const items: ContextMenuItem[] = [];
+
+		// 側欄拿掉之後，右鍵空白畫布是唯一的「新增資料表」入口。
+		if (!tableId && effectiveIds.length === 0) {
+			items.push({ label: '新增資料表', onSelect: handleCreateTable });
+		}
+
+		// 編輯/建立副本/刪除只在單一表格（非多選）時有意義。
+		if (tableId && !isMulti) {
+			items.push(
+				{
+					label: '編輯',
+					onSelect: () => handleFocusTable(tableId)
+				},
+				{
+					label: '建立副本',
+					onSelect: () => handleDuplicateTable(tableId)
+				},
+				{
+					label: '刪除',
+					onSelect: () => {
+						const table = schema?.tables.find((t) => t.id === tableId);
+						if (!table) return;
+						if (!confirm(`確定要刪除資料表「${table.name}」嗎？連到它的關聯也會一併移除。`)) return;
+						handleDeleteTable(tableId);
+					}
+				}
+			);
+		}
+
+		items.push(
 			{
 				label: isMulti ? `以 PNG 格式儲存選取的 ${effectiveIds.length} 張表到剪貼簿` : '以 PNG 格式儲存到剪貼簿',
 				onSelect: async () => {
@@ -292,12 +494,16 @@
 					}
 				}
 			}
-		];
+		);
 		return items;
 	}
 
-	function handleImport(source: string, fileName: string): void {
+	function handleImport(source: string, fileName: string, sqlDialect?: SqlDialectId): void {
 		showImportDialog = false;
+		if (sqlDialect) {
+			void loadSchemaFromSqlAndApply(source, fileName, sqlDialect);
+			return;
+		}
 		loadSchema(source, fileName);
 	}
 
@@ -309,6 +515,13 @@
 	function handleExportDsl(): void {
 		if (!schema) return;
 		downloadFile(currentFileName.replace(/\.schema\.(json|md)$/i, '') + '.dbschema', toDsl(schema), 'text/plain');
+	}
+
+	async function handleExportSql(dialectId: import('$lib/export/sql').SqlDialectId): Promise<void> {
+		if (!schema) return;
+		const { renderSchemaAsSql } = await import('$lib/export/sql');
+		const base = currentFileName.replace(/\.(dbschema|schema\.(json|md))$/i, '');
+		downloadFile(`${base}.${dialectId}.sql`, renderSchemaAsSql(schema, dialectId), 'text/plain');
 	}
 
 	function handleToggleTheme(): void {
@@ -354,8 +567,14 @@
 				resetFocus();
 			} else if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'f') {
 				event.preventDefault();
-				if (viewMode === 'compact') compactSidebarRef?.focusSearch();
+				if (viewMode === 'compact') appSidebarRef?.focusSearch();
 				else toolbarRef?.focusSearch();
+			} else if ((event.key === 'Delete' || event.key === 'Backspace') && selectedTables.size > 0) {
+				const target = event.target as HTMLElement | null;
+				const tag = target?.tagName;
+				if (tag === 'INPUT' || tag === 'TEXTAREA' || target?.isContentEditable) return;
+				event.preventDefault();
+				handleDeleteSelected();
 			}
 		};
 		window.addEventListener('keydown', handleKeydown);
@@ -368,16 +587,30 @@
 </svelte:head>
 
 <div class="flex h-screen bg-bg text-fg">
-	{#if viewMode === 'compact'}
-		<CompactSidebar
-			bind:this={compactSidebarRef}
-			{schema}
-			{hiddenGroups}
-			onToggleGroup={toggleGroupVisibility}
-			onPickHit={handlePickHit}
-			onSearchResults={handleSearchResults}
-		/>
-	{/if}
+	<AppSidebar
+		bind:this={appSidebarRef}
+		{schema}
+		{session}
+		{pages}
+		{activePageId}
+		{focusedTableId}
+		{hiddenGroups}
+		onPickHit={handlePickHit}
+		onSearchResults={handleSearchResults}
+		onSelectPage={handleSelectPage}
+		onCreatePage={handleCreatePage}
+		onRenamePage={handleRenamePage}
+		onDeletePage={handleDeletePage}
+		onCloseInspector={resetFocus}
+		onFocusTable={handleFocusTable}
+		onToggleGroup={toggleGroupVisibility}
+		onDuplicateTable={handleDuplicateTable}
+		onDeleteTable={handleDeleteTable}
+		onRenameTable={handleRenameTable}
+		onAddColumn={handleAddColumn}
+		onUpdateColumn={handleUpdateColumn}
+		onDeleteColumn={handleDeleteColumn}
+	/>
 
 	<div class="flex flex-1 flex-col">
 		{#if viewMode === 'full'}
@@ -467,6 +700,7 @@
 				onImportClick={() => (showImportDialog = true)}
 				onExportJson={handleExportJson}
 				onExportDsl={handleExportDsl}
+				onExportSql={handleExportSql}
 				onToggleTheme={handleToggleTheme}
 			/>
 
@@ -480,9 +714,6 @@
 		</div>
 	</div>
 
-	{#if viewMode === 'compact' && focusedTableId && schema}
-		<TableInspector {schema} tableId={focusedTableId} onClose={resetFocus} onFocusTable={handleFocusTable} />
-	{/if}
 </div>
 
 {#if contextMenu}

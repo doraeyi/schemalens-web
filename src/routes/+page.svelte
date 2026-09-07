@@ -1,6 +1,16 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { ArrowRight, Copy, FileInput, Search, Sparkles, SunMoon } from '@lucide/svelte';
+	import {
+		ArrowRight,
+		Check,
+		ChevronDown,
+		Copy,
+		Download,
+		FileInput,
+		Search,
+		Sparkles,
+		SunMoon
+	} from '@lucide/svelte';
 	import { getTheme, toggleTheme } from '$lib/stores/theme.svelte';
 
 	let theme = $state(getTheme());
@@ -8,6 +18,45 @@
 	function handleToggleTheme(): void {
 		toggleTheme();
 		theme = getTheme();
+	}
+
+	// kaikaizhen/schemaLen is a public repo, so plain curl / Invoke-RestMethod
+	// against the GitHub API works with no login and no extra CLI tool —
+	// no need for `gh` here.
+	const INSTALL_COMMANDS = {
+		bash: [
+			'url=$(curl -fsSL https://api.github.com/repos/kaikaizhen/schemaLen/releases/latest | grep -o \'"browser_download_url": *"[^"]*\\.vsix"\' | cut -d\'"\' -f4)',
+			'curl -fL -o dbschema.vsix "$url"',
+			'code --install-extension dbschema.vsix'
+		].join('\n'),
+		powershell: [
+			'$release = Invoke-RestMethod -Uri "https://api.github.com/repos/kaikaizhen/schemaLen/releases/latest"',
+			'$asset = $release.assets | Where-Object { $_.name -like "*.vsix" }',
+			'Invoke-WebRequest -Uri $asset.browser_download_url -OutFile dbschema.vsix',
+			'code --install-extension dbschema.vsix'
+		].join('\n'),
+		claude: [
+			'/plugin marketplace add kaikaizhen/schemaLen',
+			'/plugin install schemalens-vscode-extension@schemalens'
+		].join('\n')
+	} as const;
+
+	const RELEASES_URL = 'https://github.com/kaikaizhen/schemaLen/releases/latest';
+
+	let shell = $state<keyof typeof INSTALL_COMMANDS>('bash');
+	let copied = $state(false);
+	let copyTimer: ReturnType<typeof setTimeout> | undefined;
+	let showAdvanced = $state(false);
+
+	async function copyInstallCommand(): Promise<void> {
+		try {
+			await navigator.clipboard.writeText(INSTALL_COMMANDS[shell]);
+			copied = true;
+			clearTimeout(copyTimer);
+			copyTimer = setTimeout(() => (copied = false), 2000);
+		} catch {
+			// clipboard blocked — the command block itself is still visible to copy by hand
+		}
 	}
 
 	const features = [
@@ -179,10 +228,111 @@
 	</section>
 
 	<section id="shortcuts" class="relative z-10 mx-auto max-w-4xl px-6 pb-28">
-		<h2 class="mb-1 text-center text-2xl font-bold">VS Code 插件快捷鍵</h2>
-		<p class="mb-8 text-center text-sm text-muted">
-			網頁版工作區的操作邏輯和 VS Code 插件一致，兩邊切換不用重新學。
-		</p>
+		<h2 class="mb-1 text-center text-2xl font-bold">VS Code 插件</h2>
+		<p class="mb-6 text-center text-sm text-muted">插件還沒上架到官方市集，三步驟手動安裝即可，不用裝額外工具。</p>
+
+		<div class="mx-auto mb-3 max-w-xl overflow-hidden rounded-xl border border-border bg-surface/80">
+			<ol class="divide-y divide-border text-sm">
+				<li class="flex items-start gap-3 p-4">
+					<span class="sl-step">1</span>
+					<div class="flex-1">
+						<p>
+							到 Releases 頁面下載最新的
+							<code class="rounded bg-surface-2 px-1 py-0.5 font-mono text-cyan">.vsix</code> 檔案，公開 repo，不用登入。
+						</p>
+						<a
+							href={RELEASES_URL}
+							target="_blank"
+							rel="noopener noreferrer"
+							class="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-cyan px-3.5 py-1.5 text-xs font-semibold text-bg hover:brightness-110"
+						>
+							<Download size={13} /> 前往下載頁
+						</a>
+					</div>
+				</li>
+				<li class="flex items-start gap-3 p-4">
+					<span class="sl-step">2</span>
+					<p class="flex-1">
+						打開 VS Code，把下載好的 <code class="rounded bg-surface-2 px-1 py-0.5 font-mono text-cyan">.vsix</code>
+						檔案直接拖曳進視窗裡。
+					</p>
+				</li>
+				<li class="flex items-start gap-3 p-4">
+					<span class="sl-step">3</span>
+					<p class="flex-1">
+						或者不想拖曳的話：<kbd class="rounded border border-border bg-surface-2 px-1.5 py-0.5 font-mono text-cyan"
+							>Ctrl/Cmd + Shift + P</kbd
+						>
+						→ 輸入「Install from VSIX」→ 選剛下載的檔案。
+					</p>
+				</li>
+			</ol>
+		</div>
+
+		<div class="mx-auto mb-8 max-w-xl">
+			<button
+				class="flex items-center gap-1 text-xs text-muted hover:text-fg"
+				onclick={() => (showAdvanced = !showAdvanced)}
+			>
+				<ChevronDown size={13} class="transition-transform {showAdvanced ? 'rotate-180' : ''}" />
+				想用指令列一次裝好？
+			</button>
+			{#if showAdvanced}
+				<div class="mt-3 overflow-hidden rounded-xl border border-border bg-surface/80">
+					<div class="flex items-center justify-between border-b border-border px-4 py-2">
+						<div class="flex items-center gap-1">
+							<button
+								class="sl-shell-tab {shell === 'bash' ? 'sl-shell-tab-active' : ''}"
+								onclick={() => (shell = 'bash')}
+							>
+								macOS / Linux
+							</button>
+							<button
+								class="sl-shell-tab {shell === 'powershell' ? 'sl-shell-tab-active' : ''}"
+								onclick={() => (shell = 'powershell')}
+							>
+								Windows
+							</button>
+							<button
+								class="sl-shell-tab {shell === 'claude' ? 'sl-shell-tab-active' : ''}"
+								onclick={() => (shell = 'claude')}
+							>
+								Claude Code
+							</button>
+						</div>
+						<button
+							class="flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-xs hover:border-cyan hover:text-cyan"
+							onclick={copyInstallCommand}
+						>
+							{#if copied}
+								<Check size={12} class="text-cyan" /> 已複製
+							{:else}
+								<Copy size={12} /> 複製指令
+							{/if}
+						</button>
+					</div>
+					<pre class="overflow-x-auto px-4 py-3 font-mono text-xs text-fg"><code
+							>{INSTALL_COMMANDS[shell]}</code
+						></pre>
+				</div>
+				<p class="mt-2 text-xs text-muted">
+					{#if shell === 'claude'}
+						這兩行是 Claude Code 裡的指令，不是終端機指令——直接貼進 Claude Code 對話框執行。第一行把
+						<code class="rounded bg-surface-2 px-1 py-0.5 font-mono text-cyan">kaikaizhen/schemaLen</code
+						> 註冊成 plugin marketplace，第二行安裝擴充，Claude Code 會自動幫你下載 .vsix 並用
+						<code class="rounded bg-surface-2 px-1 py-0.5 font-mono text-cyan">code</code> 指令裝好。
+					{:else}
+						公開 repo，不用額外裝 CLI 工具或登入——只要 VS Code 要能在終端機打
+						<code class="rounded bg-surface-2 px-1 py-0.5 font-mono text-cyan">code</code> 指令（VS Code 裡
+						<kbd class="rounded border border-border bg-surface-2 px-1 py-0.5 font-mono text-cyan"
+							>Shell Command: Install 'code' command in PATH</kbd
+						> 可以設定）。
+					{/if}
+				</p>
+			{/if}
+		</div>
+
+		<h3 class="mb-4 text-center text-sm font-semibold text-muted">安裝好之後，這些快捷鍵跟網頁版通用</h3>
 		<div class="overflow-hidden rounded-xl border border-border">
 			{#each shortcuts as item, i (item.keys)}
 				<div
@@ -199,9 +349,6 @@
 				</div>
 			{/each}
 		</div>
-		<p class="mt-6 text-center text-xs text-muted">
-			VS Code 插件目前透過私有 GitHub Repository 發布，需要 Repository 權限才能下載。
-		</p>
 	</section>
 
 	<footer class="relative z-10 border-t border-border py-6 text-center text-xs text-muted">
@@ -210,6 +357,32 @@
 </div>
 
 <style>
+	.sl-step {
+		display: flex;
+		flex: none;
+		align-items: center;
+		justify-content: center;
+		width: 22px;
+		height: 22px;
+		border-radius: 9999px;
+		background: var(--sl-cyan);
+		color: var(--sl-bg);
+		font-size: 11px;
+		font-weight: 700;
+	}
+	.sl-shell-tab {
+		padding: 3px 8px;
+		border-radius: 6px;
+		font-size: 11px;
+		color: var(--sl-muted);
+	}
+	.sl-shell-tab:hover {
+		color: var(--sl-fg);
+	}
+	.sl-shell-tab-active {
+		background: color-mix(in oklab, var(--sl-cyan) 16%, transparent);
+		color: var(--sl-cyan);
+	}
 	.sl-bg-fx {
 		position: absolute;
 		inset: 0;

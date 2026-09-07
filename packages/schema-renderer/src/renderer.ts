@@ -140,6 +140,18 @@ export class SchemaRenderer {
     this.fitView();
   }
 
+  /**
+   * schemalens-web 新增：跟 setSchema 一樣換資料重繪，但不 fitView。
+   * 編輯欄位/改名這種不影響「有哪些表」的操作用這個——使用者正在看著
+   * 某張表編輯，畫面沒理由跳走或重新縮放。新增/刪除表這種表格數量真的
+   * 變了的操作，才用會自動 fitView 的 setSchema。
+   */
+  updateSchema(schema: Schema): void {
+    this.schema = schema;
+    this.graph = buildGraph(schema);
+    this.rebuild();
+  }
+
   getViewState(): ViewState {
     return this.state;
   }
@@ -204,7 +216,8 @@ export class SchemaRenderer {
 
   focusTable(tableId: TableId, patch: Partial<ViewState["focus"]> = {}): void {
     this.setViewState({ focus: { ...this.state.focus, ...patch, tableId } });
-    if (this.autoCenterOnFocus) this.centerOn(tableId);
+    // 全部的表現在都看得到就不用置中——置中只會把其他表擠出畫面，違背聚焦的目的。
+    if (this.autoCenterOnFocus && !this.allTablesVisible()) this.centerOn(tableId);
   }
 
   /** Column Search 命中後的 Jump + Highlight + Focus（US6）。 */
@@ -214,7 +227,7 @@ export class SchemaRenderer {
       highlightedColumn: { tableId, column },
       searchMatches: new Set([tableId]),
     });
-    if (this.autoCenterOnFocus) this.centerOn(tableId);
+    if (this.autoCenterOnFocus && !this.allTablesVisible()) this.centerOn(tableId);
   }
 
   /** 精簡模式關掉自動置中；切回完整模式要記得重新打開。 */
@@ -282,6 +295,27 @@ export class SchemaRenderer {
     this.ty = point.y - ((point.y - this.ty) / this.scale) * next;
     this.scale = next;
     this.applyTransform();
+  }
+
+  /**
+   * schemalens-web 新增：判斷目前的縮放/平移下，整份 schema 是不是已經全部落在可視範圍內。
+   * 表不多、原本就看得到全部的時候，聚焦不應該為了置中一張表反而把其他表擠出畫面；
+   * 表太多、本來就看不全的時候，置中過去才有意義（見 focusTable / revealColumn）。
+   */
+  private allTablesVisible(padding = 40): boolean {
+    if (!this.positioned || this.positioned.nodes.length === 0) return true;
+    const { width, height } = this.host.getBoundingClientRect();
+    const bounds = this.positioned.bounds;
+    const screenX = bounds.x * this.scale + this.tx;
+    const screenY = bounds.y * this.scale + this.ty;
+    const screenWidth = bounds.width * this.scale;
+    const screenHeight = bounds.height * this.scale;
+    return (
+      screenX >= -padding &&
+      screenY >= -padding &&
+      screenX + screenWidth <= width + padding &&
+      screenY + screenHeight <= height + padding
+    );
   }
 
   /** 把某張表移到畫面中央；縮太小時自動放大到看得清欄位的程度。 */
@@ -774,8 +808,15 @@ export class SchemaRenderer {
 
       this.clearColumnFocus();
       this.events.columnSelected?.(null);
-      this.focusTable(tableId);
-      this.events.tableSelected?.(tableId);
+      // schemalens-web 新增：再點一次目前已經聚焦的表就取消聚焦，跟上面欄位的
+      // toggle 邏輯是同一個精神，不用特地按 Reset。
+      if (this.state.focus.tableId === tableId) {
+        this.setViewState({ focus: { ...this.state.focus, tableId: null } });
+        this.events.viewStateChanged?.(this.state);
+      } else {
+        this.focusTable(tableId);
+        this.events.tableSelected?.(tableId);
+      }
     });
 
     this.root.addEventListener("dblclick", (event) => {
