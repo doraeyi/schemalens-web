@@ -1,28 +1,52 @@
 <script lang="ts">
 	import { FileUp, X } from '@lucide/svelte';
+	import { SQL_DIALECTS, type SqlDialectId } from '$lib/export/sql/types';
 
 	interface Props {
 		onClose: () => void;
-		onImport: (source: string, fileName: string) => void;
+		onImport: (source: string, fileName: string, sqlDialect?: SqlDialectId) => void;
 	}
 
 	let { onClose, onImport }: Props = $props();
 
 	let text = $state('');
 	let fileInput: HTMLInputElement | undefined = $state();
+	let format = $state<'schema' | 'sql'>('schema');
+	let sqlDialect = $state<SqlDialectId>('mysql');
+
+	/** 很陽春的猜測，只拿來預選方言按鈕——使用者一定要自己確認/可以改，不會自動送出。 */
+	function guessDialect(source: string): SqlDialectId {
+		if (/`[^`]+`/.test(source)) return 'mysql';
+		if (/\[[^\]]+\]/.test(source)) return 'mssql';
+		return 'sqlite';
+	}
 
 	async function handleFile(event: Event): Promise<void> {
 		const file = (event.currentTarget as HTMLInputElement).files?.[0];
 		if (!file) return;
 		const source = await file.text();
+		if (format === 'sql' || /\.sql$/i.test(file.name)) {
+			format = 'sql';
+			sqlDialect = guessDialect(source);
+			text = source;
+			return;
+		}
 		onImport(source, file.name);
 	}
 
 	function handlePasteSubmit(): void {
 		if (!text.trim()) return;
+		if (format === 'sql') {
+			onImport(text, `pasted.${sqlDialect}.sql`, sqlDialect);
+			return;
+		}
 		// Pasted text has no filename to sniff a format from — treat it as DSL,
 		// the same default the VS Code extension uses for `.dbschema` files.
 		onImport(text, 'pasted.dbschema');
+	}
+
+	function handleTextInput(): void {
+		if (format === 'sql') sqlDialect = guessDialect(text);
 	}
 </script>
 
@@ -33,11 +57,44 @@
 			<button class="text-muted hover:text-fg" onclick={onClose}><X size={16} /></button>
 		</div>
 
-		<p class="mb-3 text-xs text-muted">
-			支援 <code class="font-mono text-cyan">.dbschema</code> DSL、
-			<code class="font-mono text-cyan">.schema.json</code>，以及
-			<code class="font-mono text-cyan">.schema.md</code>（內嵌 ```dbschema 區塊的 Markdown）。
-		</p>
+		<div class="mb-3 flex items-center gap-1 rounded-lg border border-border bg-bg/40 p-1 text-xs">
+			<button
+				class="flex-1 rounded-md py-1.5 {format === 'schema' ? 'bg-cyan text-bg' : 'text-muted hover:text-fg'}"
+				onclick={() => (format = 'schema')}
+			>
+				DSL / JSON / MD
+			</button>
+			<button
+				class="flex-1 rounded-md py-1.5 {format === 'sql' ? 'bg-cyan text-bg' : 'text-muted hover:text-fg'}"
+				onclick={() => (format = 'sql')}
+			>
+				SQL
+			</button>
+		</div>
+
+		{#if format === 'schema'}
+			<p class="mb-3 text-xs text-muted">
+				支援 <code class="font-mono text-cyan">.dbschema</code> DSL、
+				<code class="font-mono text-cyan">.schema.json</code>，以及
+				<code class="font-mono text-cyan">.schema.md</code>（內嵌 ```dbschema 區塊的 Markdown）。
+			</p>
+		{:else}
+			<p class="mb-2 text-xs text-muted">
+				貼上或上傳任意 <code class="font-mono text-cyan">CREATE TABLE</code> 為主的 SQL DDL，先確認一下方言：
+			</p>
+			<div class="mb-3 flex items-center gap-1">
+				{#each SQL_DIALECTS as dialect (dialect.id)}
+					<button
+						class="rounded-full border px-2.5 py-1 text-xs {sqlDialect === dialect.id
+							? 'border-cyan bg-cyan/15 text-cyan'
+							: 'border-border text-muted hover:text-fg'}"
+						onclick={() => (sqlDialect = dialect.id)}
+					>
+						{dialect.label}
+					</button>
+				{/each}
+			</div>
+		{/if}
 
 		<button
 			class="mb-3 flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-border py-6 text-sm text-muted hover:border-cyan hover:text-cyan"
@@ -49,16 +106,17 @@
 		<input
 			bind:this={fileInput}
 			type="file"
-			accept=".dbschema,.schema.json,.schema.md,.md,.txt"
+			accept={format === 'sql' ? '.sql' : '.dbschema,.schema.json,.schema.md,.md,.txt'}
 			class="hidden"
 			onchange={handleFile}
 		/>
 
-		<div class="mb-2 text-xs text-muted">…或直接貼上 DSL 文字</div>
+		<div class="mb-2 text-xs text-muted">…或直接貼上{format === 'sql' ? ' SQL' : ' DSL'}文字</div>
 		<textarea
 			bind:value={text}
+			oninput={handleTextInput}
 			rows="6"
-			placeholder="table Users ... PK Id bigint not null ..."
+			placeholder={format === 'sql' ? 'CREATE TABLE Users (...);' : 'table Users ... PK Id bigint not null ...'}
 			class="w-full resize-none rounded-lg border border-border bg-bg/60 p-2 font-mono text-xs text-fg placeholder:text-muted focus:border-cyan focus:outline-none"
 		></textarea>
 

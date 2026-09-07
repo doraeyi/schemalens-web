@@ -135,6 +135,19 @@ function arrowheadPoints(tip: { x: number; y: number }, dir: ArrowDir, size = 7)
 }
 
 /**
+ * Hides/shows every .dbs-card belonging to a hidden group. Independent of
+ * compact mode — the 主題區域 tab in AppSidebar works the same way in full
+ * mode (plain cards) and compact mode (also hides that group's zone panel,
+ * handled separately below).
+ */
+export function applyGroupVisibility(canvasHost: HTMLElement, hiddenGroups: ReadonlySet<string>): void {
+	for (const card of canvasHost.querySelectorAll<HTMLElement>('.dbs-card[data-group]')) {
+		const group = card.dataset.group;
+		card.classList.toggle('sl-group-hidden', !!group && hiddenGroups.has(group));
+	}
+}
+
+/**
  * Draws grouped zone panels + orthogonal relation connectors for compact
  * mode, entirely from the app layer: reads the positions the vendored
  * renderer already wrote as inline styles on its .dbs-card elements, and
@@ -147,13 +160,12 @@ export function syncCompactOverlay(
 	hiddenGroups: ReadonlySet<string>
 ): void {
 	canvasHost.classList.add('sl-compact-active');
+	applyGroupVisibility(canvasHost, hiddenGroups);
 
 	const cardById = new Map<TableId, HTMLElement>();
 	for (const card of canvasHost.querySelectorAll<HTMLElement>('.dbs-card')) {
 		const id = card.dataset.tableId as TableId | undefined;
 		if (id) cardById.set(id, card);
-		const hidden = !!card.dataset.group && hiddenGroups.has(card.dataset.group);
-		card.classList.toggle('sl-group-hidden', hidden);
 	}
 
 	const viewport = canvasHost.querySelector<HTMLElement>('.dbs-viewport');

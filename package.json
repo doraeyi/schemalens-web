@@ -9,13 +9,17 @@
 		"preview": "vite preview",
 		"prepare": "svelte-kit sync || echo ''",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
-		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch"
+		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
+		"db:generate": "drizzle-kit generate",
+		"db:push": "drizzle-kit push",
+		"db:studio": "drizzle-kit studio"
 	},
 	"devDependencies": {
 		"@sveltejs/adapter-vercel": "^6.3.4",
 		"@sveltejs/kit": "^2.63.0",
 		"@sveltejs/vite-plugin-svelte": "^7.1.2",
 		"@tailwindcss/vite": "^4.1.16",
+		"drizzle-kit": "^0.31.10",
 		"svelte": "^5.56.1",
 		"svelte-check": "^4.6.0",
 		"tailwindcss": "^4.1.16",
@@ -23,6 +27,9 @@
 		"vite": "^8.0.16"
 	},
 	"dependencies": {
+		"@auth/core": "^0.41.3",
+		"@auth/drizzle-adapter": "^1.11.3",
+		"@auth/sveltekit": "^1.11.3",
 		"@lucide/svelte": "^0.545.0",
 		"@schemalens/schema-core": "workspace:*",
 		"@schemalens/schema-graph": "workspace:*",
@@ -30,7 +37,10 @@
 		"@schemalens/schema-parser": "workspace:*",
 		"@schemalens/schema-renderer": "workspace:*",
 		"@schemalens/schema-serializer": "workspace:*",
+		"drizzle-orm": "^0.45.2",
 		"gsap": "^3.13.0",
-		"html-to-image": "^1.11.11"
+		"html-to-image": "^1.11.11",
+		"mysql2": "^3.24.3",
+		"node-sql-parser": "^5.4.0"
 	}
 }
