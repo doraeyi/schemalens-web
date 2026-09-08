@@ -1,6 +1,8 @@
 <script lang="ts">
 	import type { Column, Schema, TableId } from '@schemalens/schema-core';
 	import { groupColor } from '@schemalens/schema-renderer';
+	import { relationsTouching } from '$lib/schema/mutations';
+	import ConfirmDeleteDialog from './ConfirmDeleteDialog.svelte';
 	import { ArrowRight, Copy, EyeOff, Eye, Key, Plus, Trash2, X } from '@lucide/svelte';
 
 	interface Props {
@@ -87,10 +89,25 @@
 		if (event.key === 'Enter') (event.currentTarget as HTMLElement).blur();
 	}
 
+	let pendingDelete = $state<{ kind: 'table' } | { kind: 'column'; columnName: string } | null>(null);
+
 	function handleDeleteTableClick(): void {
-		if (!table) return;
-		if (!confirm(`確定要刪除資料表「${table.name}」嗎？連到它的關聯也會一併移除。`)) return;
-		onDeleteTable(table.id);
+		pendingDelete = { kind: 'table' };
+	}
+
+	function requestDeleteColumn(columnName: string): void {
+		pendingDelete = { kind: 'column', columnName };
+	}
+
+	function confirmPendingDelete(): void {
+		if (!table || !pendingDelete) return;
+		if (pendingDelete.kind === 'table') onDeleteTable(table.id);
+		else onDeleteColumn(table.id, pendingDelete.columnName);
+		pendingDelete = null;
+	}
+
+	function cancelPendingDelete(): void {
+		pendingDelete = null;
 	}
 
 	const COLUMN_TYPES = [
@@ -281,7 +298,7 @@
 							</button>
 							<button
 								class="sl-icon-btn flex-none text-red-400 hover:text-red-300"
-								onclick={() => onDeleteColumn(table.id, column.name)}
+								onclick={() => requestDeleteColumn(column.name)}
 								title="刪除欄位"
 								aria-label="刪除欄位"
 							>
@@ -320,6 +337,19 @@
 			</div>
 		</div>
 	</div>
+{/if}
+
+{#if table && pendingDelete}
+	<ConfirmDeleteDialog
+		title={pendingDelete.kind === 'table'
+			? `確定要刪除資料表「${table.name}」嗎？`
+			: `確定要刪除欄位「${pendingDelete.columnName}」嗎？`}
+		relations={pendingDelete.kind === 'table'
+			? relationsTouching(schema, table.id)
+			: relationsTouching(schema, table.id, pendingDelete.columnName)}
+		onConfirm={confirmPendingDelete}
+		onCancel={cancelPendingDelete}
+	/>
 {/if}
 
 <datalist id="sl-inspector-column-types">

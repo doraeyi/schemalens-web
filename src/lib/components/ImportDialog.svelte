@@ -3,11 +3,12 @@
 	import { SQL_DIALECTS, type SqlDialectId } from '$lib/export/sql/types';
 
 	interface Props {
+		mode?: 'import' | 'compare';
 		onClose: () => void;
 		onImport: (source: string, fileName: string, sqlDialect?: SqlDialectId) => void;
 	}
 
-	let { onClose, onImport }: Props = $props();
+	let { mode = 'import', onClose, onImport }: Props = $props();
 
 	let text = $state('');
 	let fileInput: HTMLInputElement | undefined = $state();
@@ -53,7 +54,7 @@
 <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
 	<div class="w-full max-w-xl rounded-xl border border-border bg-surface p-5 text-fg shadow-2xl">
 		<div class="mb-3 flex items-center justify-between">
-			<h2 class="text-sm font-semibold">匯入 Schema</h2>
+			<h2 class="text-sm font-semibold">{mode === 'compare' ? '選擇要比較的版本' : '匯入 Schema'}</h2>
 			<button class="text-muted hover:text-fg" onclick={onClose}><X size={16} /></button>
 		</div>
 
@@ -122,7 +123,9 @@
 
 		<div class="mt-3 flex justify-end gap-2">
 			<button class="sl-btn" onclick={onClose}>取消</button>
-			<button class="sl-btn sl-btn-active" onclick={handlePasteSubmit}>匯入貼上的文字</button>
+			<button class="sl-btn sl-btn-active" onclick={handlePasteSubmit}>
+				{mode === 'compare' ? '開始比較' : '匯入貼上的文字'}
+			</button>
 		</div>
 	</div>
 </div>

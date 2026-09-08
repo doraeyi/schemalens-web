@@ -37,13 +37,19 @@
 	import { layeredLayout } from '@schemalens/schema-layout';
 	import { toJson, toDsl } from '@schemalens/schema-serializer';
 	import * as mutate from '$lib/schema/mutations';
+	import { lintSchema, type LintWarning } from '$lib/schema/lint';
+	import { diffSchemas, buildMergedSchema, type SchemaDiff } from '$lib/schema/diff';
+	import { applyDiffOverlay, clearDiffOverlay } from '$lib/canvas/diffOverlay';
 	import SchemaCanvas from '$lib/components/SchemaCanvas.svelte';
 	import Toolbar from '$lib/components/Toolbar.svelte';
 	import BottomBar from '$lib/components/BottomBar.svelte';
 	import AppSidebar from '$lib/components/AppSidebar.svelte';
 	import ContextMenu, { type ContextMenuItem } from '$lib/components/ContextMenu.svelte';
-	import DiagnosticsPanel from '$lib/components/DiagnosticsPanel.svelte';
+	import DiagnosticsPanel, { type DisplayDiagnostic } from '$lib/components/DiagnosticsPanel.svelte';
 	import ImportDialog from '$lib/components/ImportDialog.svelte';
+	import ExportDialog from '$lib/components/ExportDialog.svelte';
+	import ViewSourceDialog from '$lib/components/ViewSourceDialog.svelte';
+	import ConfirmDeleteDialog from '$lib/components/ConfirmDeleteDialog.svelte';
 	import type { PageSummary } from '$lib/components/AppSidebar.svelte';
 	import type { Session } from '@auth/sveltekit';
 	import type { PageData } from './$types';
@@ -60,6 +66,21 @@
 
 	let schema = $state<Schema | null>(null);
 	let diagnostics = $state<SchemaDiagnostic[]>([]);
+	let lintWarnings = $state<LintWarning[]>([]);
+	const displayDiagnostics = $derived<DisplayDiagnostic[]>([
+		...diagnostics.map((d) => ({
+			code: d.code,
+			severity: d.severity,
+			message: d.message,
+			detail: d.location ? `${d.location.line}:${d.location.column}` : undefined
+		})),
+		...lintWarnings.map((w) => ({
+			code: w.code,
+			severity: w.severity,
+			message: w.message,
+			detail: w.location ? (w.location.column ? `${w.location.tableId}.${w.location.column}` : w.location.tableId) : undefined
+		}))
+	]);
 	let currentSource = $state('');
 	let currentFileName = $state(BLOG_EXAMPLE_FILENAME);
 
@@ -88,15 +109,21 @@
 
 	let contextMenu = $state<{ x: number; y: number; tableId: TableId | null } | null>(null);
 	let showImportDialog = $state(false);
+	let showExportDialog = $state(false);
+	let showViewSourceDialog = $state(false);
 	let toast = $state<string | null>(null);
 	let toastTimer: ReturnType<typeof setTimeout> | undefined;
 
+	let deleteConfirm = $state<{ tableId: TableId } | null>(null);
+	let showCompareDialog = $state(false);
+	let diffMode = $state<{ diff: SchemaDiff; sourceLabel: string } | null>(null);
+
 	let draftSaveTimer: ReturnType<typeof setTimeout> | undefined;
 
-	function showToast(message: string): void {
+	function showToast(message: string, durationMs = 2500): void {
 		toast = message;
 		clearTimeout(toastTimer);
-		toastTimer = setTimeout(() => (toast = null), 2500);
+		toastTimer = setTimeout(() => (toast = null), durationMs);
 	}
 
 	function syncToolbarState(): void {
@@ -215,6 +242,7 @@
 	function applyLoadedSchema(result: LoadedSchema, source: string, fileName: string, viewState?: typeof DEFAULT_VIEW_STATE): void {
 		schema = result.schema;
 		diagnostics = result.diagnostics;
+		lintWarnings = lintSchema(result.schema);
 		currentSource = source;
 		currentFileName = fileName;
 		selectedTables = new Set();
@@ -254,8 +282,10 @@
 	 * someone is mid-edit.
 	 */
 	function commitSchema(next: Schema, options: { refit?: boolean } = {}): void {
+		if (diffMode) return;
 		schema = next;
 		diagnostics = validateSchema(next, { file: currentFileName });
+		lintWarnings = lintSchema(next);
 		currentSource = toDsl(next);
 		if (!renderer) return;
 		if (options.refit) renderer.setSchema(next);
@@ -280,6 +310,21 @@
 	function handleDeleteTable(tableId: TableId): void {
 		if (!schema) return;
 		commitSchema(mutate.deleteTable(schema, tableId), { refit: true });
+	}
+
+	/** 右鍵選單「刪除」的入口：先開確認對話框列出會被牽連的關聯，不直接刪。 */
+	function requestDeleteTable(tableId: TableId): void {
+		deleteConfirm = { tableId };
+	}
+
+	function confirmDeleteTable(): void {
+		if (!deleteConfirm) return;
+		handleDeleteTable(deleteConfirm.tableId);
+		deleteConfirm = null;
+	}
+
+	function cancelDeleteTable(): void {
+		deleteConfirm = null;
 	}
 
 	function handleDeleteSelected(): void {
@@ -439,12 +484,7 @@
 				},
 				{
 					label: '刪除',
-					onSelect: () => {
-						const table = schema?.tables.find((t) => t.id === tableId);
-						if (!table) return;
-						if (!confirm(`確定要刪除資料表「${table.name}」嗎？連到它的關聯也會一併移除。`)) return;
-						handleDeleteTable(tableId);
-					}
+					onSelect: () => requestDeleteTable(tableId)
 				}
 			);
 		}
@@ -507,6 +547,50 @@
 		loadSchema(source, fileName);
 	}
 
+	/**
+	 * 版本比較用的第二份來源，只拿去算 diff、渲染一份合成 schema，完全不動目前正在編輯的
+	 * schema/draft/雲端存檔——跟 handleImport 共用同一個 ImportDialog 元件，但不呼叫
+	 * loadSchema()／applyLoadedSchema()。
+	 */
+	async function handleCompareImport(source: string, fileName: string, sqlDialect?: SqlDialectId): Promise<void> {
+		showCompareDialog = false;
+		if (!schema) return;
+		const result = sqlDialect ? await loadSchemaFromSql(source, fileName, sqlDialect) : loadSchemaFromText(source, fileName);
+		// 之前這裡直接丟掉 result.diagnostics——比較來源解析失敗時使用者完全看不到原因，
+		// 只會看到一個「全部都是新增」這種莫名其妙的 diff（因為 compared 是空的）。現在改成
+		// 把第一則實際的診斷訊息也顯示出來，不然「解析失敗」這四個字本身完全沒辦法除錯。
+		// 注意：不能只挑 severity === 'error' 的——SQL 匯入那邊（parseSql.ts）刻意把每條敘述
+		// 解析失敗都標成 'warning'（因為部分敘述失敗、其餘照樣成功是常態，見那邊的註解），
+		// 只篩 'error' 會永遠篩不到東西，訊息就會一直退回到毫無資訊量的預設文字。
+		if (result.schema.tables.length === 0) {
+			const detail = result.diagnostics[0]?.message ?? '沒有解析出任何內容，可能是格式/方言選錯了';
+			showToast(`比較失敗：${detail}`, 6000);
+			return;
+		}
+		if (result.diagnostics.length > 0) {
+			showToast(`比較來源有 ${result.diagnostics.length} 個解析問題（例如：${result.diagnostics[0].message}），diff 結果僅供參考`, 6000);
+		}
+		enterDiffMode(result.schema, fileName);
+	}
+
+	function enterDiffMode(compared: Schema, sourceLabel: string): void {
+		if (!schema || !renderer) return;
+		resetFocus();
+		const diff = diffSchemas(compared, schema);
+		const merged = buildMergedSchema(compared, schema);
+		renderer.setSchema(merged);
+		diffMode = { diff, sourceLabel };
+		if (canvasHost) applyDiffOverlay(canvasHost, diff);
+	}
+
+	function exitDiffMode(): void {
+		if (!schema || !renderer || !diffMode) return;
+		if (canvasHost) clearDiffOverlay(canvasHost);
+		renderer.setSchema(schema);
+		diffMode = null;
+		syncToolbarState();
+	}
+
 	function handleExportJson(): void {
 		if (!schema) return;
 		downloadFile(currentFileName.replace(/\.(dbschema|schema\.md)$/i, '') + '.schema.json', toJson(schema), 'application/json');
@@ -514,7 +598,7 @@
 
 	function handleExportDsl(): void {
 		if (!schema) return;
-		downloadFile(currentFileName.replace(/\.schema\.(json|md)$/i, '') + '.dbschema', toDsl(schema), 'text/plain');
+		downloadFile(currentFileName.replace(/\.(dbschema|schema\.(json|md))$/i, '') + '.dbschema', toDsl(schema), 'text/plain');
 	}
 
 	async function handleExportSql(dialectId: import('$lib/export/sql').SqlDialectId): Promise<void> {
@@ -685,7 +769,26 @@
 				}}
 			/>
 
-			<DiagnosticsPanel {diagnostics} onDismiss={() => (diagnostics = [])} />
+			<DiagnosticsPanel
+				diagnostics={displayDiagnostics}
+				onDismiss={() => {
+					diagnostics = [];
+					lintWarnings = [];
+				}}
+				onViewSource={() => (showViewSourceDialog = true)}
+			/>
+
+			{#if diffMode}
+				<div
+					class="absolute top-3 left-1/2 z-30 flex -translate-x-1/2 items-center gap-2 rounded-full border border-cyan bg-surface px-3 py-1.5 text-xs text-fg shadow-lg"
+				>
+					正在比較版本（{diffMode.sourceLabel} vs 目前）· 唯讀
+					<span class="text-muted">
+						+{diffMode.diff.addedTables.length} / -{diffMode.diff.removedTables.length} / ~{diffMode.diff.changedTables.length}
+					</span>
+					<button class="ml-1 rounded-full bg-cyan px-2 py-0.5 text-bg" onclick={exitDiffMode}>結束比較</button>
+				</div>
+			{/if}
 
 			<BottomBar
 				{scalePercent}
@@ -698,15 +801,16 @@
 				onModeChange={handleModeChange}
 				onViewModeChange={handleViewModeChange}
 				onImportClick={() => (showImportDialog = true)}
-				onExportJson={handleExportJson}
-				onExportDsl={handleExportDsl}
-				onExportSql={handleExportSql}
+				onExportClick={() => (showExportDialog = true)}
+				onViewSourceClick={() => (showViewSourceDialog = true)}
 				onToggleTheme={handleToggleTheme}
+				onCompare={() => (showCompareDialog = true)}
+				compareDisabled={!!diffMode}
 			/>
 
 			{#if toast}
 				<div
-					class="absolute top-3 right-3 z-30 rounded-lg border border-cyan bg-surface px-3 py-2 text-xs text-fg shadow-lg"
+					class="absolute top-3 right-3 z-30 max-w-sm rounded-lg border border-cyan bg-surface px-3 py-2 text-xs whitespace-pre-wrap text-fg shadow-lg"
 				>
 					{toast}
 				</div>
@@ -727,4 +831,30 @@
 
 {#if showImportDialog}
 	<ImportDialog onClose={() => (showImportDialog = false)} onImport={handleImport} />
+{/if}
+
+{#if showExportDialog}
+	<ExportDialog
+		onClose={() => (showExportDialog = false)}
+		onExportJson={handleExportJson}
+		onExportDsl={handleExportDsl}
+		onExportSql={handleExportSql}
+	/>
+{/if}
+
+{#if showViewSourceDialog && schema}
+	<ViewSourceDialog source={toDsl(schema)} onClose={() => (showViewSourceDialog = false)} />
+{/if}
+
+{#if showCompareDialog}
+	<ImportDialog mode="compare" onClose={() => (showCompareDialog = false)} onImport={handleCompareImport} />
+{/if}
+
+{#if deleteConfirm && schema}
+	<ConfirmDeleteDialog
+		title={`確定要刪除資料表「${schema.tables.find((t) => t.id === deleteConfirm?.tableId)?.name ?? ''}」嗎？`}
+		relations={mutate.relationsTouching(schema, deleteConfirm.tableId)}
+		onConfirm={confirmDeleteTable}
+		onCancel={cancelDeleteTable}
+	/>
 {/if}

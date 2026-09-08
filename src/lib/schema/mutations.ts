@@ -3,6 +3,7 @@ import {
 	deriveColumnFlags,
 	makeTableId,
 	type Column,
+	type Relation,
 	type Schema,
 	type Table,
 	type TableId
@@ -38,15 +39,25 @@ function replaceTable(schema: Schema, tableId: TableId, next: Table): Schema {
 	};
 }
 
+function isTouching(relation: Relation, tableId: TableId, columnName?: string): boolean {
+	const touchesAsSource = relation.sourceTable === tableId && (!columnName || relation.sourceColumns.includes(columnName));
+	const touchesAsTarget = relation.targetTable === tableId && (!columnName || relation.targetColumns.includes(columnName));
+	return touchesAsSource || touchesAsTarget;
+}
+
 function dropRelationsTouching(schema: Schema, tableId: TableId, columnName?: string): Schema {
 	return {
 		...schema,
-		relations: schema.relations.filter((r) => {
-			const touchesAsSource = r.sourceTable === tableId && (!columnName || r.sourceColumns.includes(columnName));
-			const touchesAsTarget = r.targetTable === tableId && (!columnName || r.targetColumns.includes(columnName));
-			return !(touchesAsSource || touchesAsTarget);
-		})
+		relations: schema.relations.filter((r) => !isTouching(r, tableId, columnName))
 	};
+}
+
+/**
+ * 查詢版本，跟 dropRelationsTouching 同一套比對邏輯，但只回傳「會被影響的」、不做任何刪除——
+ * 給刪除前的確認對話框（ConfirmDeleteDialog）先讓使用者看到會連帶消失的關聯有哪些。
+ */
+export function relationsTouching(schema: Schema, tableId: TableId, columnName?: string): Relation[] {
+	return schema.relations.filter((r) => isTouching(r, tableId, columnName));
 }
 
 export function createTable(schema: Schema): Schema {
