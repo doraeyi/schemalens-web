@@ -1,10 +1,8 @@
 <script lang="ts">
-	import { Database, Download, Hand, LayoutGrid, Minus, MousePointer2, Moon, Plus, Rows3, Sun, Upload } from '@lucide/svelte';
+	import { Code, Download, GitCompare, Hand, LayoutGrid, Minus, MousePointer2, Moon, Plus, Rows3, Sun, Upload } from '@lucide/svelte';
 	import type { InteractionMode } from '@schemalens/schema-renderer';
 	import type { Theme } from '$lib/stores/theme.svelte';
 	import type { ViewMode } from '$lib/stores/viewMode';
-	import { SQL_DIALECTS, type SqlDialectId } from '$lib/export/sql/types';
-	import ContextMenu, { type ContextMenuItem } from '$lib/components/ContextMenu.svelte';
 
 	interface Props {
 		scalePercent: number;
@@ -17,10 +15,11 @@
 		onModeChange: (mode: InteractionMode) => void;
 		onViewModeChange: (mode: ViewMode) => void;
 		onImportClick: () => void;
-		onExportJson: () => void;
-		onExportDsl: () => void;
-		onExportSql: (dialect: SqlDialectId) => void;
+		onExportClick: () => void;
+		onViewSourceClick: () => void;
 		onToggleTheme: () => void;
+		onCompare: () => void;
+		compareDisabled?: boolean;
 	}
 
 	let {
@@ -34,29 +33,12 @@
 		onModeChange,
 		onViewModeChange,
 		onImportClick,
-		onExportJson,
-		onExportDsl,
-		onExportSql,
-		onToggleTheme
+		onExportClick,
+		onViewSourceClick,
+		onToggleTheme,
+		onCompare,
+		compareDisabled = false
 	}: Props = $props();
-
-	let sqlMenuPos = $state<{ x: number; y: number } | null>(null);
-
-	function toggleSqlMenu(event: MouseEvent): void {
-		if (sqlMenuPos) {
-			sqlMenuPos = null;
-			return;
-		}
-		const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
-		sqlMenuPos = { x: rect.left, y: rect.top - 8 - SQL_DIALECTS.length * 28 };
-	}
-
-	function sqlMenuItems(): ContextMenuItem[] {
-		return SQL_DIALECTS.map((dialect) => ({
-			label: dialect.label,
-			onSelect: () => onExportSql(dialect.id)
-		}));
-	}
 </script>
 
 <div
@@ -100,15 +82,21 @@
 	<button class="sl-pill-btn" onclick={onImportClick} title="匯入 Schema"
 		><Upload size={13} /> 匯入</button
 	>
-	<button class="sl-pill-btn" onclick={onExportJson} title="匯出成 .schema.json"
-		><Download size={13} /> JSON</button
+	<button class="sl-pill-btn" onclick={onExportClick} title="匯出 Schema"
+		><Download size={13} /> 匯出</button
 	>
-	<button class="sl-pill-btn" onclick={onExportDsl} title="匯出成 .dbschema"
-		><Download size={13} /> DSL</button
+	<button class="sl-pill-btn" onclick={onViewSourceClick} title="檢視原始碼（不下載，直接複製）"
+		><Code size={13} /> 程式碼</button
 	>
-	<button class="sl-pill-btn" onclick={toggleSqlMenu} title="匯出成 SQL"
-		><Database size={13} /> SQL</button
+	<button
+		class="sl-pill-btn"
+		onclick={onCompare}
+		disabled={compareDisabled}
+		title="版本比較"
+		style:opacity={compareDisabled ? 0.4 : 1}
 	>
+		<GitCompare size={13} /> 比較
+	</button>
 
 	<div class="mx-1 h-5 w-px bg-border"></div>
 
@@ -137,10 +125,6 @@
 		{#if theme === 'dark'}<Sun size={15} />{:else}<Moon size={15} />{/if}
 	</button>
 </div>
-
-{#if sqlMenuPos}
-	<ContextMenu x={sqlMenuPos.x} y={sqlMenuPos.y} items={sqlMenuItems()} onClose={() => (sqlMenuPos = null)} />
-{/if}
 
 <style>
 	:global(.sl-icon-btn) {

@@ -143,6 +143,36 @@
 }
 
 /*
+ * Visual schema diff (schemalens-web only — see src/lib/canvas/diffOverlay.ts).
+ * Applied imperatively to .dbs-card / .dbs-row elements rendered from a merged
+ * "base ∪ next" schema while diff mode is active.
+ */
+.dbs-card.sl-diff-added {
+	outline: 2px solid #22c55e !important;
+	outline-offset: 2px;
+}
+.dbs-card.sl-diff-removed {
+	outline: 2px dashed #ef4444 !important;
+	outline-offset: 2px;
+	opacity: 0.55;
+}
+.dbs-card.sl-diff-changed {
+	outline: 2px solid #eab308 !important;
+	outline-offset: 2px;
+}
+.dbs-row.sl-diff-added {
+	background: color-mix(in oklab, #22c55e 18%, transparent) !important;
+}
+.dbs-row.sl-diff-removed {
+	background: color-mix(in oklab, #ef4444 18%, transparent) !important;
+	text-decoration: line-through;
+	opacity: 0.7;
+}
+.dbs-row.sl-diff-changed {
+	background: color-mix(in oklab, #eab308 18%, transparent) !important;
+}
+
+/*
  * Compact-mode overlay (schemalens-web only): full-width grouped zone panels
  * + orthogonal relation connectors, both synced imperatively from
  * src/lib/canvas/compactOverlay.ts on top of the vendored renderer's DOM.
