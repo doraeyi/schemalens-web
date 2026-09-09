@@ -4,7 +4,7 @@ import { getDb } from '$lib/server/db';
 import { pagesTable } from '$lib/server/db/schema';
 import type { RequestHandler } from './$types';
 
-async function requireOwnedPage(userId: string, pageId: string) {
+export async function requireOwnedPage(userId: string, pageId: string) {
 	const [page] = await getDb()
 		.select()
 		.from(pagesTable)

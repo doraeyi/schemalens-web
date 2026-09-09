@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Code, Download, GitCompare, Hand, LayoutGrid, Minus, MousePointer2, Moon, Plus, Rows3, Sun, Upload } from '@lucide/svelte';
+	import { Code, Download, GitCompare, Hand, History, LayoutGrid, Minus, MousePointer2, Moon, Plus, Rows3, Sun, Upload } from '@lucide/svelte';
 	import type { InteractionMode } from '@schemalens/schema-renderer';
 	import type { Theme } from '$lib/stores/theme.svelte';
 	import type { ViewMode } from '$lib/stores/viewMode';
@@ -20,6 +20,8 @@
 		onToggleTheme: () => void;
 		onCompare: () => void;
 		compareDisabled?: boolean;
+		onHistory: () => void;
+		historyDisabled?: boolean;
 	}
 
 	let {
@@ -37,7 +39,9 @@
 		onViewSourceClick,
 		onToggleTheme,
 		onCompare,
-		compareDisabled = false
+		compareDisabled = false,
+		onHistory,
+		historyDisabled = false
 	}: Props = $props();
 </script>
 
@@ -96,6 +100,15 @@
 		style:opacity={compareDisabled ? 0.4 : 1}
 	>
 		<GitCompare size={13} /> 比較
+	</button>
+	<button
+		class="sl-pill-btn"
+		onclick={onHistory}
+		disabled={historyDisabled}
+		title="版本歷史"
+		style:opacity={historyDisabled ? 0.4 : 1}
+	>
+		<History size={13} /> 歷史
 	</button>
 
 	<div class="mx-1 h-5 w-px bg-border"></div>

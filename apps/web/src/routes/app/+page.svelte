@@ -51,6 +51,7 @@
 	import ViewSourceDialog from '$lib/components/ViewSourceDialog.svelte';
 	import ConfirmDeleteDialog from '$lib/components/ConfirmDeleteDialog.svelte';
 	import LoginPromptDialog from '$lib/components/LoginPromptDialog.svelte';
+	import VersionHistoryDialog, { type VersionSummary } from '$lib/components/VersionHistoryDialog.svelte';
 	import type { PageSummary } from '$lib/components/AppSidebar.svelte';
 	import type { Session } from '@auth/sveltekit';
 	import type { PageData } from './$types';
@@ -126,6 +127,8 @@
 	let showLoginPrompt = $state(false);
 	let showCompareDialog = $state(false);
 	let diffMode = $state<{ diff: SchemaDiff; sourceLabel: string } | null>(null);
+	let showVersionHistory = $state(false);
+	let versions = $state<VersionSummary[]>([]);
 
 	let draftSaveTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -658,6 +661,47 @@
 		syncToolbarState();
 	}
 
+	async function openVersionHistory(): Promise<void> {
+		if (!activePageId) return;
+		showVersionHistory = true;
+		const res = await fetch(`/api/pages/${activePageId}/versions`);
+		versions = res.ok ? await res.json() : [];
+	}
+
+	async function handleSaveVersion(label: string): Promise<void> {
+		if (!activePageId) return;
+		const res = await fetch(`/api/pages/${activePageId}/versions`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ label, source: currentSource, fileName: currentFileName })
+		});
+		if (!res.ok) {
+			showToast(`儲存版本失敗：${res.status} ${await res.text()}`, 6000);
+			return;
+		}
+		versions = [await res.json(), ...versions];
+	}
+
+	/** 跟現有的「比較」功能共用同一套 enterDiffMode——差別只在來源是資料庫存的舊版本，不是使用者貼上的文字。 */
+	async function handleDiffVersion(versionId: string): Promise<void> {
+		if (!activePageId) return;
+		const res = await fetch(`/api/pages/${activePageId}/versions/${versionId}`);
+		if (!res.ok) return;
+		const version = await res.json();
+		showVersionHistory = false;
+		enterDiffMode(loadSchemaFromText(version.source, version.fileName).schema, version.label);
+	}
+
+	async function handleDeleteVersion(versionId: string): Promise<void> {
+		if (!activePageId) return;
+		versions = versions.filter((v) => v.id !== versionId);
+		try {
+			await fetch(`/api/pages/${activePageId}/versions/${versionId}`, { method: 'DELETE' });
+		} catch {
+			// best-effort — 本機列表已經反映刪除了，下次重新整理會跟資料庫同步
+		}
+	}
+
 	function handleExportJson(): void {
 		if (!schema) return;
 		downloadFile(currentFileName.replace(/\.(dbschema|schema\.md)$/i, '') + '.schema.json', toJson(schema), 'application/json');
@@ -873,6 +917,8 @@
 				onToggleTheme={handleToggleTheme}
 				onCompare={() => (showCompareDialog = true)}
 				compareDisabled={!!diffMode}
+				onHistory={openVersionHistory}
+				historyDisabled={!activePageId}
 			/>
 
 			{#if toast}
@@ -915,6 +961,16 @@
 
 {#if showCompareDialog}
 	<ImportDialog mode="compare" onClose={() => (showCompareDialog = false)} onImport={handleCompareImport} />
+{/if}
+
+{#if showVersionHistory}
+	<VersionHistoryDialog
+		{versions}
+		onSaveVersion={handleSaveVersion}
+		onDiffVersion={handleDiffVersion}
+		onDeleteVersion={handleDeleteVersion}
+		onClose={() => (showVersionHistory = false)}
+	/>
 {/if}
 
 {#if deleteConfirm && schema}
