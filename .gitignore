@@ -5,8 +5,8 @@ node_modules
 .vercel
 .netlify
 .wrangler
-/.svelte-kit
-/build
+.svelte-kit
+build
 
 # OS
 .DS_Store
@@ -21,3 +21,16 @@ Thumbs.db
 # Vite
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+# VS Code extension (apps/vscode-extension)
+dist/
+out/
+*.vsix
+*.tsbuildinfo
+coverage/
+.vscode-test/
+
+# 內部規劃文件不進版控，但 DSL 規格是使用者要看的，必須例外。
+# 用 docs/* 而不是 docs/：整個目錄被排除時 git 不會進入目錄，否定規則不會生效。
+docs/*
+!docs/dsl-spec.md
