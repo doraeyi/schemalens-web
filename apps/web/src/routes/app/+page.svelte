@@ -375,6 +375,11 @@
 		if (session?.user) {
 			if (sessionStorage.getItem(PENDING_CREATE_KEY)) {
 				sessionStorage.removeItem(PENDING_CREATE_KEY);
+				// 訪客按「新增分頁」→ 觸發登入 → 整頁導轉去 GitHub 再導回來，這個往返會讓
+				// currentSource 這些記憶體狀態整個重置——訪客當時畫布上的內容（匯入的／自己編輯的）
+				// 只有 localStorage 草稿還留著，要先讀回來，handleCreatePage() 才不會存出一份空白的。
+				const draft = loadDraft();
+				if (draft) loadSchema(draft.source, draft.fileName, draft.viewState ? fromSerializable(draft.viewState) : undefined);
 				fetchPages().then(() => handleCreatePage());
 			} else {
 				initCloudPages();
@@ -418,7 +423,15 @@
 			showLoginPrompt = true;
 			return;
 		}
-		const res = await fetch('/api/pages', { method: 'POST' });
+		// 還沒有任何分頁在編輯時（訪客剛匯入/編輯過東西、或剛登入還沒選過分頁），
+		// 「新增分頁」實際上是要把手上這份內容存成第一個分頁，不能生一份空白的把它蓋掉。
+		// 已經有分頁在編輯、要另外加一個新的才真的給空白（伺服器端沒收到 body 就是空白）。
+		const body = activePageId ? undefined : JSON.stringify({ source: currentSource, fileName: currentFileName });
+		const res = await fetch('/api/pages', {
+			method: 'POST',
+			headers: body ? { 'Content-Type': 'application/json' } : undefined,
+			body
+		});
 		if (!res.ok) {
 			showToast(`新增分頁失敗：${res.status} ${await res.text()}`, 6000);
 			return;
