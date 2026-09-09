@@ -748,7 +748,7 @@
 					renderer?.setViewState({ detailLevel: level });
 					syncToolbarState();
 				}}
-				onDepth={(depth: 1 | 2 | null) => {
+				onDepth={(depth: number | null) => {
 					if (!renderer) return;
 					renderer.setViewState({ focus: { ...renderer.getViewState().focus, depth } });
 					syncToolbarState();

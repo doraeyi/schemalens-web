@@ -9,7 +9,7 @@
 
 	interface ActiveState {
 		detailLevel: DetailLevel;
-		depth: 1 | 2 | null;
+		depth: number | null;
 		direction: TraversalDirection;
 		unrelated: UnrelatedMode;
 		expandComments: boolean;
@@ -24,7 +24,7 @@
 		layoutDirty: boolean;
 		metricsText: string;
 		onDetailLevel: (level: DetailLevel) => void;
-		onDepth: (depth: 1 | 2 | null) => void;
+		onDepth: (depth: number | null) => void;
 		onDirection: (direction: TraversalDirection) => void;
 		onUnrelated: (mode: UnrelatedMode) => void;
 		onComments: (expanded: boolean) => void;
@@ -169,8 +169,8 @@
 
 	{@render buttonGroup(t.depthGroup, [
 		{ label: t.depthAll, value: null },
-		{ label: t.depth1Hop, value: 1 },
-		{ label: t.depth2Hop, value: 2 }
+		{ label: t.depthLevels(1), value: 1 },
+		{ label: t.depthLevels(2), value: 2 }
 	], active.depth, onDepth)}
 
 	{@render buttonGroup(t.directionGroup, [
