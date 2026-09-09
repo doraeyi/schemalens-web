@@ -1,5 +1,5 @@
 {
-  "name": "@schemalens/schema-graph",
+  "name": "@schemalens/schema-fixtures",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -9,6 +9,6 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "@schemalens/schema-core": "*"
+    "@schemalens/schema-core": "workspace:*"
   }
 }

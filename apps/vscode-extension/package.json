@@ -8,7 +8,7 @@
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/kaikaizhen/schemaLen.git"
+    "url": "https://github.com/doraeyi/schemalens-web.git"
   },
   "type": "module",
   "engines": {
@@ -103,13 +103,13 @@
     "package:vsix": "node scripts/package.mjs"
   },
   "devDependencies": {
-    "@schemalens/schema-core": "*",
-    "@schemalens/schema-fixtures": "*",
-    "@schemalens/schema-graph": "*",
-    "@schemalens/schema-layout": "*",
-    "@schemalens/schema-parser": "*",
-    "@schemalens/schema-renderer": "*",
-    "@schemalens/schema-serializer": "*",
+    "@schemalens/schema-core": "workspace:*",
+    "@schemalens/schema-fixtures": "workspace:*",
+    "@schemalens/schema-graph": "workspace:*",
+    "@schemalens/schema-layout": "workspace:*",
+    "@schemalens/schema-parser": "workspace:*",
+    "@schemalens/schema-renderer": "workspace:*",
+    "@schemalens/schema-serializer": "workspace:*",
     "@types/vscode": "^1.90.0",
     "@vscode/vsce": "^3.2.1"
   }
