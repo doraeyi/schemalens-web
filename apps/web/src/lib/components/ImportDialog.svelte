@@ -14,11 +14,17 @@
 	let fileInput: HTMLInputElement | undefined = $state();
 	let format = $state<'schema' | 'sql'>('schema');
 	let sqlDialect = $state<SqlDialectId>('mysql');
+	/** 使用者自己點過方言按鈕後就不再自動猜——不然貼字/打字時每次都重新猜，會一直蓋掉手動選的結果。 */
+	let dialectManuallySet = $state(false);
 
 	/** 很陽春的猜測，只拿來預選方言按鈕——使用者一定要自己確認/可以改，不會自動送出。 */
 	function guessDialect(source: string): SqlDialectId {
 		if (/`[^`]+`/.test(source)) return 'mysql';
 		if (/\[[^\]]+\]/.test(source)) return 'mssql';
+		// 沒有引號風格可以判斷時（例如識別字都沒加引號），退而求其次找方言專屬關鍵字——
+		// MySQL 常見的 AUTO_INCREMENT / ENGINE=，比預設猜 sqlite 準得多。
+		if (/\bauto_increment\b|\bengine\s*=/i.test(source)) return 'mysql';
+		if (/\bidentity\s*\(/i.test(source)) return 'mssql';
 		return 'sqlite';
 	}
 
@@ -28,7 +34,7 @@
 		const source = await file.text();
 		if (format === 'sql' || /\.sql$/i.test(file.name)) {
 			format = 'sql';
-			sqlDialect = guessDialect(source);
+			if (!dialectManuallySet) sqlDialect = guessDialect(source);
 			text = source;
 			return;
 		}
@@ -47,7 +53,7 @@
 	}
 
 	function handleTextInput(): void {
-		if (format === 'sql') sqlDialect = guessDialect(text);
+		if (format === 'sql' && !dialectManuallySet) sqlDialect = guessDialect(text);
 	}
 </script>
 
@@ -89,7 +95,10 @@
 						class="rounded-full border px-2.5 py-1 text-xs {sqlDialect === dialect.id
 							? 'border-cyan bg-cyan/15 text-cyan'
 							: 'border-border text-muted hover:text-fg'}"
-						onclick={() => (sqlDialect = dialect.id)}
+						onclick={() => {
+							sqlDialect = dialect.id;
+							dialectManuallySet = true;
+						}}
 					>
 						{dialect.label}
 					</button>
