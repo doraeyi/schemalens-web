@@ -1,0 +1,26 @@
+{
+  "name": "schemalens",
+  "private": true,
+  "version": "0.0.1",
+  "description": "DBSchema — Database Schema Visualization for VS Code",
+  "license": "Apache-2.0",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "package:vsix": "npm run build -w dbschema && npm run package:vsix -w dbschema",
+    "example:large": "esbuild scripts/generate-large-example.ts --bundle --platform=node --format=cjs --outfile=dist/generate-large-example.cjs --log-level=error && node dist/generate-large-example.cjs"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "esbuild": "^0.24.2",
+    "jsdom": "^25.0.1",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}
