@@ -453,7 +453,9 @@
 		const page = await res.json();
 		pages = [{ id: page.id, title: page.title, updatedAt: page.updatedAt }, ...pages];
 		activePageId = page.id;
-		loadSchema(page.source, page.fileName);
+		// 跟匯入一樣：不管是全新空白分頁，還是帶著訪客登入前內容建立的分頁，一律 100% 起始，
+		// 不自動縮放塞畫面。
+		loadSchema(page.source, page.fileName, undefined, true);
 	}
 
 	function confirmLoginPrompt(): void {
