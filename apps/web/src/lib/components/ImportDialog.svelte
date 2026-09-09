@@ -14,10 +14,13 @@
 	let fileInput: HTMLInputElement | undefined = $state();
 	let format = $state<'schema' | 'sql'>('schema');
 	let sqlDialect = $state<SqlDialectId>('mysql');
-	/** 使用者自己點過方言按鈕後就不再自動猜——不然貼字/打字時每次都重新猜，會一直蓋掉手動選的結果。 */
-	let dialectManuallySet = $state(false);
 
-	/** 很陽春的猜測，只拿來預選方言按鈕——使用者一定要自己確認/可以改，不會自動送出。 */
+	/**
+	 * 很陽春的猜測，只在「上傳檔案」時用來預選方言按鈕——上傳是一次性的明確動作，猜一次
+	 * 當起始值合理。貼上/打字文字框**不會**觸發這個：猜測邏輯只看引號風格/幾個關鍵字，
+	 * 不夠準，先前每次打字都重新猜會一直蓋掉目前選的方言（不管是預設的 MySQL 還是使用者
+	 * 自己點的），使用者完全沒感覺自己做了什麼卻方言就跳掉了。
+	 */
 	function guessDialect(source: string): SqlDialectId {
 		if (/`[^`]+`/.test(source)) return 'mysql';
 		if (/\[[^\]]+\]/.test(source)) return 'mssql';
@@ -34,7 +37,7 @@
 		const source = await file.text();
 		if (format === 'sql' || /\.sql$/i.test(file.name)) {
 			format = 'sql';
-			if (!dialectManuallySet) sqlDialect = guessDialect(source);
+			sqlDialect = guessDialect(source);
 			text = source;
 			return;
 		}
@@ -52,9 +55,6 @@
 		onImport(text, 'pasted.dbschema');
 	}
 
-	function handleTextInput(): void {
-		if (format === 'sql' && !dialectManuallySet) sqlDialect = guessDialect(text);
-	}
 </script>
 
 <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
@@ -95,10 +95,7 @@
 						class="rounded-full border px-2.5 py-1 text-xs {sqlDialect === dialect.id
 							? 'border-cyan bg-cyan/15 text-cyan'
 							: 'border-border text-muted hover:text-fg'}"
-						onclick={() => {
-							sqlDialect = dialect.id;
-							dialectManuallySet = true;
-						}}
+						onclick={() => (sqlDialect = dialect.id)}
 					>
 						{dialect.label}
 					</button>
@@ -124,7 +121,6 @@
 		<div class="mb-2 text-xs text-muted">…或直接貼上{format === 'sql' ? ' SQL' : ' DSL'}文字</div>
 		<textarea
 			bind:value={text}
-			oninput={handleTextInput}
 			rows="6"
 			placeholder={format === 'sql' ? 'CREATE TABLE Users (...);' : 'table Users ... PK Id bigint not null ...'}
 			class="w-full resize-none rounded-lg border border-border bg-bg/60 p-2 font-mono text-xs text-fg placeholder:text-muted focus:border-cyan focus:outline-none"
