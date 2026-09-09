@@ -60,7 +60,8 @@ interface RawReferenceDefinition {
 interface RawConstraintDefinition {
 	resource: 'constraint';
 	constraint?: string | null;
-	constraint_type: string;
+	/** 內嵌的單純 KEY/INDEX（例如 `KEY idx_x (col)`）沒有這個欄位——實測跑出來的，不是文件記載的。 */
+	constraint_type?: string;
 	definition: RawColumnRef[];
 	reference_definition?: RawReferenceDefinition;
 }
@@ -155,9 +156,12 @@ function convertCreateTable(node: RawCreateTableNode): CreateTableStatement | Un
 			columns.push(toColumnDef(def));
 			continue;
 		}
-		// resource === 'constraint'
-		const type = def.constraint_type.toLowerCase();
-		if (type === 'primary key') {
+		// resource === 'constraint'——內嵌的單純 KEY/INDEX（非具名 constraint，例如
+		// `KEY idx_x (col)`）沒有 constraint_type，安靜略過，跟其餘不支援的 constraint_type 一致。
+		const type = def.constraint_type?.toLowerCase();
+		if (type === undefined) {
+			continue;
+		} else if (type === 'primary key') {
 			tablePrimaryKey = def.definition.map(columnRefName);
 		} else if (type === 'unique') {
 			tableUniques.push({ name: def.constraint ?? undefined, columns: def.definition.map(columnRefName) });

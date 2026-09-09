@@ -22,6 +22,12 @@ export const { handle, signIn, signOut } = SvelteKitAuth(async () => ({
 			clientSecret: env.AUTH_GITHUB_SECRET
 		})
 	],
+	callbacks: {
+		session({ session, user }) {
+			if (session.user) session.user.id = user.id;
+			return session;
+		}
+	},
 	// Falls back to a fixed dev-only string so local dev doesn't 500 before
 	// AUTH_SECRET is configured. This fallback is not secret and must never
 	// be what's actually used in production — set the real AUTH_SECRET as a
