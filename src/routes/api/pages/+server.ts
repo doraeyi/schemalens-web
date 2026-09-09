@@ -2,7 +2,6 @@ import { error, json } from '@sveltejs/kit';
 import { desc, eq } from 'drizzle-orm';
 import { getDb } from '$lib/server/db';
 import { pagesTable } from '$lib/server/db/schema';
-import { BLOG_EXAMPLE_DSL, BLOG_EXAMPLE_FILENAME } from '$lib/examples/blog';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async (event) => {
@@ -28,8 +27,8 @@ export const POST: RequestHandler = async (event) => {
 		id,
 		userId: session.user.id,
 		title: '未命名',
-		source: BLOG_EXAMPLE_DSL,
-		fileName: BLOG_EXAMPLE_FILENAME
+		source: '',
+		fileName: 'untitled.dbschema'
 	});
 
 	const [page] = await db.select().from(pagesTable).where(eq(pagesTable.id, id));

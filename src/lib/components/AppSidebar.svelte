@@ -2,6 +2,7 @@
 	import type { Column, Schema, TableId } from '@schemalens/schema-core';
 	import { search, type SearchHit } from '@schemalens/schema-graph';
 	import { signIn, signOut } from '@auth/sveltekit/client';
+	import { clearDraft } from '$lib/persistence/localDraft';
 	import type { Session } from '@auth/sveltekit';
 	import {
 		Database,
@@ -209,7 +210,7 @@
 		</div>
 	{/if}
 
-	{#if !collapsed && session?.user}
+	{#if !collapsed}
 		<div class="max-h-48 overflow-auto border-b border-border p-2">
 			<div class="mb-1 flex items-center justify-between px-1">
 				<span class="text-muted">分頁</span>
@@ -302,7 +303,15 @@
 						<img src={session.user.image} alt="" class="h-7 w-7 flex-none rounded-full" />
 					{/if}
 					<span class="min-w-0 flex-1 truncate font-semibold">{session.user.name ?? session.user.email}</span>
-					<button class="sl-icon-btn flex-none" onclick={() => signOut()} title="登出" aria-label="登出">
+					<button
+						class="sl-icon-btn flex-none"
+						onclick={() => {
+							clearDraft();
+							signOut();
+						}}
+						title="登出"
+						aria-label="登出"
+					>
 						<LogOut size={14} />
 					</button>
 				</div>

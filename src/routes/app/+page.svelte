@@ -14,7 +14,7 @@
 	import type { SearchHit, TraversalDirection } from '@schemalens/schema-graph';
 	import { loadSchemaFromText, loadSchemaFromSql, type LoadedSchema } from '$lib/schema/documentSchema';
 	import type { SqlDialectId } from '$lib/import/sql/types';
-	import { BLOG_EXAMPLE_DSL, BLOG_EXAMPLE_FILENAME } from '$lib/examples/blog';
+	import { signIn } from '@auth/sveltekit/client';
 	import {
 		clearDraft,
 		fromSerializable,
@@ -50,6 +50,7 @@
 	import ExportDialog from '$lib/components/ExportDialog.svelte';
 	import ViewSourceDialog from '$lib/components/ViewSourceDialog.svelte';
 	import ConfirmDeleteDialog from '$lib/components/ConfirmDeleteDialog.svelte';
+	import LoginPromptDialog from '$lib/components/LoginPromptDialog.svelte';
 	import type { PageSummary } from '$lib/components/AppSidebar.svelte';
 	import type { Session } from '@auth/sveltekit';
 	import type { PageData } from './$types';
@@ -58,6 +59,13 @@
 	// 不依賴 PageData 一定有 session 欄位——沒有 +layout.server.ts 提供登入狀態時
 	// （例如這個部署還沒接上 GitHub OAuth／MySQL）安全地退回訪客模式，不讓型別檢查卡住。
 	const session = $derived(((data as { session?: Session | null }).session ?? null));
+
+	/** 一個全新、什麼都沒有的分頁——訪客沒有草稿、剛登入還沒有雲端分頁、刪掉最後一個分頁、
+	 * 新增分頁時，一律套用這個，不再預塞範例內容。 */
+	const EMPTY_SCHEMA_DSL = '';
+	const EMPTY_SCHEMA_FILENAME = 'untitled.dbschema';
+	/** 訪客在還沒登入時按「新增分頁」會先觸發登入，這個 key 記住「登入完成後要幫他建立分頁」的意圖。 */
+	const PENDING_CREATE_KEY = 'sl-pending-create-page';
 
 	let renderer: SchemaRenderer | null = null;
 	let canvasHost: HTMLDivElement | null = null;
@@ -82,7 +90,7 @@
 		}))
 	]);
 	let currentSource = $state('');
-	let currentFileName = $state(BLOG_EXAMPLE_FILENAME);
+	let currentFileName = $state(EMPTY_SCHEMA_FILENAME);
 
 	let active = $state({
 		detailLevel: DEFAULT_VIEW_STATE.detailLevel,
@@ -115,6 +123,7 @@
 	let toastTimer: ReturnType<typeof setTimeout> | undefined;
 
 	let deleteConfirm = $state<{ tableId: TableId } | null>(null);
+	let showLoginPrompt = $state(false);
 	let showCompareDialog = $state(false);
 	let diffMode = $state<{ diff: SchemaDiff; sourceLabel: string } | null>(null);
 
@@ -216,20 +225,21 @@
 		clearTimeout(draftSaveTimer);
 		draftSaveTimer = setTimeout(() => {
 			if (!renderer || !currentSource) return;
-			saveDraft({
-				fileName: currentFileName,
-				source: currentSource,
-				viewState: toSerializable(renderer.getViewState())
-			});
+			saveLocalDraft(currentFileName, currentSource);
 			saveToCloud();
 		}, 400);
 	}
 
 	/**
-	 * Guests (or a logged-in user with no page open yet) only ever get the
-	 * localStorage draft above — this is purely additive for logged-in users
-	 * with an active cloud page, fired alongside it, never instead of it.
+	 * 只有「訪客」或「登入但還沒有進到任何雲端分頁」才寫本機草稿——一旦有 activePageId，
+	 * 內容已經確實存到雲端了，這裡如果還繼續寫，登出後訪客模式會撿到剛剛雲端分頁的殘留內容，
+	 * 而不是真正空白（曾經發生過：登出後畫布還顯示登入時看的那份 schema）。
 	 */
+	function saveLocalDraft(fileName: string, source: string): void {
+		if (!renderer || (session?.user && activePageId)) return;
+		saveDraft({ fileName, source, viewState: toSerializable(renderer.getViewState()) });
+	}
+
 	function saveToCloud(): void {
 		if (!session?.user || !activePageId) return;
 		fetch(`/api/pages/${activePageId}`, {
@@ -243,8 +253,12 @@
 		schema = result.schema;
 		diagnostics = result.diagnostics;
 		lintWarnings = lintSchema(result.schema);
-		currentSource = source;
-		currentFileName = fileName;
+		// 不管原始來源是什麼格式（SQL、JSON、Markdown、DSL），存起來的一律是重新序列化過的 DSL——
+		// 這是唯一一種「草稿／雲端分頁重新載入時保證能正確還原」的格式。loadSchemaFromText 只認得
+		// .dbschema / .schema.json / .schema.md 這三種副檔名，完全沒有 SQL 分支；如果存的是原始
+		// SQL 文字，下次重新整理／切換分頁時會被誤判成 DSL 去解析，整份炸掉（曾經發生過）。
+		currentSource = toDsl(result.schema);
+		currentFileName = fileName.replace(/\.(dbschema|schema\.(json|md)|sql)$/i, '') + '.dbschema';
 		selectedTables = new Set();
 
 		if (!renderer) return;
@@ -257,10 +271,9 @@
 		renderer.setViewState(resolvedViewState);
 		renderer.setSchema(result.schema);
 		const elapsed = Math.round(performance.now() - start);
-		renderer.setDiagnostics(result.diagnostics);
 		metricsText = t.metrics(result.schema.tables.length, result.schema.relations.length, elapsed);
 		syncToolbarState();
-		saveDraft({ fileName, source, viewState: toSerializable(renderer.getViewState()) });
+		saveLocalDraft(currentFileName, currentSource);
 		saveToCloud();
 	}
 
@@ -290,10 +303,9 @@
 		if (!renderer) return;
 		if (options.refit) renderer.setSchema(next);
 		else renderer.updateSchema(next);
-		renderer.setDiagnostics(diagnostics);
 		metricsText = t.metrics(next.tables.length, next.relations.length, 0);
 		syncToolbarState();
-		saveDraft({ fileName: currentFileName, source: currentSource, viewState: toSerializable(renderer.getViewState()) });
+		saveLocalDraft(currentFileName, currentSource);
 		saveToCloud();
 	}
 
@@ -361,25 +373,34 @@
 		scalePercent = Math.round(renderer.getScale() * 100);
 
 		if (session?.user) {
-			initCloudPages();
+			if (sessionStorage.getItem(PENDING_CREATE_KEY)) {
+				sessionStorage.removeItem(PENDING_CREATE_KEY);
+				fetchPages().then(() => handleCreatePage());
+			} else {
+				initCloudPages();
+			}
 			return;
 		}
 		const draft = loadDraft();
 		if (draft) {
 			loadSchema(draft.source, draft.fileName, draft.viewState ? fromSerializable(draft.viewState) : undefined);
 		} else {
-			loadSchema(BLOG_EXAMPLE_DSL, BLOG_EXAMPLE_FILENAME);
+			loadSchema(EMPTY_SCHEMA_DSL, EMPTY_SCHEMA_FILENAME);
 		}
+	}
+
+	async function fetchPages(): Promise<void> {
+		const res = await fetch('/api/pages');
+		pages = res.ok ? await res.json() : [];
 	}
 
 	/** Logged-in users skip the localStorage draft entirely and go straight to their most recently edited cloud page. */
 	async function initCloudPages(): Promise<void> {
-		const res = await fetch('/api/pages');
-		pages = res.ok ? await res.json() : [];
+		await fetchPages();
 		if (pages.length > 0) {
 			await handleSelectPage(pages[0].id);
 		} else {
-			loadSchema(BLOG_EXAMPLE_DSL, BLOG_EXAMPLE_FILENAME);
+			loadSchema(EMPTY_SCHEMA_DSL, EMPTY_SCHEMA_FILENAME);
 		}
 	}
 
@@ -393,12 +414,29 @@
 	}
 
 	async function handleCreatePage(): Promise<void> {
+		if (!session?.user) {
+			showLoginPrompt = true;
+			return;
+		}
 		const res = await fetch('/api/pages', { method: 'POST' });
-		if (!res.ok) return;
+		if (!res.ok) {
+			showToast(`新增分頁失敗：${res.status} ${await res.text()}`, 6000);
+			return;
+		}
 		const page = await res.json();
 		pages = [{ id: page.id, title: page.title, updatedAt: page.updatedAt }, ...pages];
 		activePageId = page.id;
 		loadSchema(page.source, page.fileName);
+	}
+
+	function confirmLoginPrompt(): void {
+		showLoginPrompt = false;
+		sessionStorage.setItem(PENDING_CREATE_KEY, '1');
+		signIn('github');
+	}
+
+	function cancelLoginPrompt(): void {
+		showLoginPrompt = false;
 	}
 
 	async function handleRenamePage(pageId: string, title: string): Promise<void> {
@@ -419,7 +457,7 @@
 		if (activePageId === pageId) {
 			activePageId = null;
 			if (pages.length > 0) await handleSelectPage(pages[0].id);
-			else loadSchema(BLOG_EXAMPLE_DSL, BLOG_EXAMPLE_FILENAME);
+			else loadSchema(EMPTY_SCHEMA_DSL, EMPTY_SCHEMA_FILENAME);
 		}
 		try {
 			await fetch(`/api/pages/${pageId}`, { method: 'DELETE' });
@@ -856,5 +894,13 @@
 		relations={mutate.relationsTouching(schema, deleteConfirm.tableId)}
 		onConfirm={confirmDeleteTable}
 		onCancel={cancelDeleteTable}
+	/>
+{/if}
+
+{#if showLoginPrompt}
+	<LoginPromptDialog
+		message="請先登入才能新增分頁——分頁會儲存在雲端，跟你的 GitHub 帳號綁在一起。"
+		onConfirm={confirmLoginPrompt}
+		onCancel={cancelLoginPrompt}
 	/>
 {/if}
