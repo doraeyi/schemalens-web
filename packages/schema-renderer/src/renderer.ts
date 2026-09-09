@@ -304,6 +304,19 @@ export class SchemaRenderer {
       (width - padding * 2) / bounds.width,
       (height - padding * 2) / bounds.height,
     );
+    this.centerAtScale(clamp(scale, MIN_SCALE, MAX_SCALE));
+  }
+
+  /**
+   * schemalens-web 新增：用固定縮放置中內容，不像 fitView 那樣為了塞進畫面
+   * 自動算縮放比例——匯入大型 schema 時，使用者要的是「先看實際大小，
+   * 自己決定要不要縮小」，而不是被自動縮到很小、字都看不清楚。
+   */
+  centerAtScale(scale: number): void {
+    if (!this.positioned || this.positioned.nodes.length === 0) return;
+    const { width, height } = this.host.getBoundingClientRect();
+    const bounds = this.positioned.bounds;
+    if (width === 0 || height === 0) return;
     this.scale = clamp(scale, MIN_SCALE, MAX_SCALE);
     this.tx = (width - bounds.width * this.scale) / 2 - bounds.x * this.scale;
     this.ty = (height - bounds.height * this.scale) / 2 - bounds.y * this.scale;
