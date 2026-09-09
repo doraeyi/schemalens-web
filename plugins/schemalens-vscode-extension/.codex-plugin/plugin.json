@@ -4,10 +4,10 @@
   "description": "Design, document and explore relational database schemas as version-controlled text with the DBSchema VS Code extension: a .dbschema DSL plus an interactive diagram with search, dependency tracing and module grouping. Installs the extension from public GitHub Releases when missing; the VS Code Marketplace is not used.",
   "author": {
     "name": "SchemaLens",
-    "url": "https://github.com/kaikaizhen/schemaLen"
+    "url": "https://github.com/doraeyi/schemalens-web"
   },
-  "homepage": "https://github.com/kaikaizhen/schemaLen",
-  "repository": "https://github.com/kaikaizhen/schemaLen",
+  "homepage": "https://github.com/doraeyi/schemalens-web",
+  "repository": "https://github.com/doraeyi/schemalens-web",
   "license": "Apache-2.0",
   "keywords": [
     "database",

@@ -3,7 +3,7 @@
 DBSchema 透過 **GitHub Releases** 發布 VSIX，任何人都可以下載安裝。
 目前尚未上架 Visual Studio Marketplace 與 Open VSX。
 
-Repository：<https://github.com/kaikaizhen/schemaLen>
+Repository：<https://github.com/doraeyi/schemalens-web>
 
 ---
 
