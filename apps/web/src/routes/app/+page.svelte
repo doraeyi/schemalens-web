@@ -249,7 +249,13 @@
 		}).catch(() => {});
 	}
 
-	function applyLoadedSchema(result: LoadedSchema, source: string, fileName: string, viewState?: typeof DEFAULT_VIEW_STATE): void {
+	function applyLoadedSchema(
+		result: LoadedSchema,
+		source: string,
+		fileName: string,
+		viewState?: typeof DEFAULT_VIEW_STATE,
+		resetZoomTo100 = false
+	): void {
 		schema = result.schema;
 		diagnostics = result.diagnostics;
 		lintWarnings = lintSchema(result.schema);
@@ -270,6 +276,9 @@
 		const start = performance.now();
 		renderer.setViewState(resolvedViewState);
 		renderer.setSchema(result.schema);
+		// 匯入不管表有多少一律先給 100% 實際大小，使用者自己決定要不要縮小——
+		// 不像一般載入分頁那樣自動縮放塞進畫面，避免表一多整個被縮到看不清楚。
+		if (resetZoomTo100) renderer.centerAtScale(1);
 		const elapsed = Math.round(performance.now() - start);
 		metricsText = t.metrics(result.schema.tables.length, result.schema.relations.length, elapsed);
 		syncToolbarState();
@@ -277,14 +286,19 @@
 		saveToCloud();
 	}
 
-	function loadSchema(source: string, fileName: string, viewState?: typeof DEFAULT_VIEW_STATE): void {
-		applyLoadedSchema(loadSchemaFromText(source, fileName), source, fileName, viewState);
+	function loadSchema(
+		source: string,
+		fileName: string,
+		viewState?: typeof DEFAULT_VIEW_STATE,
+		resetZoomTo100 = false
+	): void {
+		applyLoadedSchema(loadSchemaFromText(source, fileName), source, fileName, viewState, resetZoomTo100);
 	}
 
 	/** SQL 匯入是唯一 async 的載入路徑（要動態載入 node-sql-parser），其餘 loadSchema() 呼叫點不受影響。 */
 	async function loadSchemaFromSqlAndApply(source: string, fileName: string, dialect: SqlDialectId): Promise<void> {
 		const result = await loadSchemaFromSql(source, fileName, dialect);
-		applyLoadedSchema(result, source, fileName);
+		applyLoadedSchema(result, source, fileName, undefined, true);
 	}
 
 	/**
@@ -595,7 +609,7 @@
 			void loadSchemaFromSqlAndApply(source, fileName, sqlDialect);
 			return;
 		}
-		loadSchema(source, fileName);
+		loadSchema(source, fileName, undefined, true);
 	}
 
 	/**
