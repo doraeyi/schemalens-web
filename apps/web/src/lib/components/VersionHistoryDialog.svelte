@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Flag, GitCompare, History, Trash2, X } from '@lucide/svelte';
+	import { Eye, Flag, GitCompare, History, Trash2, X } from '@lucide/svelte';
 
 	export interface VersionSummary {
 		id: string;
@@ -10,12 +10,13 @@
 	interface Props {
 		versions: VersionSummary[];
 		onSaveVersion: (label: string) => void;
+		onViewVersion: (versionId: string) => void;
 		onDiffVersion: (versionId: string, baseVersionId?: string) => void;
 		onDeleteVersion: (versionId: string) => void;
 		onClose: () => void;
 	}
 
-	let { versions, onSaveVersion, onDiffVersion, onDeleteVersion, onClose }: Props = $props();
+	let { versions, onSaveVersion, onViewVersion, onDiffVersion, onDeleteVersion, onClose }: Props = $props();
 
 	let label = $state('');
 	/** 先選一筆當基準，再點另一筆的「比較」，兩邊都是過去的快照互比，不牽涉目前正在編輯的內容。 */
@@ -87,6 +88,14 @@
 						</div>
 						<div class="text-muted">{formatTime(version.createdAt)}</div>
 					</div>
+					<button
+						class="sl-icon-btn flex-none opacity-0 group-hover:opacity-100"
+						onclick={() => onViewVersion(version.id)}
+						title="檢視這個版本當時的內容"
+						aria-label="檢視這個版本當時的內容"
+					>
+						<Eye size={13} />
+					</button>
 					<button
 						class="sl-icon-btn flex-none {isBaseline ? 'text-cyan' : 'opacity-0 group-hover:opacity-100'}"
 						onclick={() => toggleBaseline(version.id)}

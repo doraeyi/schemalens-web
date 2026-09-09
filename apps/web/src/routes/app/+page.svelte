@@ -712,6 +712,21 @@
 		enterDiffMode(versionSchema, version.label);
 	}
 
+	/**
+	 * 單純打開看某一筆版本當時長怎樣，不是要比較差異——重用 enterDiffMode 的唯讀/退出機制，
+	 * 拿同一份 Schema 自己跟自己比較（diff 一定是空的，不會有新增/刪除/改動的顏色），
+	 * banner 那邊改判斷 sourceLabel === nextLabel 顯示「正在檢視」而不是「vs」。
+	 */
+	async function handleViewVersion(versionId: string): Promise<void> {
+		if (!activePageId) return;
+		const res = await fetch(`/api/pages/${activePageId}/versions/${versionId}`);
+		if (!res.ok) return;
+		const version = await res.json();
+		const versionSchema = loadSchemaFromText(version.source, version.fileName).schema;
+		showVersionHistory = false;
+		enterDiffMode(versionSchema, version.label, versionSchema, version.label);
+	}
+
 	async function handleDeleteVersion(versionId: string): Promise<void> {
 		if (!activePageId) return;
 		versions = versions.filter((v) => v.id !== versionId);
@@ -913,11 +928,17 @@
 				<div
 					class="absolute top-3 left-1/2 z-30 flex -translate-x-1/2 items-center gap-2 rounded-full border border-cyan bg-surface px-3 py-1.5 text-xs text-fg shadow-lg"
 				>
-					正在比較版本（{diffMode.sourceLabel} vs {diffMode.nextLabel}）· 唯讀
-					<span class="text-muted">
-						+{diffMode.diff.addedTables.length} / -{diffMode.diff.removedTables.length} / ~{diffMode.diff.changedTables.length}
-					</span>
-					<button class="ml-1 rounded-full bg-cyan px-2 py-0.5 text-bg" onclick={exitDiffMode}>結束比較</button>
+					{#if diffMode.sourceLabel === diffMode.nextLabel}
+						正在檢視版本（{diffMode.sourceLabel}）· 唯讀
+					{:else}
+						正在比較版本（{diffMode.sourceLabel} vs {diffMode.nextLabel}）· 唯讀
+						<span class="text-muted">
+							+{diffMode.diff.addedTables.length} / -{diffMode.diff.removedTables.length} / ~{diffMode.diff.changedTables.length}
+						</span>
+					{/if}
+					<button class="ml-1 rounded-full bg-cyan px-2 py-0.5 text-bg" onclick={exitDiffMode}>
+						{diffMode.sourceLabel === diffMode.nextLabel ? '返回編輯' : '結束比較'}
+					</button>
 				</div>
 			{/if}
 
@@ -987,6 +1008,7 @@
 	<VersionHistoryDialog
 		{versions}
 		onSaveVersion={handleSaveVersion}
+		onViewVersion={handleViewVersion}
 		onDiffVersion={handleDiffVersion}
 		onDeleteVersion={handleDeleteVersion}
 		onClose={() => (showVersionHistory = false)}
