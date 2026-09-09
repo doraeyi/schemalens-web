@@ -2,7 +2,7 @@ import { error, json } from '@sveltejs/kit';
 import { and, eq } from 'drizzle-orm';
 import { getDb } from '$lib/server/db';
 import { pageVersionsTable } from '$lib/server/db/schema';
-import { requireOwnedPage } from '../../+server';
+import { requireOwnedPage } from '$lib/server/pages';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async (event) => {

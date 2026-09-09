@@ -1,17 +1,9 @@
 import { error, json } from '@sveltejs/kit';
-import { and, eq } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { getDb } from '$lib/server/db';
 import { pagesTable } from '$lib/server/db/schema';
+import { requireOwnedPage } from '$lib/server/pages';
 import type { RequestHandler } from './$types';
-
-export async function requireOwnedPage(userId: string, pageId: string) {
-	const [page] = await getDb()
-		.select()
-		.from(pagesTable)
-		.where(and(eq(pagesTable.id, pageId), eq(pagesTable.userId, userId)));
-	if (!page) error(404, '找不到這個分頁');
-	return page;
-}
 
 export const GET: RequestHandler = async (event) => {
 	const session = await event.locals.auth();
