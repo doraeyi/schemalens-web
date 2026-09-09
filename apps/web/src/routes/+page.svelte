@@ -20,28 +20,28 @@
 		theme = getTheme();
 	}
 
-	// kaikaizhen/schemaLen is a public repo, so plain curl / Invoke-RestMethod
+	// doraeyi/schemalens-web is a public repo, so plain curl / Invoke-RestMethod
 	// against the GitHub API works with no login and no extra CLI tool —
 	// no need for `gh` here.
 	const INSTALL_COMMANDS = {
 		bash: [
-			'url=$(curl -fsSL https://api.github.com/repos/kaikaizhen/schemaLen/releases/latest | grep -o \'"browser_download_url": *"[^"]*\\.vsix"\' | cut -d\'"\' -f4)',
+			'url=$(curl -fsSL https://api.github.com/repos/doraeyi/schemalens-web/releases/latest | grep -o \'"browser_download_url": *"[^"]*\\.vsix"\' | cut -d\'"\' -f4)',
 			'curl -fL -o dbschema.vsix "$url"',
 			'code --install-extension dbschema.vsix'
 		].join('\n'),
 		powershell: [
-			'$release = Invoke-RestMethod -Uri "https://api.github.com/repos/kaikaizhen/schemaLen/releases/latest"',
+			'$release = Invoke-RestMethod -Uri "https://api.github.com/repos/doraeyi/schemalens-web/releases/latest"',
 			'$asset = $release.assets | Where-Object { $_.name -like "*.vsix" }',
 			'Invoke-WebRequest -Uri $asset.browser_download_url -OutFile dbschema.vsix',
 			'code --install-extension dbschema.vsix'
 		].join('\n'),
 		claude: [
-			'/plugin marketplace add kaikaizhen/schemaLen',
+			'/plugin marketplace add doraeyi/schemalens-web',
 			'/plugin install schemalens-vscode-extension@schemalens'
 		].join('\n')
 	} as const;
 
-	const RELEASES_URL = 'https://github.com/kaikaizhen/schemaLen/releases/latest';
+	const RELEASES_URL = 'https://github.com/doraeyi/schemalens-web/releases/latest';
 
 	let shell = $state<keyof typeof INSTALL_COMMANDS>('bash');
 	let copied = $state(false);
@@ -318,7 +318,7 @@
 				<p class="mt-2 text-xs text-muted">
 					{#if shell === 'claude'}
 						這兩行是 Claude Code 裡的指令，不是終端機指令——直接貼進 Claude Code 對話框執行。第一行把
-						<code class="rounded bg-surface-2 px-1 py-0.5 font-mono text-cyan">kaikaizhen/schemaLen</code
+						<code class="rounded bg-surface-2 px-1 py-0.5 font-mono text-cyan">doraeyi/schemalens-web</code
 						> 註冊成 plugin marketplace，第二行安裝擴充，Claude Code 會自動幫你下載 .vsix 並用
 						<code class="rounded bg-surface-2 px-1 py-0.5 font-mono text-cyan">code</code> 指令裝好。
 					{:else}

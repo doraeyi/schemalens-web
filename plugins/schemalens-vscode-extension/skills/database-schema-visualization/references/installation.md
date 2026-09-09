@@ -6,7 +6,7 @@ Read this only when `code --list-extensions --show-versions` shows no
 | | |
 |---|---|
 | Extension ID | `kaikaizhen.dbschema` |
-| Releases | `https://github.com/kaikaizhen/schemaLen/releases` |
+| Releases | `https://github.com/doraeyi/schemalens-web/releases` |
 | Asset | `dbschema-<version>.vsix` |
 | Requires | VS Code ≥ 1.90 with the `code` CLI on `PATH` |
 
@@ -52,11 +52,11 @@ Code for them.
 Use the version the user named, otherwise the latest stable release:
 
 ```bash
-curl -fsSL https://api.github.com/repos/kaikaizhen/schemaLen/releases/latest
+curl -fsSL https://api.github.com/repos/doraeyi/schemalens-web/releases/latest
 ```
 
 ```powershell
-Invoke-RestMethod -Uri https://api.github.com/repos/kaikaizhen/schemaLen/releases/latest
+Invoke-RestMethod -Uri https://api.github.com/repos/doraeyi/schemalens-web/releases/latest
 ```
 
 Take `tag_name` (`v<version>`) and the `browser_download_url` of the asset named

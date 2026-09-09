@@ -11,7 +11,7 @@ Table / Column / Type 與欄位級 Relation；就算有 100 張表，也能快�
 
 ## 安裝
 
-從 [GitHub Releases](https://github.com/kaikaizhen/schemaLen/releases/latest) 下載
+從 [GitHub Releases](https://github.com/doraeyi/schemalens-web/releases/latest) 下載
 `dbschema-<version>.vsix`，再用 `Extensions → ... → Install from VSIX...`
 或 `code --install-extension dbschema-<version>.vsix` 安裝。
 
@@ -110,7 +110,7 @@ DSL 有錯時，錯誤會出現在編輯器的紅色波浪線與 Problems Panel�
 
 ## 原始碼
 
-<https://github.com/kaikaizhen/schemaLen>
+<https://github.com/doraeyi/schemalens-web>
 
 ## License
 

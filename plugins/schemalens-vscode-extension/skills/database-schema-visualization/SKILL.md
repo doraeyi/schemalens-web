@@ -19,7 +19,7 @@ description: >
 # Database schema design and exploration (DBSchema)
 
 Extension ID `kaikaizhen.dbschema`. Distributed from
-`https://github.com/kaikaizhen/schemaLen/releases` — never the VS Code Marketplace.
+`https://github.com/doraeyi/schemalens-web/releases` — never the VS Code Marketplace.
 
 ## When to use
 

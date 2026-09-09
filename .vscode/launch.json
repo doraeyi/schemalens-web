@@ -7,7 +7,7 @@
       "request": "launch",
       "args": ["--extensionDevelopmentPath=${workspaceFolder}/apps/vscode-extension"],
       "outFiles": ["${workspaceFolder}/apps/vscode-extension/out/**/*.cjs"],
-      "preLaunchTask": "npm: build - dbschema-vscode"
+      "preLaunchTask": "build dbschema (pnpm)"
     }
   ]
 }
