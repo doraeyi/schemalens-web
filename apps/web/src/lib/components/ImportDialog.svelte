@@ -28,6 +28,9 @@
 		// MySQL 常見的 AUTO_INCREMENT / ENGINE=，比預設猜 sqlite 準得多。
 		if (/\bauto_increment\b|\bengine\s*=/i.test(source)) return 'mysql';
 		if (/\bidentity\s*\(/i.test(source)) return 'mssql';
+		// 雙引號包識別字的話 PostgreSQL 跟 SQLite 長得很像，PostgreSQL 專屬的關鍵字
+		// （SERIAL、其他工具匯出時常見的說明註解）比較能區分；分不出來就維持猜 sqlite。
+		if (/\b(?:big|small)?serial\b|\bpostgres/i.test(source)) return 'postgresql';
 		return 'sqlite';
 	}
 

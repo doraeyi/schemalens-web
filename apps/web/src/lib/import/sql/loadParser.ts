@@ -6,7 +6,8 @@ import { splitSqlStatements } from './statementSplitter';
 const DATABASE_OPTION: Record<SqlDialectId, string> = {
 	mysql: 'MySQL',
 	mssql: 'transactsql',
-	sqlite: 'sqlite'
+	sqlite: 'sqlite',
+	postgresql: 'PostgresQL'
 };
 
 interface NodeSqlParser {
@@ -34,6 +35,11 @@ async function loadDialectParser(dialectId: SqlDialectId): Promise<NodeSqlParser
 		}
 		case 'sqlite': {
 			const mod: any = await import('node-sql-parser/build/sqlite.js');
+			const Ctor = mod.Parser ?? mod.default?.Parser;
+			return new Ctor();
+		}
+		case 'postgresql': {
+			const mod: any = await import('node-sql-parser/build/postgresql.js');
 			const Ctor = mod.Parser ?? mod.default?.Parser;
 			return new Ctor();
 		}

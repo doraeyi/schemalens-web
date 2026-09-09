@@ -18,17 +18,21 @@ interface RawTableRef {
 	table: string;
 }
 /**
- * 欄位參照在不同方言長得不一樣：MySQL/T-SQL 是 `{type:'column_ref', column: 'X'}`，
- * SQLite 對「用雙引號包起來」的識別字會解析成字串字面值節點
- * `{type:'double_quote_string', value:'X'}`（我們自己匯出的 SQLite SQL 就是這種寫法，
- * 所以「匯出成 SQLite 再匯入回來」這條路徑一定會踩到）——用同一個 helper 兩種都接。
+ * 欄位參照在不同方言長得不一樣：MySQL/T-SQL/SQLite 是 `{type:'column_ref', column: 'X'}`，
+ * `column` 直接是字串。PostgreSQL 對雙引號包起來的識別字多包一層，
+ * `column` 變成 `{expr: {type:'double_quote_string', value:'X'}}`。
+ * 另外還有 SQLite 少數情況會整個解析成字串字面值節點 `{type:'double_quote_string', value:'X'}`
+ * （我們自己匯出的 SQLite SQL 就是這種寫法，「匯出成 SQLite 再匯入回來」這條路徑會踩到）——
+ * 用同一個 helper 把三種都接住。
  */
 interface RawColumnRef {
-	column?: string;
+	column?: string | { expr?: { value?: string } };
 	value?: string;
 }
 function columnRefName(ref: RawColumnRef): string {
-	return ref.column ?? ref.value ?? '';
+	if (typeof ref.column === 'string') return ref.column;
+	if (ref.column?.expr?.value !== undefined) return ref.column.expr.value;
+	return ref.value ?? '';
 }
 
 /** CREATE INDEX 的索引名稱：MySQL/T-SQL 是純字串，SQLite 是 `{schema, name}`。 */

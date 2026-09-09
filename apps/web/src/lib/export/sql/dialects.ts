@@ -236,8 +236,60 @@ export const sqliteDialect: SqlDialect = {
 	}
 };
 
+export const postgresqlDialect: SqlDialect = {
+	id: 'postgresql',
+	quoteIdentifier: quoteWith('"', '"'),
+	inlineForeignKeys: false,
+	qualifyTableName(table) {
+		return `${this.quoteIdentifier(table.schema)}.${this.quoteIdentifier(table.name)}`;
+	},
+	renderType(column) {
+		const cat = category(column);
+		if (!cat) return passthroughType(column);
+		switch (cat) {
+			case 'tinyint':
+			case 'smallint':
+				return 'SMALLINT';
+			case 'int':
+				return 'INTEGER';
+			case 'bigint':
+				return 'BIGINT';
+			case 'decimal':
+				return `NUMERIC${decimalOf(column)}`;
+			case 'float':
+				return 'DOUBLE PRECISION';
+			case 'char':
+				return `CHAR(${column.length ?? 1})`;
+			case 'varchar':
+				return `VARCHAR(${column.length ?? 255})`;
+			case 'text':
+				return 'TEXT';
+			case 'binary':
+			case 'varbinary':
+			case 'blob':
+				return 'BYTEA';
+			case 'boolean':
+				return 'BOOLEAN';
+			case 'date':
+				return 'DATE';
+			case 'time':
+				return 'TIME';
+			case 'datetime':
+			case 'timestamp':
+				return 'TIMESTAMP';
+			case 'uuid':
+				return 'UUID';
+			case 'json':
+				return 'JSONB';
+			default:
+				return passthroughType(column);
+		}
+	}
+};
+
 export const SQL_DIALECT_MAP: Record<SqlDialectId, SqlDialect> = {
 	mysql: mysqlDialect,
 	mssql: mssqlDialect,
-	sqlite: sqliteDialect
+	sqlite: sqliteDialect,
+	postgresql: postgresqlDialect
 };
