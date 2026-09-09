@@ -45,6 +45,9 @@ const renderer = new SchemaRenderer(canvas, {
     layoutChanged: () => toolbar.setLayoutDirty(true),
   },
 });
+// 插件沒有網頁版的多選/框選功能，select/move 模式的切換鈕也沒有對應 UI——
+// 固定用 move 模式，拖曳背景永遠平移，維持合併前「畫布本來就能拖」的行為。
+renderer.setInteractionMode("move");
 
 const handlers: ToolbarHandlers = {
   onDetailLevel: (level: DetailLevel) => {
