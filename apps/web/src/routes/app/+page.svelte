@@ -126,7 +126,7 @@
 	let deleteConfirm = $state<{ tableId: TableId } | null>(null);
 	let showLoginPrompt = $state(false);
 	let showCompareDialog = $state(false);
-	let diffMode = $state<{ diff: SchemaDiff; sourceLabel: string } | null>(null);
+	let diffMode = $state<{ diff: SchemaDiff; sourceLabel: string; nextLabel: string } | null>(null);
 	let showVersionHistory = $state(false);
 	let versions = $state<VersionSummary[]>([]);
 
@@ -643,13 +643,19 @@
 		enterDiffMode(result.schema, fileName);
 	}
 
-	function enterDiffMode(compared: Schema, sourceLabel: string): void {
+	/**
+	 * `next`/`nextLabel` 預設是目前正在編輯的即時內容——原本「比較」功能唯一支援的用法。
+	 * 版本歷史的「跟基準比較」會明確帶兩份都是過去快照的 Schema 進來，這時候兩邊都不是
+	 * 「目前」，退出時一樣換回 `schema`（活的可編輯狀態），跟原本行為一致。
+	 */
+	function enterDiffMode(compared: Schema, sourceLabel: string, next: Schema | null = null, nextLabel = '目前'): void {
 		if (!schema || !renderer) return;
+		const target = next ?? schema;
 		resetFocus();
-		const diff = diffSchemas(compared, schema);
-		const merged = buildMergedSchema(compared, schema);
+		const diff = diffSchemas(compared, target);
+		const merged = buildMergedSchema(compared, target);
 		renderer.setSchema(merged);
-		diffMode = { diff, sourceLabel };
+		diffMode = { diff, sourceLabel, nextLabel };
 		if (canvasHost) applyDiffOverlay(canvasHost, diff);
 	}
 
@@ -683,13 +689,27 @@
 	}
 
 	/** 跟現有的「比較」功能共用同一套 enterDiffMode——差別只在來源是資料庫存的舊版本，不是使用者貼上的文字。 */
-	async function handleDiffVersion(versionId: string): Promise<void> {
+	/**
+	 * baseVersionId 有帶時（版本歷史面板裡「選為基準」後再點另一筆），比較的是兩份都是過去
+	 * 快照的版本，不牽涉目前正在編輯的即時內容；沒帶時維持原本「這筆 vs 目前」的行為。
+	 */
+	async function handleDiffVersion(versionId: string, baseVersionId?: string): Promise<void> {
 		if (!activePageId) return;
 		const res = await fetch(`/api/pages/${activePageId}/versions/${versionId}`);
 		if (!res.ok) return;
 		const version = await res.json();
+		const versionSchema = loadSchemaFromText(version.source, version.fileName).schema;
+
+		if (baseVersionId) {
+			const baseRes = await fetch(`/api/pages/${activePageId}/versions/${baseVersionId}`);
+			if (!baseRes.ok) return;
+			const base = await baseRes.json();
+			showVersionHistory = false;
+			enterDiffMode(loadSchemaFromText(base.source, base.fileName).schema, base.label, versionSchema, version.label);
+			return;
+		}
 		showVersionHistory = false;
-		enterDiffMode(loadSchemaFromText(version.source, version.fileName).schema, version.label);
+		enterDiffMode(versionSchema, version.label);
 	}
 
 	async function handleDeleteVersion(versionId: string): Promise<void> {
@@ -893,7 +913,7 @@
 				<div
 					class="absolute top-3 left-1/2 z-30 flex -translate-x-1/2 items-center gap-2 rounded-full border border-cyan bg-surface px-3 py-1.5 text-xs text-fg shadow-lg"
 				>
-					正在比較版本（{diffMode.sourceLabel} vs 目前）· 唯讀
+					正在比較版本（{diffMode.sourceLabel} vs {diffMode.nextLabel}）· 唯讀
 					<span class="text-muted">
 						+{diffMode.diff.addedTables.length} / -{diffMode.diff.removedTables.length} / ~{diffMode.diff.changedTables.length}
 					</span>
