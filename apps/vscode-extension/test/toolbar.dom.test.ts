@@ -237,7 +237,6 @@ describe("群組篩選下拉", () => {
       onResetFocus: vi.fn(), onFitView: vi.fn(), onResetLayout: vi.fn(), onComments: vi.fn(),
       onPickHit: vi.fn(), onSearchResults: vi.fn(), onLocale: vi.fn(), onGroupFilter,
       onClearColumnFocus: vi.fn(), onLayoutMode: vi.fn(),
-    onLayoutMode: vi.fn(),
     };
     const toolbar = new Toolbar(handlers, stringsFor("en"));
     document.body.append(toolbar.element);
@@ -256,7 +255,6 @@ describe("群組篩選下拉", () => {
       onResetFocus: vi.fn(), onFitView: vi.fn(), onResetLayout: vi.fn(), onComments: vi.fn(),
       onPickHit: vi.fn(), onSearchResults: vi.fn(), onLocale: vi.fn(), onGroupFilter,
       onClearColumnFocus: vi.fn(), onLayoutMode: vi.fn(),
-    onLayoutMode: vi.fn(),
     };
     const toolbar = new Toolbar(handlers, stringsFor("en"));
     document.body.append(toolbar.element);

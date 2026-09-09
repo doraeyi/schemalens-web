@@ -375,6 +375,9 @@ describe("從淡化的表也要能平移視窗", () => {
 
   it("在淡化的表上拖曳會平移視窗", () => {
     const { host, renderer } = mount();
+    // schemalens-web 新增的 select/move 模式：平移只在 move 模式下啟用，
+    // 這個測試本來就是在測「平移」這個動作本身，所以先切過去。
+    renderer.setInteractionMode("move");
     renderer.focusTable("dbo.Posts", { direction: "downstream", depth: 1 });
 
     const users = card(host, "dbo.Users");
@@ -393,6 +396,7 @@ describe("從淡化的表也要能平移視窗", () => {
   it("平移後不會誤觸該表的 Focus", () => {
     const tableSelected = vi.fn();
     const { host, renderer } = mount({ tableSelected });
+    renderer.setInteractionMode("move");
     renderer.focusTable("dbo.Posts", { direction: "downstream", depth: 1 });
 
     const users = card(host, "dbo.Users");
@@ -418,7 +422,8 @@ describe("從淡化的表也要能平移視窗", () => {
   });
 
   it("在背景平移仍然正常", () => {
-    const { host } = mount();
+    const { host, renderer } = mount();
+    renderer.setInteractionMode("move");
     const root = host.querySelector<HTMLElement>(".dbs-root")!;
     const before = transform(host);
 
