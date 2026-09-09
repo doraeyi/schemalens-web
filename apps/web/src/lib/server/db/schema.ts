@@ -82,3 +82,21 @@ export const pagesTable = mysqlTable('pages', {
 	createdAt: timestamp('createdAt').notNull().defaultNow(),
 	updatedAt: timestamp('updatedAt').notNull().defaultNow().onUpdateNow()
 });
+
+/**
+ * 分頁的版本快照——使用者手動存的，不是自動存的，存好就不會再改
+ * （沒有 updatedAt，這點跟 pagesTable 不一樣）。cascade 刪除：分頁被刪掉時
+ * 底下的版本歷史一起清掉，不留孤兒資料。
+ */
+export const pageVersionsTable = mysqlTable('page_versions', {
+	id: varchar('id', { length: 191 })
+		.primaryKey()
+		.$defaultFn(() => crypto.randomUUID()),
+	pageId: varchar('pageId', { length: 191 })
+		.notNull()
+		.references(() => pagesTable.id, { onDelete: 'cascade' }),
+	label: varchar('label', { length: 255 }).notNull(),
+	source: longtext('source').notNull(),
+	fileName: varchar('fileName', { length: 255 }).notNull(),
+	createdAt: timestamp('createdAt').notNull().defaultNow()
+});
