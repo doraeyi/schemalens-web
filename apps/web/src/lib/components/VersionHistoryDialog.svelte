@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Eye, Flag, GitCompare, History, Trash2, X } from '@lucide/svelte';
+	import { Eye, GitCompare, History, Trash2, X } from '@lucide/svelte';
 
 	export interface VersionSummary {
 		id: string;
@@ -19,11 +19,25 @@
 	let { versions, onSaveVersion, onViewVersion, onDiffVersion, onDeleteVersion, onClose }: Props = $props();
 
 	let label = $state('');
-	/** 先選一筆當基準，再點另一筆的「比較」，兩邊都是過去的快照互比，不牽涉目前正在編輯的內容。 */
-	let baselineVersionId = $state<string | null>(null);
+	/**
+	 * 跟 GitHub 選兩個 commit 比較一樣：點第一筆的「比較」先選起來，
+	 * 再點第二筆的「比較」才真的觸發 diff——不用另外一顆「選為基準」按鈕。
+	 * 點同一筆等於取消。
+	 */
+	let pickedVersionId = $state<string | null>(null);
 
-	function toggleBaseline(versionId: string): void {
-		baselineVersionId = baselineVersionId === versionId ? null : versionId;
+	function handleCompareClick(versionId: string): void {
+		if (pickedVersionId === null) {
+			pickedVersionId = versionId;
+			return;
+		}
+		if (pickedVersionId === versionId) {
+			pickedVersionId = null;
+			return;
+		}
+		const first = pickedVersionId;
+		pickedVersionId = null;
+		onDiffVersion(versionId, first);
 	}
 
 	function handleSave(): void {
@@ -67,25 +81,22 @@
 			</button>
 		</div>
 
-		{#if baselineVersionId}
+		{#if pickedVersionId}
 			<p class="mb-2 text-[11px] text-muted">
-				已選基準：{versions.find((v) => v.id === baselineVersionId)?.label}——點另一筆的「比較」會跟這筆比，不是跟目前。
+				已選「{versions.find((v) => v.id === pickedVersionId)?.label}」——再點另一筆的「比較」完成比對，或點同一筆取消。
 			</p>
 		{/if}
 
 		<div class="flex-1 overflow-auto rounded-lg border border-border">
 			{#each versions as version (version.id)}
-				{@const isBaseline = version.id === baselineVersionId}
+				{@const isPicked = version.id === pickedVersionId}
 				<div
-					class="group flex items-center gap-2 border-b border-border px-3 py-2 text-xs last:border-0 {isBaseline
+					class="group flex items-center gap-2 border-b border-border px-3 py-2 text-xs last:border-0 {isPicked
 						? 'bg-cyan/10'
 						: ''}"
 				>
 					<div class="min-w-0 flex-1">
-						<div class="flex items-center gap-1.5 truncate font-semibold">
-							{version.label}
-							{#if isBaseline}<span class="rounded-full bg-cyan/20 px-1.5 py-0.5 text-[10px] text-cyan">基準</span>{/if}
-						</div>
+						<div class="truncate font-semibold">{version.label}</div>
 						<div class="text-muted">{formatTime(version.createdAt)}</div>
 					</div>
 					<button
@@ -97,23 +108,13 @@
 						<Eye size={13} />
 					</button>
 					<button
-						class="sl-icon-btn flex-none {isBaseline ? 'text-cyan' : 'opacity-0 group-hover:opacity-100'}"
-						onclick={() => toggleBaseline(version.id)}
-						title={isBaseline ? '取消基準' : '選為基準'}
-						aria-label={isBaseline ? '取消基準' : '選為基準'}
+						class="sl-icon-btn flex-none {isPicked ? 'text-cyan' : 'opacity-0 group-hover:opacity-100'}"
+						onclick={() => handleCompareClick(version.id)}
+						title={isPicked ? '取消選取' : pickedVersionId ? '跟已選的那筆比較' : '選這筆，再點另一筆來比較'}
+						aria-label="比較"
 					>
-						<Flag size={13} />
+						<GitCompare size={13} />
 					</button>
-					{#if !isBaseline}
-						<button
-							class="sl-icon-btn flex-none opacity-0 group-hover:opacity-100"
-							onclick={() => onDiffVersion(version.id, baselineVersionId ?? undefined)}
-							title={baselineVersionId ? '跟基準比較' : '跟目前版本比較'}
-							aria-label={baselineVersionId ? '跟基準比較' : '跟目前版本比較'}
-						>
-							<GitCompare size={13} />
-						</button>
-					{/if}
 					<button
 						class="sl-icon-btn flex-none text-red-400 opacity-0 hover:text-red-300 group-hover:opacity-100"
 						onclick={() => handleDelete(version)}
