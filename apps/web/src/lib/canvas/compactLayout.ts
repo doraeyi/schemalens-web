@@ -77,7 +77,9 @@ export function createCompactLayoutEngine(getSchema: () => Schema | null): Layou
 			placeBand(ungrouped, y, positioned);
 
 			const positionById = new Map(positioned.map((n) => [n.id, n] as const));
-			return { nodes: positioned, positionById, bounds: computeBounds(positioned) };
+			// 精簡模式的分區排版跟「依群組聚攏」是不同機制（外層分區色塊自己管群組），
+			// 不需要畫群組外框，回空 Map 就好。
+			return { nodes: positioned, positionById, bounds: computeBounds(positioned), groupBounds: new Map() };
 		}
 	};
 }
