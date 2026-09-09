@@ -1,6 +1,6 @@
 import type { Column, Table } from '@schemalens/schema-core';
 
-export type SqlDialectId = 'mysql' | 'mssql' | 'sqlite';
+export type SqlDialectId = 'mysql' | 'mssql' | 'sqlite' | 'postgresql';
 
 export interface SqlDialectInfo {
 	id: SqlDialectId;
@@ -12,6 +12,7 @@ export interface SqlDialectInfo {
 export const SQL_DIALECTS: SqlDialectInfo[] = [
 	{ id: 'mysql', label: 'MySQL' },
 	{ id: 'mssql', label: 'SQL Server' },
+	{ id: 'postgresql', label: 'PostgreSQL' },
 	{ id: 'sqlite', label: 'SQLite' }
 ];
 
