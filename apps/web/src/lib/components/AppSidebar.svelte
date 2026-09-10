@@ -5,7 +5,6 @@
 	import { clearDraft } from '$lib/persistence/localDraft';
 	import type { Session } from '@auth/sveltekit';
 	import {
-		Database,
 		FileText,
 		Github,
 		LogOut,
@@ -17,6 +16,7 @@
 		Trash2
 	} from '@lucide/svelte';
 	import TableInspector from './TableInspector.svelte';
+	import logoUrl from '$lib/assets/logo.png';
 
 	export interface PageSummary {
 		id: string;
@@ -156,11 +156,10 @@
 		: 'w-80'}"
 >
 	<div class="flex items-center gap-2 border-b border-border p-3 {collapsed ? 'flex-col' : 'flex-row'}">
-		<div class="flex h-7 w-7 flex-none items-center justify-center rounded-md bg-cyan text-bg">
-			<Database size={15} />
-		</div>
-		{#if !collapsed}
-			<span class="flex-1 truncate font-bold">SchemaLens</span>
+		{#if collapsed}
+			<img src={logoUrl} alt="SchemaLens" class="h-7 w-7 flex-none object-contain" />
+		{:else}
+			<img src={logoUrl} alt="SchemaLens" class="h-9 flex-1 object-contain object-left" />
 		{/if}
 		<button
 			class="sl-icon-btn flex-none"
