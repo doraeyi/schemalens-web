@@ -1,10 +1,51 @@
 import type { Schema, TableId } from '@schemalens/schema-core';
 
 export interface LintWarning {
-	code: 'LINT_NAMING' | 'LINT_FK_NO_INDEX' | 'LINT_NO_PK' | 'LINT_EMPTY_TABLE';
+	code: 'LINT_NAMING' | 'LINT_FK_NO_INDEX' | 'LINT_NO_PK' | 'LINT_EMPTY_TABLE' | 'LINT_TYPE_SUFFIX';
 	severity: 'warning' | 'info';
 	message: string;
 	location?: { tableId: TableId; column?: string };
+}
+
+// 從舊系統自由文字轉換過來的欄位名，常見失誤是型別關鍵字沒跟欄位名隔開，
+// 直接黏在字尾（例如 CLIENT_ID + INT 漏了空白變成 CLIENT_IDint）。由長到短排序，
+// 讓比對優先吃到最長的關鍵字（例如 "bigint" 而不是被 "int" 搶先命中）。
+const TYPE_SUFFIX_KEYWORDS = [
+	'bigserial', 'smallserial', 'varbinary', 'datetime2', 'nvarchar',
+	'smallint', 'boolean', 'decimal', 'numeric', 'tinyint', 'varchar',
+	'double', 'binary', 'bigint', 'serial', 'nchar', 'float', 'money', 'jsonb',
+	'json', 'text', 'time', 'date', 'bool', 'char', 'uuid', 'guid', 'blob', 'enum',
+	'bit', 'xml', 'int'
+].sort((a, b) => b.length - a.length);
+
+/** 找出「型別關鍵字直接黏在字尾、中間沒有底線或大小寫延續」的欄位名，回傳命中的關鍵字。 */
+function findGluedTypeSuffix(name: string): string | null {
+	for (const keyword of TYPE_SUFFIX_KEYWORDS) {
+		if (name.length <= keyword.length || !name.endsWith(keyword)) continue;
+		const before = name[name.length - keyword.length - 1];
+		// 前一個字元是底線（有意的分隔）或小寫（本來就是同一個自然單字，例如 "point"）就不算誤黏。
+		if (before === '_' || /[a-z]/.test(before)) continue;
+		return keyword;
+	}
+	return null;
+}
+
+function lintTypeSuffix(schema: Schema): LintWarning[] {
+	const warnings: LintWarning[] = [];
+	for (const table of schema.tables) {
+		for (const column of table.columns) {
+			const keyword = findGluedTypeSuffix(column.name);
+			if (!keyword) continue;
+			const guessed = column.name.slice(0, -keyword.length);
+			warnings.push({
+				code: 'LINT_TYPE_SUFFIX',
+				severity: 'warning',
+				message: `欄位 ${table.id}.${column.name} 字尾「${keyword}」疑似型別關鍵字誤黏進欄位名（來源轉換時可能漏了分隔），確認是否應為 ${guessed}`,
+				location: { tableId: table.id, column: column.name }
+			});
+		}
+	}
+	return warnings;
 }
 
 type NamingStyle = 'snake_case' | 'PascalCase' | 'camelCase' | 'other';
@@ -105,5 +146,11 @@ function lintEmptyTable(schema: Schema): LintWarning[] {
  * vendor package 的封閉 SchemaErrorCode，避免跟 VS Code 插件那邊的診斷代碼混在一起。
  */
 export function lintSchema(schema: Schema): LintWarning[] {
-	return [...lintNaming(schema), ...lintForeignKeyIndex(schema), ...lintMissingPrimaryKey(schema), ...lintEmptyTable(schema)];
+	return [
+		...lintNaming(schema),
+		...lintForeignKeyIndex(schema),
+		...lintMissingPrimaryKey(schema),
+		...lintEmptyTable(schema),
+		...lintTypeSuffix(schema)
+	];
 }

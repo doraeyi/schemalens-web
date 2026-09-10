@@ -58,6 +58,24 @@ function diffColumns(base: Table, next: Table): TableDiff | null {
 	return { tableId: next.id, addedColumns, removedColumns, changedColumns };
 }
 
+/**
+ * 兩份 schema 的 table id（schema.表名，exact match）重疊率。
+ *
+ * diffSchemas 完全靠 table id 配對，命名體系不同（schema 換了、表名前綴換了）的兩份
+ * schema 會被判成「全部表都新增/全部表都刪除」，看起來像整份砍掉重寫，但更可能是使用者
+ * 拿了兩份根本不相干的 schema 來比較。這個數字給呼叫端（UI）拿去判斷要不要提醒使用者
+ * 「這兩份可能不是同一份 schema 的版本」，diffSchemas 本身不做這個判斷、也不因此改變行為。
+ */
+export function tableOverlapRatio(base: Schema, next: Schema): number {
+	const baseIds = new Set(base.tables.map((t) => t.id));
+	const nextIds = new Set(next.tables.map((t) => t.id));
+	const union = new Set([...baseIds, ...nextIds]);
+	if (union.size === 0) return 1;
+	let shared = 0;
+	for (const id of union) if (baseIds.has(id) && nextIds.has(id)) shared++;
+	return shared / union.size;
+}
+
 /** 純比對，不改動任何一份 schema。table 用 id 配對、column 用 name 配對。 */
 export function diffSchemas(base: Schema, next: Schema): SchemaDiff {
 	const baseById = new Map(base.tables.map((t) => [t.id, t]));

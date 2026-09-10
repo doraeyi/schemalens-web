@@ -38,7 +38,7 @@
 	import { toJson, toDsl } from '@schemalens/schema-serializer';
 	import * as mutate from '$lib/schema/mutations';
 	import { lintSchema, type LintWarning } from '$lib/schema/lint';
-	import { diffSchemas, buildMergedSchema, type SchemaDiff } from '$lib/schema/diff';
+	import { diffSchemas, buildMergedSchema, tableOverlapRatio, type SchemaDiff } from '$lib/schema/diff';
 	import { applyDiffOverlay, clearDiffOverlay } from '$lib/canvas/diffOverlay';
 	import SchemaCanvas from '$lib/components/SchemaCanvas.svelte';
 	import Toolbar from '$lib/components/Toolbar.svelte';
@@ -657,6 +657,14 @@
 		renderer.setSchema(merged);
 		diffMode = { diff, sourceLabel, nextLabel };
 		if (canvasHost) applyDiffOverlay(canvasHost, diff);
+
+		// table id（schema.表名）幾乎沒有重疊時，很可能是使用者拿了兩份不相干的 schema
+		// 來比較，不是同一份 schema 的兩個版本——這種情況下 diff 只會顯示「整表新增/刪除」，
+		// 看不出欄位層級的差異，所以提醒一下而不是默默顯示一個可能誤導的結果。
+		const totalTables = compared.tables.length + target.tables.length;
+		if (compared !== target && totalTables >= 3 && tableOverlapRatio(compared, target) < 0.2) {
+			showToast('這兩份 schema 的表名幾乎沒有重疊，可能不是同一份 schema 的版本 —— diff 只會顯示整表新增/刪除，看不出欄位層級的差異', 6000);
+		}
 	}
 
 	function exitDiffMode(): void {
