@@ -7,12 +7,17 @@ import type { SqlDialect, SqlDialectId } from './types';
  * 這裡用啟發式規則猜：純數字、true/false/null、CURRENT_* 關鍵字、看起來像函式呼叫
  * （以 `)` 結尾）就照抄，其餘當成字串字面值加單引號。不是型別安全的判斷，
  * 匯出後建議使用者自己看一眼。
+ *
+ * CURRENT_DATE/CURRENT_TIME/CURRENT_TIMESTAMP 是 SQL 標準關鍵字、不是函式，
+ * 來源文字裡常見誤寫成 `CURRENT_DATE()` 這種函式呼叫形式——這種寫法在 PostgreSQL/SQLite
+ * 是無效語法（不接受空括號），所以這裡一律去掉多餘的空括號，統一輸出成裸關鍵字，
+ * 這在四種支援的方言裡都合法（MySQL 兩種寫法都接受）。
  */
 function renderDefaultLiteral(raw: string): string {
 	const value = raw.trim();
 	if (/^-?\d+(\.\d+)?$/.test(value)) return value;
 	if (/^(true|false|null)$/i.test(value)) return value.toUpperCase();
-	if (/^current_(timestamp|date|time)$/i.test(value)) return value.toUpperCase();
+	if (/^current_(timestamp|date|time)(\(\))?$/i.test(value)) return value.replace(/\(\)$/, '').toUpperCase();
 	if (value.endsWith(')')) return value;
 	return `'${value.replace(/'/g, "''")}'`;
 }
