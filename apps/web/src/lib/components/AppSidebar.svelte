@@ -156,11 +156,13 @@
 		: 'w-80'}"
 >
 	<div class="flex items-center gap-2 border-b border-border p-3 {collapsed ? 'flex-col' : 'flex-row'}">
-		{#if collapsed}
-			<img src={logoUrl} alt="SchemaLens" class="h-7 w-7 flex-none object-contain" />
-		{:else}
-			<img src={logoUrl} alt="SchemaLens" class="h-9 flex-1 object-contain object-left" />
-		{/if}
+		<a href="/" title="回首頁" class="{collapsed ? 'flex-none' : 'flex-1'} min-w-0">
+			{#if collapsed}
+				<img src={logoUrl} alt="SchemaLens" class="h-10 w-10 object-contain" />
+			{:else}
+				<img src={logoUrl} alt="SchemaLens" class="h-14 w-full object-contain object-left" />
+			{/if}
+		</a>
 		<button
 			class="sl-icon-btn flex-none"
 			onclick={() => (collapsed = !collapsed)}
