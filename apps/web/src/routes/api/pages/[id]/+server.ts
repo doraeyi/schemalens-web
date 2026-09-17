@@ -2,20 +2,20 @@ import { error, json } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';
 import { getDb } from '$lib/server/db';
 import { pagesTable } from '$lib/server/db/schema';
-import { requireOwnedPage } from '$lib/server/pages';
+import { requireAccessiblePage, requireOwnedPage } from '$lib/server/pages';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async (event) => {
 	const session = await event.locals.auth();
 	if (!session?.user?.id) error(401, '請先登入');
-	const page = await requireOwnedPage(session.user.id, event.params.id);
+	const page = await requireAccessiblePage(session.user.id, event.params.id);
 	return json(page);
 };
 
 export const PATCH: RequestHandler = async (event) => {
 	const session = await event.locals.auth();
 	if (!session?.user?.id) error(401, '請先登入');
-	await requireOwnedPage(session.user.id, event.params.id);
+	await requireAccessiblePage(session.user.id, event.params.id);
 
 	const body = (await event.request.json()) as { title?: string; source?: string; fileName?: string };
 	const patch: Partial<typeof pagesTable.$inferInsert> = {};

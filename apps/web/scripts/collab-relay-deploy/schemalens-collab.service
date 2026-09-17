@@ -1,0 +1,18 @@
+[Unit]
+Description=SchemaLens Yjs collaboration relay
+After=network.target
+
+[Service]
+User=<YOUR_USER>
+Group=<YOUR_USER>
+WorkingDirectory=/home/<YOUR_USER>/schemalens-collab
+Environment="PORT=1234"
+Environment="HOST=127.0.0.1"
+ExecStart=/home/<YOUR_USER>/.nvm/versions/node/<NODE_VERSION>/bin/node /home/<YOUR_USER>/schemalens-collab/yjs-dev-server.mjs
+Restart=always
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
