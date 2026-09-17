@@ -15,6 +15,8 @@
 	import { loadSchemaFromText, loadSchemaFromSql, type LoadedSchema } from '$lib/schema/documentSchema';
 	import type { SqlDialectId } from '$lib/import/sql/types';
 	import { signIn } from '@auth/sveltekit/client';
+	import { page } from '$app/state';
+	import { createSchemaCollab, type SchemaCollabSession } from '$lib/collab/schemaCollab';
 	import {
 		clearDraft,
 		fromSerializable,
@@ -113,10 +115,19 @@
 	let focusedTableId = $state<TableId | null>(null);
 	let pages = $state<PageSummary[]>([]);
 	let activePageId = $state<string | null>(null);
+	/** 目前這個分頁是不是即時協作模式、目前登入的人是不是它的擁有者——決定要不要開協作 session、要不要顯示邀請按鈕。 */
+	let activePageMode = $state<'normal' | 'realtime'>('normal');
+	let activePageIsOwner = $state(true);
+	/** 即時協作 session——本機 dev 專用，見 $lib/collab/schemaCollab.ts。房間就是 pageId，切分頁時换新的。 */
+	let collab: SchemaCollabSession | null = null;
+	let collabRoom = $state<string | null>(null);
+	let inviteLink = $state<string | null>(null);
+	let inviteLoading = $state(false);
 	let previousDetailLevel: DetailLevel | null = null;
 	const compactLayoutEngine = createCompactLayoutEngine(() => schema);
 
 	let contextMenu = $state<{ x: number; y: number; tableId: TableId | null } | null>(null);
+	let createPageMenu = $state<{ x: number; y: number } | null>(null);
 	let showImportDialog = $state(false);
 	let showExportDialog = $state(false);
 	let showViewSourceDialog = $state(false);
@@ -287,6 +298,11 @@
 		syncToolbarState();
 		saveLocalDraft(currentFileName, currentSource);
 		saveToCloud();
+		// 注意：這裡故意不推到 collab——applyLoadedSchema 除了匯入之外，草稿還原／切換分頁／
+		// 雲端分頁載入……這些「載入我自己原本的狀態」的路徑全部共用這個函式。之前在這裡無條件
+		// push 過，結果只要協作房間裡有任何一個人重新整理頁面、切分頁，就會把整份共享內容
+		// 洗成他自己載入的東西，害其他協作者的畫面（包含剛匯入的資料）被蓋掉。真的要廣播的
+		// 地方（明確的使用者動作）改成呼叫端自己 push，見 handleImport()。
 	}
 
 	function loadSchema(
@@ -296,6 +312,25 @@
 		resetZoomTo100 = false
 	): void {
 		applyLoadedSchema(loadSchemaFromText(source, fileName), source, fileName, viewState, resetZoomTo100);
+	}
+
+	/**
+	 * 收到協作對象傳來的 schema（已經是表格級同步組回來的完整 Schema，不是字串，
+	 * 見 $lib/collab/schemaCollab.ts）：直接套用，不用再 parse。故意不走 loadSchema()／
+	 * applyLoadedSchema() 那條路——那條路是給「載入一份新分頁」用的，會重置 viewState
+	 * 跟自動 fitView，對方每動一次你的畫面就會跳走、縮放被重置。這裡跟 commitSchema 的
+	 * refit:false 分支一樣，只用 renderer.updateSchema() 換資料重繪，鏡頭留在原地。
+	 */
+	function applyRemoteCollabSchema(next: Schema): void {
+		schema = next;
+		diagnostics = validateSchema(next, { file: currentFileName });
+		lintWarnings = lintSchema(next);
+		currentSource = toDsl(next);
+		renderer?.updateSchema(next);
+		metricsText = t.metrics(next.tables.length, next.relations.length, 0);
+		syncToolbarState();
+		saveLocalDraft(currentFileName, currentSource);
+		saveToCloud();
 	}
 
 	/** SQL 匯入是唯一 async 的載入路徑（要動態載入 node-sql-parser），其餘 loadSchema() 呼叫點不受影響。 */
@@ -324,6 +359,7 @@
 		syncToolbarState();
 		saveLocalDraft(currentFileName, currentSource);
 		saveToCloud();
+		collab?.pushLocalSchema(next);
 	}
 
 	function handleCreateTable(): void {
@@ -416,9 +452,15 @@
 		pages = res.ok ? await res.json() : [];
 	}
 
-	/** Logged-in users skip the localStorage draft entirely and go straight to their most recently edited cloud page. */
+	/**
+	 * Logged-in users skip the localStorage draft entirely. If the URL has a
+	 * `?page=<id>` (邀請連結導過來的協作者，或直接分享的網址), open that one first;
+	 * 打不開（沒權限/不存在）就退回原本的行為：最近編輯過的雲端分頁。
+	 */
 	async function initCloudPages(): Promise<void> {
 		await fetchPages();
+		const requestedPageId = page.url.searchParams.get('page');
+		if (requestedPageId && (await handleSelectPage(requestedPageId))) return;
 		if (pages.length > 0) {
 			await handleSelectPage(pages[0].id);
 		} else {
@@ -426,16 +468,19 @@
 		}
 	}
 
-	async function handleSelectPage(pageId: string): Promise<void> {
-		if (pageId === activePageId) return;
+	async function handleSelectPage(pageId: string): Promise<boolean> {
+		if (pageId === activePageId) return true;
 		const res = await fetch(`/api/pages/${pageId}`);
-		if (!res.ok) return;
-		const page = await res.json();
+		if (!res.ok) return false;
+		const pageRow = await res.json();
 		activePageId = pageId;
-		loadSchema(page.source, page.fileName);
+		activePageMode = pageRow.mode === 'realtime' ? 'realtime' : 'normal';
+		activePageIsOwner = session?.user?.id === pageRow.userId;
+		loadSchema(pageRow.source, pageRow.fileName);
+		return true;
 	}
 
-	async function handleCreatePage(): Promise<void> {
+	async function handleCreatePage(mode: 'normal' | 'realtime' = 'normal'): Promise<void> {
 		if (!session?.user) {
 			showLoginPrompt = true;
 			return;
@@ -443,22 +488,26 @@
 		// 還沒有任何分頁在編輯時（訪客剛匯入/編輯過東西、或剛登入還沒選過分頁），
 		// 「新增分頁」實際上是要把手上這份內容存成第一個分頁，不能生一份空白的把它蓋掉。
 		// 已經有分頁在編輯、要另外加一個新的才真的給空白（伺服器端沒收到 body 就是空白）。
-		const body = activePageId ? undefined : JSON.stringify({ source: currentSource, fileName: currentFileName });
+		const body = activePageId
+			? JSON.stringify({ mode })
+			: JSON.stringify({ source: currentSource, fileName: currentFileName, mode });
 		const res = await fetch('/api/pages', {
 			method: 'POST',
-			headers: body ? { 'Content-Type': 'application/json' } : undefined,
+			headers: { 'Content-Type': 'application/json' },
 			body
 		});
 		if (!res.ok) {
 			showToast(`新增分頁失敗：${res.status} ${await res.text()}`, 6000);
 			return;
 		}
-		const page = await res.json();
-		pages = [{ id: page.id, title: page.title, updatedAt: page.updatedAt }, ...pages];
-		activePageId = page.id;
+		const pageRow = await res.json();
+		pages = [{ id: pageRow.id, title: pageRow.title, updatedAt: pageRow.updatedAt, mode: pageRow.mode }, ...pages];
+		activePageId = pageRow.id;
+		activePageMode = pageRow.mode === 'realtime' ? 'realtime' : 'normal';
+		activePageIsOwner = true;
 		// 跟匯入一樣：不管是全新空白分頁，還是帶著訪客登入前內容建立的分頁，一律 100% 起始，
 		// 不自動縮放塞畫面。
-		loadSchema(page.source, page.fileName, undefined, true);
+		loadSchema(pageRow.source, pageRow.fileName, undefined, true);
 	}
 
 	function confirmLoginPrompt(): void {
@@ -488,6 +537,8 @@
 		pages = pages.filter((p) => p.id !== pageId);
 		if (activePageId === pageId) {
 			activePageId = null;
+			activePageMode = 'normal';
+			activePageIsOwner = true;
 			if (pages.length > 0) await handleSelectPage(pages[0].id);
 			else loadSchema(EMPTY_SCHEMA_DSL, EMPTY_SCHEMA_FILENAME);
 		}
@@ -516,6 +567,44 @@
 
 	function handleContextMenu(event: MouseEvent, tableId: TableId | null): void {
 		contextMenu = { x: event.clientX, y: event.clientY, tableId };
+	}
+
+	function openCreatePageMenu(event: MouseEvent): void {
+		createPageMenu = { x: event.clientX, y: event.clientY };
+	}
+
+	function createPageMenuItems(): ContextMenuItem[] {
+		return [
+			{ label: '新增分頁', onSelect: () => void handleCreatePage('normal') },
+			{ label: '新增即時協作分頁', onSelect: () => void handleCreatePage('realtime') }
+		];
+	}
+
+	/** 擁有者按「邀請協作者」：產生（或重新產生）邀請連結的 token，組成完整網址給複製。 */
+	async function handleGenerateInviteLink(): Promise<void> {
+		if (!activePageId) return;
+		inviteLoading = true;
+		try {
+			const res = await fetch(`/api/pages/${activePageId}/invite`, { method: 'POST' });
+			if (!res.ok) {
+				showToast(`產生邀請連結失敗：${res.status} ${await res.text()}`, 6000);
+				return;
+			}
+			const { token } = await res.json();
+			inviteLink = `${window.location.origin}/join/${token}`;
+		} finally {
+			inviteLoading = false;
+		}
+	}
+
+	async function copyInviteLink(): Promise<void> {
+		if (!inviteLink) return;
+		try {
+			await navigator.clipboard.writeText(inviteLink);
+			showToast('已複製邀請連結到剪貼簿');
+		} catch {
+			showToast('複製失敗 — 剪貼簿存取被瀏覽器擋下');
+		}
 	}
 
 	/**
@@ -611,10 +700,15 @@
 	function handleImport(source: string, fileName: string, sqlDialect?: SqlDialectId): void {
 		showImportDialog = false;
 		if (sqlDialect) {
-			void loadSchemaFromSqlAndApply(source, fileName, sqlDialect);
+			// 匯入是使用者明確的動作，才值得廣播給協作對象——跟 applyLoadedSchema 內部其他
+			// 「載入我自己原本狀態」的呼叫點不同，所以這裡呼叫端自己 push，不是共用函式無條件 push。
+			void loadSchemaFromSqlAndApply(source, fileName, sqlDialect).then(() => {
+				if (schema) collab?.pushLocalSchema(schema);
+			});
 			return;
 		}
 		loadSchema(source, fileName, undefined, true);
+		if (schema) collab?.pushLocalSchema(schema);
 	}
 
 	/**
@@ -818,6 +912,31 @@
 		window.addEventListener('keydown', handleKeydown);
 		return () => window.removeEventListener('keydown', handleKeydown);
 	});
+
+	/**
+	 * 即時協作 session 的生命週期：目前分頁是即時協作模式時，房間固定用 pageId，
+	 * 自動連上本機 dev relay server(見 apps/web/scripts/yjs-dev-server.mjs)；
+	 * 切到別的分頁、或分頁本身不是即時協作模式，Svelte 會先跑這次回傳的 cleanup
+	 * 把舊 session 關掉，再視新的 activePageId/activePageMode 決定要不要開新的。
+	 */
+	$effect(() => {
+		if (activePageMode !== 'realtime' || !activePageId) {
+			collabRoom = null;
+			return;
+		}
+		const room = activePageId;
+		const session = createSchemaCollab(room, applyRemoteCollabSchema);
+		collab = session;
+		collabRoom = room;
+		// 補位：房間如果是空的（relay server 剛重啟過、或自己是第一個進來的人），
+		// 把當下已經載入的內容推上去，不用等到下一次編輯才有東西可以同步。新設計下
+		// 就算兩人幾乎同時都做這個補位、寫的內容一樣，per-key 覆蓋沒有交錯風險。
+		if (schema) session.pushLocalSchema(schema);
+		return () => {
+			session.destroy();
+			if (collab === session) collab = null;
+		};
+	});
 </script>
 
 <svelte:head>
@@ -836,7 +955,7 @@
 		onPickHit={handlePickHit}
 		onSearchResults={handleSearchResults}
 		onSelectPage={handleSelectPage}
-		onCreatePage={handleCreatePage}
+		onCreatePage={openCreatePageMenu}
 		onRenamePage={handleRenamePage}
 		onDeletePage={handleDeletePage}
 		onCloseInspector={resetFocus}
@@ -923,6 +1042,35 @@
 				}}
 			/>
 
+			{#if collabRoom}
+				<div class="absolute top-3 left-3 z-10 flex items-center gap-2 text-xs">
+					<div class="flex items-center gap-1.5 rounded-full border border-cyan/40 bg-surface/90 px-3 py-1 text-cyan shadow">
+						🔗 即時協作中
+					</div>
+					{#if activePageIsOwner}
+						<button
+							class="rounded-full border border-border bg-surface/90 px-3 py-1 text-muted shadow hover:border-cyan hover:text-cyan disabled:opacity-60"
+							onclick={() => {
+								inviteLink = null;
+								void handleGenerateInviteLink();
+							}}
+							disabled={inviteLoading}
+						>
+							{inviteLoading ? '產生中…' : '邀請協作者'}
+						</button>
+					{/if}
+				</div>
+				{#if inviteLink}
+					<div
+						class="absolute top-12 left-3 z-10 flex items-center gap-2 rounded-lg border border-border bg-surface/95 px-3 py-2 text-xs shadow-2xl"
+					>
+						<span class="max-w-64 truncate font-mono text-muted">{inviteLink}</span>
+						<button class="text-cyan hover:opacity-80" onclick={copyInviteLink}>複製</button>
+						<button class="text-muted hover:text-fg" onclick={() => (inviteLink = null)}>×</button>
+					</div>
+				{/if}
+			{/if}
+
 			<DiagnosticsPanel
 				diagnostics={displayDiagnostics}
 				onDismiss={() => {
@@ -988,6 +1136,15 @@
 		y={contextMenu.y}
 		items={contextMenuItems()}
 		onClose={() => (contextMenu = null)}
+	/>
+{/if}
+
+{#if createPageMenu}
+	<ContextMenu
+		x={createPageMenu.x}
+		y={createPageMenu.y}
+		items={createPageMenuItems()}
+		onClose={() => (createPageMenu = null)}
 	/>
 {/if}
 

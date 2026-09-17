@@ -22,6 +22,7 @@
 		id: string;
 		title: string;
 		updatedAt: string;
+		mode: 'normal' | 'realtime';
 	}
 
 	interface Props {
@@ -34,7 +35,7 @@
 		onPickHit: (hit: SearchHit) => void;
 		onSearchResults: (hits: SearchHit[]) => void;
 		onSelectPage: (pageId: string) => void;
-		onCreatePage: () => void;
+		onCreatePage: (event: MouseEvent) => void;
 		onRenamePage: (pageId: string, title: string) => void;
 		onDeletePage: (pageId: string) => void;
 		onCloseInspector: () => void;
@@ -215,7 +216,7 @@
 		<div class="max-h-48 overflow-auto border-b border-border p-2">
 			<div class="mb-1 flex items-center justify-between px-1">
 				<span class="text-muted">分頁</span>
-				<button class="sl-icon-btn" onclick={onCreatePage} title="新增分頁" aria-label="新增分頁">
+				<button class="sl-icon-btn" onclick={onCreatePage} title="新增分頁（一般或即時協作）" aria-label="新增分頁">
 					<Plus size={13} />
 				</button>
 			</div>
@@ -235,8 +236,11 @@
 							class="w-0 min-w-0 flex-1 rounded border border-border bg-surface px-1 text-fg focus:border-cyan focus:outline-none"
 						/>
 					{:else}
-						<button class="min-w-0 flex-1 truncate text-left" onclick={() => onSelectPage(p.id)}>
-							{p.title}
+						<button class="flex min-w-0 flex-1 items-center gap-1 truncate text-left" onclick={() => onSelectPage(p.id)}>
+							<span class="min-w-0 truncate">{p.title}</span>
+							{#if p.mode === 'realtime'}
+								<span class="flex-none text-[10px]" title="即時協作分頁">🔗</span>
+							{/if}
 						</button>
 						<button
 							class="sl-icon-btn flex-none opacity-0 group-hover:opacity-100"

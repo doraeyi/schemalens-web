@@ -1,19 +1,33 @@
 import { error, json } from '@sveltejs/kit';
-import { desc, eq } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { getDb } from '$lib/server/db';
-import { pagesTable } from '$lib/server/db/schema';
+import { pageCollaboratorsTable, pagesTable } from '$lib/server/db/schema';
 import type { RequestHandler } from './$types';
+
+const PAGE_LIST_COLUMNS = {
+	id: pagesTable.id,
+	title: pagesTable.title,
+	updatedAt: pagesTable.updatedAt,
+	mode: pagesTable.mode
+};
 
 export const GET: RequestHandler = async (event) => {
 	const session = await event.locals.auth();
 	if (!session?.user?.id) error(401, '請先登入');
 
-	const rows = await getDb()
-		.select({ id: pagesTable.id, title: pagesTable.title, updatedAt: pagesTable.updatedAt })
-		.from(pagesTable)
-		.where(eq(pagesTable.userId, session.user.id))
-		.orderBy(desc(pagesTable.updatedAt));
+	const db = getDb();
+	// 自己的分頁 + 被邀請加入的即時協作分頁——兩個查詢分開查再合併排序，
+	// 避免在 mysql 方言上處理 UNION 的欄位型別/排序細節。資料量小，這樣最好懂。
+	const [owned, shared] = await Promise.all([
+		db.select(PAGE_LIST_COLUMNS).from(pagesTable).where(eq(pagesTable.userId, session.user.id)),
+		db
+			.select(PAGE_LIST_COLUMNS)
+			.from(pageCollaboratorsTable)
+			.innerJoin(pagesTable, eq(pageCollaboratorsTable.pageId, pagesTable.id))
+			.where(eq(pageCollaboratorsTable.userId, session.user.id))
+	]);
 
+	const rows = [...owned, ...shared].sort((a, b) => +new Date(b.updatedAt) - +new Date(a.updatedAt));
 	return json(rows);
 };
 
@@ -27,6 +41,7 @@ export const POST: RequestHandler = async (event) => {
 	const body = await event.request.json().catch(() => ({}));
 	const source = typeof body.source === 'string' ? body.source : '';
 	const fileName = typeof body.fileName === 'string' && body.fileName ? body.fileName : 'untitled.dbschema';
+	const mode = body.mode === 'realtime' ? 'realtime' : 'normal';
 
 	const db = getDb();
 	const id = crypto.randomUUID();
@@ -35,7 +50,8 @@ export const POST: RequestHandler = async (event) => {
 		userId: session.user.id,
 		title: '未命名',
 		source,
-		fileName
+		fileName,
+		mode
 	});
 
 	const [page] = await db.select().from(pagesTable).where(eq(pagesTable.id, id));

@@ -1,6 +1,7 @@
 import {
 	int,
 	longtext,
+	mysqlEnum,
 	mysqlTable,
 	primaryKey,
 	timestamp,
@@ -79,6 +80,10 @@ export const pagesTable = mysqlTable('pages', {
 	title: varchar('title', { length: 255 }).notNull().default('未命名'),
 	source: longtext('source').notNull(),
 	fileName: varchar('fileName', { length: 255 }).notNull().default('untitled.dbschema'),
+	/** 建立時就固定，這版不支援中途切換：一般模式（手動存版本）或即時協作模式（Yjs）。 */
+	mode: mysqlEnum('mode', ['normal', 'realtime']).notNull().default('normal'),
+	/** 即時協作分頁的邀請連結 token——擁有者按「邀請協作者」才會產生／重新產生，沒產生過是 null。 */
+	collabInviteToken: varchar('collabInviteToken', { length: 191 }).unique(),
 	createdAt: timestamp('createdAt').notNull().defaultNow(),
 	updatedAt: timestamp('updatedAt').notNull().defaultNow().onUpdateNow()
 });
@@ -100,3 +105,24 @@ export const pageVersionsTable = mysqlTable('page_versions', {
 	fileName: varchar('fileName', { length: 255 }).notNull(),
 	createdAt: timestamp('createdAt').notNull().defaultNow()
 });
+
+/**
+ * 即時協作分頁的存取權紀錄——透過邀請連結加入一次之後就留在這裡，之後不用重新點連結
+ * 也能在自己的側欄看到這個分頁。只有「能不能進來」的二元權限，沒有角色欄位。
+ * cascade 刪除：分頁或使用者任一邊被刪掉，紀錄一起清掉。
+ */
+export const pageCollaboratorsTable = mysqlTable(
+	'page_collaborators',
+	{
+		pageId: varchar('pageId', { length: 191 })
+			.notNull()
+			.references(() => pagesTable.id, { onDelete: 'cascade' }),
+		userId: varchar('userId', { length: 255 })
+			.notNull()
+			.references(() => usersTable.id, { onDelete: 'cascade' }),
+		createdAt: timestamp('createdAt').notNull().defaultNow()
+	},
+	(collaborator) => ({
+		compositePk: primaryKey({ columns: [collaborator.pageId, collaborator.userId] })
+	})
+);
