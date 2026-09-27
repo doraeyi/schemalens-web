@@ -1,4 +1,4 @@
-import { redirect } from '@sveltejs/kit';
+import { fail, redirect } from '@sveltejs/kit';
 import { createAuthCode, OAuthError, parseAuthorizeRequest } from '$lib/server/mcp/oauth';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -24,9 +24,15 @@ export const load: PageServerLoad = async (event) => {
 
 export const actions: Actions = {
 	default: async (event) => {
-		const { request } = await parseAuthorizeRequest(event.url);
+		let request;
+		try {
+			({ request } = await parseAuthorizeRequest(event.url));
+		} catch (error) {
+			if (error instanceof OAuthError) return fail(400, { error: error.description });
+			throw error;
+		}
 		const session = await event.locals.auth();
-		if (!session?.user?.id) return { error: '登入狀態已失效，請重新登入' };
+		if (!session?.user?.id) return fail(401, { error: '登入狀態已失效，請重新登入' });
 
 		const target = new URL(request.redirectUri);
 		const form = await event.request.formData();
