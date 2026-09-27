@@ -53,6 +53,8 @@
 	import ViewSourceDialog from '$lib/components/ViewSourceDialog.svelte';
 	import ConfirmDeleteDialog from '$lib/components/ConfirmDeleteDialog.svelte';
 	import LoginPromptDialog from '$lib/components/LoginPromptDialog.svelte';
+	import AiSettingsDialog from '$lib/components/AiSettingsDialog.svelte';
+	import { clearAiSettings, loadAiSettings, saveAiSettings, type AiSettings } from '$lib/ai/settings';
 	import VersionHistoryDialog, { type VersionSummary } from '$lib/components/VersionHistoryDialog.svelte';
 	import type { PageSummary } from '$lib/components/AppSidebar.svelte';
 	import type { Session } from '@auth/sveltekit';
@@ -131,6 +133,8 @@
 	let showImportDialog = $state(false);
 	let showExportDialog = $state(false);
 	let showViewSourceDialog = $state(false);
+	let showAiSettings = $state(false);
+	let aiSettings = $state<AiSettings | null>(null);
 	let toast = $state<string | null>(null);
 	let toastTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -254,13 +258,46 @@
 		saveDraft({ fileName, source, viewState: toSerializable(renderer.getViewState()) });
 	}
 
+	/**
+	 * 雲端上「最後一次確定跟我一致」的內容——自己存成功的、或剛從雲端載入的。一般分頁會被
+	 * 瀏覽器以外的地方改掉（MCP：使用者在 claude.ai／ChatGPT 裡叫 AI 改），拿這個比對才分得出
+	 * 「雲端變了是別人改的」還是「我自己剛存的」。
+	 */
+	let lastCloudSource: string | null = null;
+	let cloudSavesInFlight = 0;
+
 	function saveToCloud(): void {
 		if (!session?.user || !activePageId) return;
-		fetch(`/api/pages/${activePageId}`, {
+		const pageId = activePageId;
+		const source = currentSource;
+		cloudSavesInFlight++;
+		fetch(`/api/pages/${pageId}`, {
 			method: 'PATCH',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ source: currentSource, fileName: currentFileName })
-		}).catch(() => {});
+			body: JSON.stringify({ source, fileName: currentFileName })
+		})
+			.then((res) => {
+				if (res.ok && pageId === activePageId) lastCloudSource = source;
+			})
+			.catch(() => {})
+			.finally(() => cloudSavesInFlight--);
+	}
+
+	/**
+	 * 一般分頁的外部修改偵測（即時協作分頁走 Yjs，不需要這個）。切回這個視窗、或畫面開著時定期檢查；
+	 * 自己還有存檔在路上、或正在比較模式時先不動，避免拿到自己還沒寫進去的舊內容把畫面蓋回去。
+	 */
+	async function checkExternalChanges(): Promise<void> {
+		if (!session?.user || !activePageId || activePageMode === 'realtime' || diffMode || cloudSavesInFlight > 0) return;
+		if (document.visibilityState !== 'visible') return;
+		const pageId = activePageId;
+		const res = await fetch(`/api/pages/${pageId}`).catch(() => null);
+		if (!res?.ok || pageId !== activePageId || cloudSavesInFlight > 0) return;
+		const pageRow = await res.json();
+		if (lastCloudSource === null || pageRow.source === lastCloudSource) return;
+		lastCloudSource = pageRow.source;
+		applyRemoteCollabSchema(loadSchemaFromText(pageRow.source, pageRow.fileName).schema);
+		showToast('這個分頁剛被外部修改（例如 AI 助手），畫面已更新。改壞了可以從「歷史」還原。', 5000);
 	}
 
 	function applyLoadedSchema(
@@ -316,7 +353,8 @@
 
 	/**
 	 * 收到協作對象傳來的 schema（已經是表格級同步組回來的完整 Schema，不是字串，
-	 * 見 $lib/collab/schemaCollab.ts）：直接套用，不用再 parse。故意不走 loadSchema()／
+	 * 見 $lib/collab/schemaCollab.ts）：直接套用，不用再 parse。一般分頁被外部修改
+	 * （checkExternalChanges）時也走這裡，理由一樣：不要重置使用者的鏡頭。故意不走 loadSchema()／
 	 * applyLoadedSchema() 那條路——那條路是給「載入一份新分頁」用的，會重置 viewState
 	 * 跟自動 fitView，對方每動一次你的畫面就會跳走、縮放被重置。這裡跟 commitSchema 的
 	 * refit:false 分支一樣，只用 renderer.updateSchema() 換資料重繪，鏡頭留在原地。
@@ -476,6 +514,7 @@
 		activePageId = pageId;
 		activePageMode = pageRow.mode === 'realtime' ? 'realtime' : 'normal';
 		activePageIsOwner = session?.user?.id === pageRow.userId;
+		lastCloudSource = pageRow.source;
 		loadSchema(pageRow.source, pageRow.fileName);
 		return true;
 	}
@@ -505,6 +544,7 @@
 		activePageId = pageRow.id;
 		activePageMode = pageRow.mode === 'realtime' ? 'realtime' : 'normal';
 		activePageIsOwner = true;
+		lastCloudSource = pageRow.source;
 		// 跟匯入一樣：不管是全新空白分頁，還是帶著訪客登入前內容建立的分頁，一律 100% 起始，
 		// 不自動縮放塞畫面。
 		loadSchema(pageRow.source, pageRow.fileName, undefined, true);
@@ -885,6 +925,12 @@
 	onMount(() => {
 		initTheme();
 		theme = getTheme();
+		aiSettings = loadAiSettings();
+
+		const handleExternalCheck = () => void checkExternalChanges();
+		window.addEventListener('focus', handleExternalCheck);
+		document.addEventListener('visibilitychange', handleExternalCheck);
+		const externalCheckTimer = setInterval(handleExternalCheck, 10_000);
 
 		const handleKeydown = (event: KeyboardEvent) => {
 			if (event.key === 'Escape') {
@@ -910,7 +956,12 @@
 			}
 		};
 		window.addEventListener('keydown', handleKeydown);
-		return () => window.removeEventListener('keydown', handleKeydown);
+		return () => {
+			window.removeEventListener('keydown', handleKeydown);
+			window.removeEventListener('focus', handleExternalCheck);
+			document.removeEventListener('visibilitychange', handleExternalCheck);
+			clearInterval(externalCheckTimer);
+		};
 	});
 
 	/**
@@ -1116,6 +1167,8 @@
 				compareDisabled={!!diffMode}
 				onHistory={openVersionHistory}
 				historyDisabled={!activePageId}
+				onAiClick={() => (showAiSettings = true)}
+				aiConfigured={!!aiSettings}
 			/>
 
 			{#if toast}
@@ -1163,6 +1216,25 @@
 
 {#if showViewSourceDialog && schema}
 	<ViewSourceDialog source={toDsl(schema)} onClose={() => (showViewSourceDialog = false)} />
+{/if}
+
+{#if showAiSettings}
+	<AiSettingsDialog
+		current={aiSettings}
+		signedIn={!!session?.user}
+		onSave={(next) => {
+			saveAiSettings(next);
+			aiSettings = next;
+			showAiSettings = false;
+			showToast('AI 助手已設定完成');
+		}}
+		onClear={() => {
+			clearAiSettings();
+			aiSettings = null;
+			showAiSettings = false;
+		}}
+		onClose={() => (showAiSettings = false)}
+	/>
 {/if}
 
 {#if showCompareDialog}
