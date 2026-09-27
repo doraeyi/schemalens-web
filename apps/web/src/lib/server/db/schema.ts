@@ -126,3 +126,51 @@ export const pageCollaboratorsTable = mysqlTable(
 		compositePk: primaryKey({ columns: [collaborator.pageId, collaborator.userId] })
 	})
 );
+
+/**
+ * MCP connector 的 OAuth（$lib/server/mcp/oauth.ts）——讓 claude.ai／ChatGPT／Claude Code
+ * 以「某個 SchemaLens 使用者」的身分呼叫 /api/mcp。SchemaLens 自己當 authorization server，
+ * 登入沿用 GitHub（Auth.js）。這裡完全不存任何 Claude／OpenAI 的帳號或 token。
+ *
+ * 用 Dynamic Client Registration 註冊進來的 client（claude.ai、ChatGPT 等第一次連線時自己註冊）。
+ */
+export const oauthClientsTable = mysqlTable('oauth_clients', {
+	clientId: varchar('clientId', { length: 191 }).primaryKey(),
+	clientName: varchar('clientName', { length: 255 }).notNull(),
+	/** JSON 陣列；授權時 redirect_uri 必須完全符合其中一個。 */
+	redirectUris: longtext('redirectUris').notNull(),
+	createdAt: timestamp('createdAt').notNull().defaultNow()
+});
+
+/** 授權碼：一次性、幾分鐘就過期，換 token 時立刻刪掉。只存雜湊值。 */
+export const oauthCodesTable = mysqlTable('oauth_codes', {
+	codeHash: varchar('codeHash', { length: 64 }).primaryKey(),
+	clientId: varchar('clientId', { length: 191 })
+		.notNull()
+		.references(() => oauthClientsTable.clientId, { onDelete: 'cascade' }),
+	userId: varchar('userId', { length: 255 })
+		.notNull()
+		.references(() => usersTable.id, { onDelete: 'cascade' }),
+	redirectUri: varchar('redirectUri', { length: 2048 }).notNull(),
+	codeChallenge: varchar('codeChallenge', { length: 128 }).notNull(),
+	resource: varchar('resource', { length: 2048 }),
+	expiresAt: timestamp('expiresAt').notNull()
+});
+
+/**
+ * access / refresh token，只存 SHA-256 雜湊（token 本身是高熵亂數，不需要慢雜湊）。
+ * refresh 時舊的 refresh token 會被刪掉換新的（rotation）。使用者撤銷連線＝刪掉這個 client 的所有列。
+ */
+export const oauthTokensTable = mysqlTable('oauth_tokens', {
+	tokenHash: varchar('tokenHash', { length: 64 }).primaryKey(),
+	kind: mysqlEnum('kind', ['access', 'refresh']).notNull(),
+	clientId: varchar('clientId', { length: 191 })
+		.notNull()
+		.references(() => oauthClientsTable.clientId, { onDelete: 'cascade' }),
+	userId: varchar('userId', { length: 255 })
+		.notNull()
+		.references(() => usersTable.id, { onDelete: 'cascade' }),
+	resource: varchar('resource', { length: 2048 }),
+	expiresAt: timestamp('expiresAt').notNull(),
+	createdAt: timestamp('createdAt').notNull().defaultNow()
+});

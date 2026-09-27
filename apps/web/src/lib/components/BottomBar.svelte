@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Code, Download, GitCompare, Hand, History, LayoutGrid, Minus, MousePointer2, Moon, Plus, Rows3, Sun, Upload } from '@lucide/svelte';
+	import { Code, Download, GitCompare, Hand, History, LayoutGrid, Minus, MousePointer2, Moon, Plus, Rows3, Sparkles, Sun, Upload } from '@lucide/svelte';
 	import type { InteractionMode } from '@schemalens/schema-renderer';
 	import type { Theme } from '$lib/stores/theme.svelte';
 	import type { ViewMode } from '$lib/stores/viewMode';
@@ -22,6 +22,8 @@
 		compareDisabled?: boolean;
 		onHistory: () => void;
 		historyDisabled?: boolean;
+		onAiClick: () => void;
+		aiConfigured?: boolean;
 	}
 
 	let {
@@ -41,7 +43,9 @@
 		onCompare,
 		compareDisabled = false,
 		onHistory,
-		historyDisabled = false
+		historyDisabled = false,
+		onAiClick,
+		aiConfigured = false
 	}: Props = $props();
 </script>
 
@@ -109,6 +113,13 @@
 		style:opacity={historyDisabled ? 0.4 : 1}
 	>
 		<History size={13} /> 歷史
+	</button>
+	<button
+		class="sl-pill-btn {aiConfigured ? 'text-cyan' : ''}"
+		onclick={onAiClick}
+		title="AI 助手：連接 Claude／ChatGPT，或填入 API key"
+	>
+		<Sparkles size={13} /> AI
 	</button>
 
 	<div class="mx-1 h-5 w-px bg-border"></div>

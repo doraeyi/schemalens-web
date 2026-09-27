@@ -20,6 +20,7 @@
 		"@sveltejs/kit": "^2.63.0",
 		"@sveltejs/vite-plugin-svelte": "^7.1.2",
 		"@tailwindcss/vite": "^4.1.16",
+		"@types/ws": "^8.18.1",
 		"drizzle-kit": "^0.31.10",
 		"lib0": "^0.2.117",
 		"svelte": "^5.56.1",
@@ -27,14 +28,15 @@
 		"tailwindcss": "^4.1.16",
 		"typescript": "^6.0.3",
 		"vite": "^8.0.16",
-		"ws": "^8.21.3",
 		"y-protocols": "^1.0.7"
 	},
 	"dependencies": {
+		"@anthropic-ai/sdk": "^0.128.0",
 		"@auth/core": "^0.41.3",
 		"@auth/drizzle-adapter": "^1.11.3",
 		"@auth/sveltekit": "^1.11.3",
 		"@lucide/svelte": "^0.545.0",
+		"@modelcontextprotocol/sdk": "^1.30.1",
 		"@schemalens/schema-core": "workspace:*",
 		"@schemalens/schema-graph": "workspace:*",
 		"@schemalens/schema-layout": "workspace:*",
@@ -46,7 +48,10 @@
 		"html-to-image": "^1.11.11",
 		"mysql2": "^3.24.3",
 		"node-sql-parser": "^5.4.0",
+		"openai": "^7.23.0",
+		"ws": "^8.21.3",
 		"y-websocket": "^3.1.0",
-		"yjs": "^13.6.32"
+		"yjs": "^13.6.32",
+		"zod": "^4.6.5"
 	}
 }
