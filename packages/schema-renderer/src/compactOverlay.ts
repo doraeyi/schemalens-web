@@ -1,4 +1,4 @@
-import { groupColor } from '@schemalens/schema-renderer';
+import { groupColor } from './groupColor.js';
 import type { Schema, TableId } from '@schemalens/schema-core';
 
 const ZONE_PADDING_X = 24;
@@ -7,6 +7,50 @@ const ZONE_LABEL_HEIGHT = 40;
 const ZONE_PADDING_BOTTOM = 20;
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
+
+const STYLE_ID = 'dbs-compact-overlay-style';
+
+/*
+ * 分區外框 + 直角連線的樣式。class 沿用網頁版原本的 sl-*（apps/web/src/app.css 裡也有同樣的規則）。
+ * 顏色先用網頁版的 --sl-* 變數，沒有的話（VS Code Webview）退回 VS Code 主題變數。
+ */
+const OVERLAY_CSS = `
+.sl-compact-active .dbs-edges { display: none; }
+.sl-zone-layer { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
+.sl-zone {
+  position: absolute;
+  border-left: 4px solid;
+  border-radius: 10px;
+  background: color-mix(in oklab, var(--sl-surface-2, var(--vscode-editorWidget-background, #252526)) 55%, transparent);
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+.sl-zone-label { position: absolute; top: 10px; left: 20px; right: 20px; }
+.sl-zone-title { font-size: 13px; font-weight: 700; color: var(--sl-fg, var(--vscode-foreground, #cccccc)); }
+.sl-zone-desc {
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--sl-muted, var(--vscode-descriptionForeground, #9d9d9d));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sl-connector-layer { position: absolute; top: 0; left: 0; overflow: visible; pointer-events: none; z-index: 0; }
+.sl-group-hidden { display: none !important; }
+`;
+
+function ensureStyle(doc: Document): void {
+	if (doc.getElementById(STYLE_ID)) return;
+	const style = doc.createElement('style');
+	style.id = STYLE_ID;
+	style.textContent = OVERLAY_CSS;
+	doc.head.append(style);
+}
+
+/** 分區標題；預設是中文，VS Code 插件依語系傳入（RendererStrings.compactZoneTitle）。 */
+export type ZoneTitleFormatter = (group: string, tableCount: number) => string;
+
+const defaultZoneTitle: ZoneTitleFormatter = (group, count) => `${group}（${count} 張表）`;
 
 interface GroupInfo {
 	name: string;
@@ -157,8 +201,10 @@ export function applyGroupVisibility(canvasHost: HTMLElement, hiddenGroups: Read
 export function syncCompactOverlay(
 	canvasHost: HTMLElement,
 	schema: Schema,
-	hiddenGroups: ReadonlySet<string>
+	hiddenGroups: ReadonlySet<string>,
+	zoneTitle: ZoneTitleFormatter = defaultZoneTitle
 ): void {
+	ensureStyle(canvasHost.ownerDocument);
 	canvasHost.classList.add('sl-compact-active');
 	applyGroupVisibility(canvasHost, hiddenGroups);
 
@@ -197,7 +243,7 @@ export function syncCompactOverlay(
 			maxY = Math.max(maxY, rect.top + rect.height);
 		}
 
-		let zone = zoneLayer.querySelector<HTMLElement>(`.sl-zone[data-group="${CSS.escape(group.name)}"]`);
+		let zone = [...zoneLayer.querySelectorAll<HTMLElement>('.sl-zone')].find((z) => z.dataset.group === group.name);
 		if (!zone) {
 			zone = document.createElement('div');
 			zone.className = 'sl-zone';
@@ -217,7 +263,7 @@ export function syncCompactOverlay(
 		zone.classList.toggle('sl-group-hidden', hiddenGroups.has(group.name));
 
 		const title = zone.querySelector<HTMLElement>('.sl-zone-title');
-		if (title) title.textContent = `${group.name}（${group.tableCount} 張表）`;
+		if (title) title.textContent = zoneTitle(group.name, group.tableCount);
 		const desc = zone.querySelector<HTMLElement>('.sl-zone-desc');
 		if (desc) desc.textContent = group.description ?? '';
 	}
@@ -238,7 +284,9 @@ export function syncCompactOverlay(
 	// Baked in as real attribute values (not left to the "sl-connector-*" CSS classes) so the
 	// lines still render correctly under html-to-image's PNG/SVG export, which doesn't reliably
 	// resolve external stylesheet rules — let alone CSS custom properties — for cloned SVG nodes.
-	const connectorColor = getComputedStyle(canvasHost).getPropertyValue('--sl-cyan').trim() || '#22d3ee';
+	const style = getComputedStyle(canvasHost);
+	const connectorColor =
+		style.getPropertyValue('--sl-cyan').trim() || style.getPropertyValue('--vscode-charts-blue').trim() || '#22d3ee';
 
 	for (const relation of schema.relations) {
 		if (isHidden(relation.sourceTable) || isHidden(relation.targetTable)) continue;

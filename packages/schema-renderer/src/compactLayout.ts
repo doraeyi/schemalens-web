@@ -29,7 +29,7 @@ function placeBand(nodes: readonly LayoutNode[], startY: number, out: Positioned
 }
 
 /**
- * Compact-mode layout (schemalens-web only): one horizontal band per group,
+ * Compact-mode layout (網頁版跟 VS Code 插件的精簡模式共用): one horizontal band per group,
  * stacked top to bottom, so the zone boxes drawn in compactOverlay.ts never
  * overlap — unlike the default layered layout, which interleaves tables from
  * different groups spatially based on their relations, not their group.

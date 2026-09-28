@@ -55,6 +55,12 @@ export interface RendererStrings {
   /** 比較模式的橫幅：`base` 是舊版本（例如某個 commit），`next` 是目前的內容。 */
   compareBanner: (base: string, next: string, added: number, removed: number, changed: number) => string;
   exitCompare: string;
+  /** 精簡模式的分區標題。 */
+  compactZoneTitle: (group: string, tableCount: number) => string;
+  /** VS Code 插件工具列的檢視模式切換：完整／精簡。 */
+  viewModeGroup: string;
+  viewModeFull: string;
+  viewModeCompact: string;
   resetLayout: string;
   resultTable: string;
   resultColumn: string;
@@ -110,6 +116,10 @@ const en: RendererStrings = {
   compareBanner: (base, next, added, removed, changed) =>
     `Comparing ${base} → ${next} · +${added} / -${removed} / ~${changed} tables`,
   exitCompare: "Exit compare",
+  compactZoneTitle: (group, count) => `${group} (${count} tables)`,
+  viewModeGroup: "View",
+  viewModeFull: "Full",
+  viewModeCompact: "Compact",
   resetLayout: "Reset Layout",
   resultTable: "TABLE",
   resultColumn: "COLUMN",
@@ -164,6 +174,10 @@ const zhHant: RendererStrings = {
   compareBanner: (base, next, added, removed, changed) =>
     `比較中：${base} → ${next} · 新增 ${added} / 刪除 ${removed} / 修改 ${changed} 張表`,
   exitCompare: "結束比較",
+  compactZoneTitle: (group, count) => `${group}（${count} 張表）`,
+  viewModeGroup: "檢視",
+  viewModeFull: "完整",
+  viewModeCompact: "精簡",
   resetLayout: "還原版面",
   resultTable: "資料表",
   resultColumn: "欄位",

@@ -2,6 +2,10 @@
 	import { onMount } from 'svelte';
 	import {
 		DEFAULT_VIEW_STATE,
+		applyGroupVisibility,
+		clearCompactOverlay,
+		createCompactLayoutEngine,
+		syncCompactOverlay,
 		stringsFor,
 		type DetailLevel,
 		type InteractionMode,
@@ -34,8 +38,6 @@
 	} from '$lib/export/exportImage';
 	import { getTheme, initTheme, toggleTheme } from '$lib/stores/theme.svelte';
 	import type { ViewMode } from '$lib/stores/viewMode';
-	import { syncCompactOverlay, clearCompactOverlay, applyGroupVisibility } from '$lib/canvas/compactOverlay';
-	import { createCompactLayoutEngine } from '$lib/canvas/compactLayout';
 	import { layeredLayout } from '@schemalens/schema-layout';
 	import { toJson, toDsl } from '@schemalens/schema-serializer';
 	import * as mutate from '$lib/schema/mutations';

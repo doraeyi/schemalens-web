@@ -1,11 +1,15 @@
 import type { Schema } from "@schemalens/schema-core";
 import { buildMergedSchema, diffSchemas } from "@schemalens/schema-diff";
+import { layeredLayout } from "@schemalens/schema-layout";
 import type { SearchHit, TraversalDirection } from "@schemalens/schema-graph";
 import {
   DEFAULT_LOCALE,
   DEFAULT_VIEW_STATE,
   SchemaRenderer,
   applyDiffOverlay,
+  clearCompactOverlay,
+  createCompactLayoutEngine,
+  syncCompactOverlay,
   highlightChanges,
   stringsFor,
   type DetailLevel,
@@ -15,7 +19,8 @@ import {
 } from "@schemalens/schema-renderer";
 import { toPng, toSvg } from "html-to-image";
 import type { ExtensionToWebview, ImageFormat, WebviewToExtension } from "../preview/protocol.js";
-import { TOOLBAR_CSS, Toolbar, type ToolbarHandlers } from "./toolbar.js";
+import { TOOLBAR_CSS, Toolbar, type ToolbarHandlers, type ViewMode } from "./toolbar.js";
+import { DETAIL_PANEL_CSS, renderDetailPanel } from "./detailPanel.js";
 
 declare function acquireVsCodeApi(): { postMessage(message: unknown): void };
 
@@ -25,7 +30,7 @@ const post = (message: WebviewToExtension): void => vscode.postMessage(message);
 const app = document.getElementById("app")!;
 
 const style = document.createElement("style");
-style.textContent = TOOLBAR_CSS;
+style.textContent = TOOLBAR_CSS + DETAIL_PANEL_CSS;
 document.head.append(style);
 
 const canvas = document.createElement("div");
@@ -34,6 +39,11 @@ canvas.style.inset = "0";
 canvas.style.top = "38px";
 
 let schema: Schema | null = null;
+/** 畫布上實際畫的那份（比較模式時是合成的 schema），精簡模式的排版跟分區外框都依它。 */
+let renderedSchema: Schema | null = null;
+let viewMode: ViewMode = "full";
+let detailLevelBeforeCompact: DetailLevel | null = null;
+const compactLayoutEngine = createCompactLayoutEngine(() => renderedSchema);
 let locale: Locale = DEFAULT_LOCALE;
 let lastMetrics: { tables: number; relations: number; ms: number } | null = null;
 
@@ -55,6 +65,7 @@ renderer.setInteractionMode("move");
 
 const handlers: ToolbarHandlers = {
   onDetailLevel: (level: DetailLevel) => {
+    if (viewMode === "compact") setViewMode("full");
     renderer.setViewState({ detailLevel: level });
     syncToolbar();
   },
@@ -94,6 +105,7 @@ const handlers: ToolbarHandlers = {
   onFitView: () => renderer.fitView(),
   onExport: () => post({ type: "requestExport" }),
   onCompare: () => post({ type: "requestCompare" }),
+  onViewMode: (mode: ViewMode) => setViewMode(mode),
   onResetLayout: () => {
     renderer.resetLayout();
     toolbar.setLayoutDirty(false);
@@ -149,8 +161,7 @@ function renderCompare(refit: boolean): void {
   if (!compareBase || !schema) return;
   const diff = diffSchemas(compareBase.schema, schema);
   const merged = buildMergedSchema(compareBase.schema, schema);
-  if (refit) renderer.setSchema(merged);
-  else renderer.updateSchema(merged);
+  draw(merged, refit);
   applyDiffOverlay(canvas, diff);
   const strings = stringsFor(locale);
   compareText.textContent = strings.compareBanner(
@@ -168,7 +179,60 @@ function exitCompare(): void {
   if (!compareBase) return;
   compareBase = null;
   compareBanner.hidden = true;
-  if (schema) renderer.updateSchema(schema);
+  if (schema) draw(schema, false);
+}
+
+/** 所有「換資料重畫」都走這裡：記下畫了哪份，精簡模式的分區外框要跟著重算。 */
+function draw(next: Schema, refit: boolean): void {
+  renderedSchema = next;
+  if (refit) renderer.setSchema(next);
+  else renderer.updateSchema(next);
+  syncCompact();
+}
+
+/** 跟網頁版的精簡模式相同：依群組分區、卡片只顯示表名、關聯改成直角連線；點表在右側看欄位。 */
+function setViewMode(mode: ViewMode): void {
+  if (mode === viewMode) return;
+  viewMode = mode;
+  if (mode === "compact") {
+    detailLevelBeforeCompact = renderer.getViewState().detailLevel;
+    renderer.setViewState({ detailLevel: "compact" });
+    renderer.setLayoutEngine(compactLayoutEngine);
+    // 分區版面本來就由上往下排好，點表不用自動平移過去。
+    renderer.setAutoCenterOnFocus(false);
+  } else {
+    renderer.setLayoutEngine(layeredLayout);
+    renderer.setAutoCenterOnFocus(true);
+    if (detailLevelBeforeCompact) renderer.setViewState({ detailLevel: detailLevelBeforeCompact });
+    detailLevelBeforeCompact = null;
+  }
+  syncToolbar();
+  renderer.fitView();
+}
+
+function syncCompact(): void {
+  if (viewMode === "compact" && renderedSchema) {
+    syncCompactOverlay(canvas, renderedSchema, new Set(), stringsFor(locale).compactZoneTitle);
+  } else {
+    clearCompactOverlay(canvas);
+  }
+}
+
+const detailPanel = document.createElement("div");
+detailPanel.className = "dbs-detail-panel";
+detailPanel.hidden = true;
+app.append(detailPanel);
+
+function syncDetailPanel(): void {
+  const tableId = renderer.getViewState().focus.tableId;
+  const table = viewMode === "compact" && tableId ? renderedSchema?.tables.find((t) => t.id === tableId) : undefined;
+  detailPanel.hidden = !table;
+  if (table) {
+    renderDetailPanel(detailPanel, table, locale, {
+      close: () => resetFocus(),
+      openSource: (column) => post({ type: "openSource", tableId: table.id, column }),
+    });
+  }
 }
 
 /**
@@ -213,7 +277,10 @@ function syncToolbar(): void {
     layoutMode: state.layoutMode,
     groupFilter: state.groupFilter,
     locale,
+    viewMode,
   });
+  syncCompact();
+  syncDetailPanel();
 }
 
 function paintMetrics(): void {
@@ -246,11 +313,13 @@ window.addEventListener("message", (event: MessageEvent<ExtensionToWebview>) => 
         // 聚焦中的表被刪掉的話就取消聚焦，不留一個指向不存在的表的狀態。
         const focused = renderer.getViewState().focus.tableId;
         if (focused && !schema.tables.some((table) => table.id === focused)) resetFocus();
-        renderer.updateSchema(schema);
+        draw(schema, false);
         if (message.changes) highlightChanges(canvas, message.changes);
       } else {
-        renderer.setViewState(DEFAULT_VIEW_STATE);
-        renderer.setSchema(schema);
+        renderer.setViewState(
+          viewMode === "compact" ? { ...DEFAULT_VIEW_STATE, detailLevel: "compact" } : DEFAULT_VIEW_STATE,
+        );
+        draw(schema, true);
       }
       const elapsed = performance.now() - start;
 
