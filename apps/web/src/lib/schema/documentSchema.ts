@@ -53,16 +53,16 @@ export function loadSchemaFromText(text: string, fileName: string): LoadedSchema
 
 /**
  * 匯入任意手寫 SQL DDL（MySQL / SQL Server / SQLite）。跟上面三種格式不同，這條路徑
- * 是 async 的——`$lib/import/sql` 內部要依使用者選的方言動態載入對應的 node-sql-parser
+ * 是 async 的——`@schemalens/schema-sql/import` 內部要依使用者選的方言動態載入對應的 node-sql-parser
  * 子模組，使用者沒有實際匯入 SQL 之前不會把這段程式碼載進 bundle。刻意獨立成一個函式，
  * 不動 loadSchemaFromText 本身，其餘三種格式的呼叫端完全不受影響。
  */
 export async function loadSchemaFromSql(
 	text: string,
 	fileName: string,
-	dialect: import('$lib/import/sql').SqlDialectId
+	dialect: import('@schemalens/schema-sql').SqlDialectId
 ): Promise<LoadedSchema> {
-	const { parseSql } = await import('$lib/import/sql');
+	const { parseSql } = await import('@schemalens/schema-sql/import');
 	const parsed = await parseSql(text, dialect, fileName);
 	return {
 		schema: parsed.schema,

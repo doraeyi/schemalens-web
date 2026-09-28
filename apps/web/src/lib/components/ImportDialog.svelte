@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { FileUp, X } from '@lucide/svelte';
-	import { SQL_DIALECTS, type SqlDialectId } from '$lib/export/sql/types';
+	import { SQL_DIALECTS, type SqlDialectId } from '@schemalens/schema-sql';
 
 	interface Props {
 		mode?: 'import' | 'compare';

@@ -13,7 +13,7 @@
 	import { validateSchema, type Column, type Schema, type SchemaDiagnostic, type TableId } from '@schemalens/schema-core';
 	import type { SearchHit, TraversalDirection } from '@schemalens/schema-graph';
 	import { loadSchemaFromText, loadSchemaFromSql, type LoadedSchema } from '$lib/schema/documentSchema';
-	import type { SqlDialectId } from '$lib/import/sql/types';
+	import type { SqlDialectId } from '@schemalens/schema-sql';
 	import { signIn } from '@auth/sveltekit/client';
 	import { page } from '$app/state';
 	import { createSchemaCollab, type SchemaCollabSession } from '$lib/collab/schemaCollab';
@@ -39,8 +39,8 @@
 	import { layeredLayout } from '@schemalens/schema-layout';
 	import { toJson, toDsl } from '@schemalens/schema-serializer';
 	import * as mutate from '$lib/schema/mutations';
-	import { lintSchema, type LintWarning } from '$lib/schema/lint';
-	import { diffSchemas, buildMergedSchema, tableOverlapRatio, type SchemaDiff } from '$lib/schema/diff';
+	import { lintSchema, type LintWarning } from '@schemalens/schema-lint';
+	import { diffSchemas, buildMergedSchema, tableOverlapRatio, type SchemaDiff } from '@schemalens/schema-diff';
 	import { applyDiffOverlay, clearDiffOverlay } from '$lib/canvas/diffOverlay';
 	import SchemaCanvas from '$lib/components/SchemaCanvas.svelte';
 	import Toolbar from '$lib/components/Toolbar.svelte';
@@ -889,9 +889,9 @@
 		downloadFile(currentFileName.replace(/\.(dbschema|schema\.(json|md))$/i, '') + '.dbschema', toDsl(schema), 'text/plain');
 	}
 
-	async function handleExportSql(dialectId: import('$lib/export/sql').SqlDialectId): Promise<void> {
+	async function handleExportSql(dialectId: import('@schemalens/schema-sql').SqlDialectId): Promise<void> {
 		if (!schema) return;
-		const { renderSchemaAsSql } = await import('$lib/export/sql');
+		const { renderSchemaAsSql } = await import('@schemalens/schema-sql/export');
 		const base = currentFileName.replace(/\.(dbschema|schema\.(json|md))$/i, '');
 		downloadFile(`${base}.${dialectId}.sql`, renderSchemaAsSql(schema, dialectId), 'text/plain');
 	}

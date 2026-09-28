@@ -1,7 +1,7 @@
 import type { SourceLocation } from '@schemalens/schema-core';
 
-export type { SqlDialectId, SqlDialectInfo } from '$lib/export/sql/types';
-export { SQL_DIALECTS } from '$lib/export/sql/types';
+export type { SqlDialectId, SqlDialectInfo } from '../export/types.js';
+export { SQL_DIALECTS } from '../export/types.js';
 
 /**
  * node-sql-parser 的原始 AST 沒有公開文件記載欄位長相，而且每個方言的欄位路徑

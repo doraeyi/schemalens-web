@@ -12,12 +12,13 @@ import type {
   TableNode,
   TypeRefNode,
 } from "./ast.js";
-import { tokenize } from "./lexer.js";
+import { tokenize, type CommentToken } from "./lexer.js";
 import type { Token } from "./tokens.js";
 
 export interface ParseResult {
   ast: SchemaFileNode;
   diagnostics: SchemaDiagnostic[];
+  comments: CommentToken[];
 }
 
 /** 內部用的中止訊號；一定會在語句層被攔下來，不會外洩。 */
@@ -48,7 +49,7 @@ class Parser {
     private readonly file?: string,
   ) {}
 
-  parseFile(): ParseResult {
+  parseFile(): Omit<ParseResult, "comments"> {
     const statements: StatementNode[] = [];
     this.skipNewlines();
 
@@ -516,7 +517,7 @@ function span(start: SourceLocation, end: SourceLocation): SourceLocation {
 }
 
 export function parse(source: string, file?: string): ParseResult {
-  const { tokens, diagnostics } = tokenize(source, file);
+  const { tokens, diagnostics, comments } = tokenize(source, file);
   const result = new Parser(tokens, file).parseFile();
-  return { ast: result.ast, diagnostics: [...diagnostics, ...result.diagnostics] };
+  return { ast: result.ast, diagnostics: [...diagnostics, ...result.diagnostics], comments };
 }

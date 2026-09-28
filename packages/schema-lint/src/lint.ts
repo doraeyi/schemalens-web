@@ -22,7 +22,7 @@ const TYPE_SUFFIX_KEYWORDS = [
 function findGluedTypeSuffix(name: string): string | null {
 	for (const keyword of TYPE_SUFFIX_KEYWORDS) {
 		if (name.length <= keyword.length || !name.endsWith(keyword)) continue;
-		const before = name[name.length - keyword.length - 1];
+		const before = name.charAt(name.length - keyword.length - 1);
 		// 前一個字元是底線（有意的分隔）或小寫（本來就是同一個自然單字，例如 "point"）就不算誤黏。
 		if (before === '_' || /[a-z]/.test(before)) continue;
 		return keyword;

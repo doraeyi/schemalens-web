@@ -3,5 +3,6 @@ export * from "./lexer.js";
 export * from "./ast.js";
 export * from "./parser.js";
 export * from "./astToSchema.js";
+export * from "./attachComments.js";
 export * from "./parseSchema.js";
 export * from "./markdown.js";

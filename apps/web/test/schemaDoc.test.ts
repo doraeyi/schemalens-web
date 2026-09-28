@@ -30,6 +30,17 @@ describe('schemaDoc', () => {
 		expect(toDsl(buildSchemaFromDoc(doc)!)).toBe(toDsl(schema));
 	});
 
+	it('// 註解跟省略的 schema 前綴經過協作文件也會保留', () => {
+		const doc = new Y.Doc();
+		const source = `// 使用者\ntable Users { // 表頭\n  PK Id bigint not null // 主鍵\n  // 待補\n}\n\n// 結尾\n`;
+		const schema = schemaOf(source);
+		writeSchemaToDoc(doc, schema, emptyPushedKeys());
+		const dsl = toDsl(buildSchemaFromDoc(doc)!);
+		expect(dsl).toBe(toDsl(schema));
+		for (const text of ['// 使用者', '// 表頭', '// 主鍵', '// 待補', '// 結尾']) expect(dsl).toContain(text);
+		expect(dsl).not.toContain('dbo.');
+	});
+
 	it('空文件組不出 schema', () => {
 		expect(buildSchemaFromDoc(new Y.Doc())).toBeNull();
 	});

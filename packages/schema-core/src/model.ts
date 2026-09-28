@@ -21,6 +21,20 @@ export interface SourceLocation {
 
 export type Cardinality = "1:1" | "1:N" | "N:1" | "N:M";
 
+/**
+ * DSL 裡手寫的 `//` 註解（不是 `"..."` 描述字串，那個是語意的一部分，放在 `comment`）。
+ *
+ * 不影響任何語意，只為了讓 Schema → DSL 重新序列化時不把使用者寫的說明弄丟——
+ * 網頁版存檔、MCP 修改、即時協作都是整份重新序列化，沒有這個的話註解每經過一次就消失一次。
+ * 文字是 `//` 之後的原文（保留開頭空白、去掉行尾空白），序列化時原樣接回 `//` 後面。
+ */
+export interface SourceComments {
+  /** 寫在這一行上方、獨立成行的註解，依原本順序。 */
+  leading?: string[];
+  /** 寫在同一行尾端的註解。 */
+  trailing?: string;
+}
+
 /** `schema.table`，例如 `dbo.Users`。 */
 export type TableId = string;
 
@@ -39,6 +53,7 @@ export interface Column {
   unique: boolean;
   /** 是否被任一 index 涵蓋（由 schema 推導，不是 DSL 直接欄位）。 */
   indexed: boolean;
+  sourceComments?: SourceComments;
   location?: SourceLocation;
 }
 
@@ -47,6 +62,7 @@ export interface Index {
   /** Composite index 必須保留順序。 */
   columns: string[];
   unique: boolean;
+  sourceComments?: SourceComments;
   location?: SourceLocation;
 }
 
@@ -65,6 +81,13 @@ export interface Table {
   group?: string;
   columns: Column[];
   indexes: Index[];
+  /**
+   * DSL 原本有沒有寫出 schema（`table dbo.Users` 還是 `table Users`）。只有解析 DSL 時會設，
+   * `false` 時序列化也省略預設 schema，避免來回一次就多出一堆 `dbo.`；沒設（其他來源）一律寫出。
+   */
+  schemaQualified?: boolean;
+  /** `trailing` 是寫在 `table ... {` 那一行尾端的；`footer` 是最後一個欄位之後、`}` 之前的獨立註解。 */
+  sourceComments?: SourceComments & { footer?: string[] };
   location?: SourceLocation;
 }
 
@@ -77,6 +100,7 @@ export interface Table {
 export interface TableGroup {
   name: string;
   description?: string;
+  sourceComments?: SourceComments;
   location?: SourceLocation;
 }
 
@@ -88,6 +112,7 @@ export interface Relation {
   targetTable: TableId;
   targetColumns: string[];
   cardinality: Cardinality;
+  sourceComments?: SourceComments;
   location?: SourceLocation;
 }
 
@@ -109,6 +134,8 @@ export interface Schema {
    * 選填是為了向後相容：v0.1.x 產生的 `*.schema.json` 沒有這個欄位。
    */
   groups?: TableGroup[];
+  /** 檔案最後、後面已經沒有任何語句的 `//` 註解。 */
+  trailingComments?: string[];
 }
 
 export const SCHEMA_VERSION = "1";
