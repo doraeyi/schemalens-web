@@ -128,6 +128,8 @@ export interface ToolbarHandlers {
   onExport(): void;
   /** 開啟比較選單（跟 git 裡的哪個版本比），選單由 Extension 端顯示。 */
   onCompare(): void;
+  /** 完整模式（依關聯排版的卡片）或精簡模式（依群組分區、只顯示表名，點表看詳情）——跟網頁版相同。 */
+  onViewMode(mode: ViewMode): void;
   /** 丟掉手動拖曳的位置，回到 Auto Layout。 */
   onResetLayout(): void;
   onPickHit(hit: SearchHit): void;
@@ -212,6 +214,8 @@ function depthStepper(
   };
 }
 
+export type ViewMode = "full" | "compact";
+
 interface ButtonGroup<T> {
   element: HTMLElement;
   setActive(value: T): void;
@@ -266,6 +270,7 @@ export class Toolbar {
   private readonly directionGroup: ButtonGroup<TraversalDirection>;
   private readonly unrelatedGroup: ButtonGroup<UnrelatedMode>;
   private readonly layoutModeGroup: ButtonGroup<LayoutMode>;
+  private readonly viewModeGroup: ButtonGroup<ViewMode>;
   private readonly commentsGroup: ButtonGroup<boolean>;
   private readonly groupSelect: HTMLSelectElement;
   private readonly groupWrap: HTMLElement;
@@ -292,6 +297,14 @@ export class Toolbar {
     this.results.hidden = true;
     searchWrap.append(this.input, this.results);
 
+    this.viewModeGroup = buttonGroup<ViewMode>(
+      this.strings.viewModeGroup,
+      [
+        { label: this.strings.viewModeFull, value: "full" },
+        { label: this.strings.viewModeCompact, value: "compact" },
+      ],
+      handlers.onViewMode,
+    );
     this.detailGroup = buttonGroup<DetailLevel>(
       this.strings.viewGroup,
       [
@@ -413,6 +426,7 @@ export class Toolbar {
 
     this.element.append(
       searchWrap,
+      this.viewModeGroup.element,
       this.detailGroup.element,
       this.depthControl.element,
       this.directionGroup.element,
@@ -479,7 +493,11 @@ export class Toolbar {
     layoutMode: LayoutMode;
     groupFilter: string | null;
     locale: Locale;
+    viewMode: ViewMode;
   }): void {
+    this.viewModeGroup.setActive(state.viewMode);
+    // 精簡模式下卡片固定只顯示表名，欄位顯示層級不適用。
+    this.detailGroup.element.hidden = state.viewMode === "compact";
     this.detailGroup.setActive(state.detailLevel);
     this.depthControl.setValue(state.depth);
     this.directionGroup.setActive(state.direction);

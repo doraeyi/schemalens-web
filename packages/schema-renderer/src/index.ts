@@ -8,4 +8,6 @@ export * from "./relationRenderer.js";
 export * from "./renderer.js";
 export * from "./changeHighlight.js";
 export * from "./diffOverlay.js";
+export * from "./compactLayout.js";
+export * from "./compactOverlay.js";
 export { RENDERER_CSS } from "./styles.js";
