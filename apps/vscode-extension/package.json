@@ -101,6 +101,11 @@
         "title": "DBSchema: Export Image (PNG / SVG)"
       },
       {
+        "command": "dbschema.compareWithGit",
+        "title": "DBSchema: Compare with Git…",
+        "icon": "$(git-compare)"
+      },
+      {
         "command": "dbschema.importSql",
         "title": "DBSchema: Import SQL as .dbschema",
         "icon": "$(database)"
@@ -128,6 +133,11 @@
         {
           "command": "dbschema.importSql",
           "when": "resourceLangId == sql || resourceExtname == .sql",
+          "group": "navigation"
+        },
+        {
+          "command": "dbschema.compareWithGit",
+          "when": "resourceLangId == dbschema || resourceFilename =~ /\\.schema\\.(md|json)$/",
           "group": "navigation"
         }
       ],

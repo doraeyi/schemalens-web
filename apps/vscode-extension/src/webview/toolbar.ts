@@ -126,6 +126,8 @@ export interface ToolbarHandlers {
   onFitView(): void;
   /** 開啟匯出選單（SQL／DSL／JSON／PNG／SVG），選單由 Extension 端顯示。 */
   onExport(): void;
+  /** 開啟比較選單（跟 git 裡的哪個版本比），選單由 Extension 端顯示。 */
+  onCompare(): void;
   /** 丟掉手動拖曳的位置，回到 Auto Layout。 */
   onResetLayout(): void;
   onPickHit(hit: SearchHit): void;
@@ -386,6 +388,10 @@ export class Toolbar {
     this.exportButton.className = "dbs-btn";
     this.exportButton.textContent = this.strings.exportAction;
     this.exportButton.addEventListener("click", () => handlers.onExport());
+    const compare = document.createElement("button");
+    compare.className = "dbs-btn";
+    compare.textContent = this.strings.compareAction;
+    compare.addEventListener("click", () => handlers.onCompare());
 
     // 只有真的拖曳過才出現，平常不佔用 Toolbar 空間。
     this.resetLayoutButton = document.createElement("button");
@@ -394,7 +400,7 @@ export class Toolbar {
     this.resetLayoutButton.hidden = true;
     this.resetLayoutButton.addEventListener("click", () => handlers.onResetLayout());
 
-    actions.append(reset, fit, this.exportButton, this.resetLayoutButton);
+    actions.append(reset, fit, this.exportButton, compare, this.resetLayoutButton);
 
     // 欄位聚焦的狀態要看得見，否則使用者會不知道畫面為什麼變暗。
     this.columnFocusChip = document.createElement("button");

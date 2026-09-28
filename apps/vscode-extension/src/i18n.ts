@@ -20,6 +20,11 @@ export interface ExtensionStrings {
   importSqlPickFile: string;
   importSqlNothingFound: (detail: string) => string;
   importSqlDone: (tables: number, skipped: number) => string;
+  gitUnavailable: string;
+  notInGitRepository: string;
+  comparePickerTitle: string;
+  compareHeadDescription: string;
+  compareFileNotInVersion: (ref: string) => string;
   definitionNotFound: (target: string) => string;
   spikePickerTitle: string;
   spikeSizeLabel: (size: number) => string;
@@ -53,6 +58,11 @@ const en: ExtensionStrings = {
   importSqlDone: (tables, skipped) =>
     `Imported ${tables} tables${skipped > 0 ? ` (${skipped} statements could not be parsed and were skipped)` : ""}`,
   definitionNotFound: (target) => `Could not find the definition of ${target}`,
+  gitUnavailable: "The built-in Git extension is disabled — compare needs it",
+  notInGitRepository: "This file is not in a Git repository",
+  comparePickerTitle: "Compare the current schema with…",
+  compareHeadDescription: "Last commit — shows your uncommitted changes",
+  compareFileNotInVersion: (ref) => `The file does not exist in ${ref}; every table is shown as added`,
   spikePickerTitle: "DBSchema Spike — choose a schema size",
   spikeSizeLabel: (size) => `${size} Tables`,
   spikeRequired: "Must stay usable for the MVP",
@@ -85,6 +95,11 @@ const zhHant: ExtensionStrings = {
   importSqlDone: (tables, skipped) =>
     `已匯入 ${tables} 張表${skipped > 0 ? `（${skipped} 個敘述無法解析，已略過）` : ""}`,
   definitionNotFound: (target) => `找不到 ${target} 的定義位置`,
+  gitUnavailable: "VS Code 內建的 Git 擴充套件被停用了，比較需要它",
+  notInGitRepository: "這個檔案不在 Git 儲存庫裡",
+  comparePickerTitle: "要跟哪個版本比較？",
+  compareHeadDescription: "上一次 commit——看還沒 commit 的修改",
+  compareFileNotInVersion: (ref) => `${ref} 裡沒有這個檔案，所有表都會顯示成新增`,
   spikePickerTitle: "DBSchema Spike — 選擇 Schema 規模",
   spikeSizeLabel: (size) => `${size} 張 Table`,
   spikeRequired: "MVP 必須可用",

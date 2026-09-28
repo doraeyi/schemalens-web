@@ -3,6 +3,7 @@ import { FIXTURE_SIZES, generateSchema } from "@schemalens/schema-fixtures";
 import { DBSCHEMA_LANGUAGE_ID, DiagnosticsProvider } from "./diagnostics/DiagnosticsProvider.js";
 import { toJson } from "@schemalens/schema-serializer";
 import { t } from "./i18n.js";
+import { compareWithGit } from "./compare/compareWithGit.js";
 import { exportAs, importSql, pickSqlDialect, showExportMenu } from "./export/exportCommands.js";
 import { PreviewPanel } from "./preview/PreviewPanel.js";
 import { isSupportedSchemaFile, jsonExportUri, loadSchemaFromDocument } from "./schema/documentSchema.js";
@@ -41,6 +42,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
   // Preview 工具列的「匯出…」跟 `DBSchema: Export…` 是同一個選單。
   PreviewPanel.onExportRequested = () => void showExportMenu();
+  PreviewPanel.onCompareRequested = () => void compareWithGit(context);
 
   context.subscriptions.push(
     vscode.commands.registerCommand("dbschema.openPreview", () => {
@@ -96,6 +98,8 @@ export function activate(context: vscode.ExtensionContext): void {
       const picked = await vscode.window.showQuickPick(["PNG", "SVG"]);
       if (picked) await exportAs({ kind: "image", format: picked === "PNG" ? "png" : "svg" });
     }),
+
+    vscode.commands.registerCommand("dbschema.compareWithGit", () => compareWithGit(context)),
 
     vscode.commands.registerCommand("dbschema.importSql", (uri?: vscode.Uri) => importSql(context, uri)),
 

@@ -24,7 +24,13 @@ export type ExtensionToWebview =
   | { type: "diagnostics"; diagnostics: SchemaDiagnostic[] }
   | { type: "command"; command: "fitView" | "resetFocus" }
   /** 請 Webview 把目前畫面輸出成圖片，結果用同一個 requestId 回覆 imageExported／imageExportFailed。 */
-  | { type: "exportImage"; requestId: number; format: ImageFormat };
+  | { type: "exportImage"; requestId: number; format: ImageFormat }
+  /**
+   * 進入比較模式：`base` 是舊版本（git 裡的某個 commit）。之後收到的 schema 更新都會跟 base 重新比較，
+   * agent 一邊改，畫面上就一邊看得到「跟上一次 commit 比改了什麼」。
+   */
+  | { type: "compare"; base: Schema; baseLabel: string }
+  | { type: "exitCompare" };
 
 export type ImageFormat = "png" | "svg";
 
@@ -34,6 +40,7 @@ export type WebviewToExtension =
   | { type: "ready" }
   /** 工具列的「匯出」鈕：選單在 Extension 端顯示（QuickPick、存檔對話框都是 VS Code 的 UI）。 */
   | { type: "requestExport" }
+  | { type: "requestCompare" }
   | { type: "imageExported"; requestId: number; dataUrl: string }
   | { type: "imageExportFailed"; requestId: number; message: string }
   /** Toolbar 上的語系切換：由 Extension 寫回 dbschema.language 設定。 */
