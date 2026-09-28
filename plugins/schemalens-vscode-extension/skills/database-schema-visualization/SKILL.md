@@ -64,9 +64,7 @@ These are adjacent but **not** supported. Do not activate for them:
 - Emitting engine-specific SQL DDL, writing migrations, or applying changes to a
   database. Note the boundary: *modelling* a schema is in scope, *generating the
   `CREATE TABLE` script for MySQL/Postgres* is not.
-- Parsing existing SQL/DDL into the DSL — there is no SQL importer.
 - Generating ORM models, entity classes, or repository code.
-- Schema diffing between two versions.
 - Non-relational modelling (documents, graphs, event schemas).
 - Generic diagramming (architecture, flowcharts, sequence diagrams).
 - Generic VS Code, editing or debugging tasks that merely happen to involve a
@@ -81,7 +79,7 @@ You are an agent working on the user's machine. Be precise about the boundary:
 | Author and edit `.dbschema` / `*.schema.md` / `*.schema.json` | **You** |
 | Install and verify the extension | **You** |
 | Open a file in VS Code (`code <path>`) | **You** |
-| Open the Preview, run Validate / Export JSON | **User** — these are VS Code commands with no CLI equivalent |
+| Open the Preview, run Validate / Export / Import SQL / Compare with Git | **User** — these are VS Code commands with no CLI equivalent |
 | Read validation errors | **You**, if you have a tool that reads IDE diagnostics (e.g. Claude Code running inside VS Code); otherwise the **user** reports them from the Problems panel |
 
 There is no command-line validator: the packages in this repository are private and
@@ -140,6 +138,26 @@ actually read the diagnostics.
    `.dbschema` file: it is plain text and useful in git on its own. Offer a Mermaid
    `erDiagram` as a stopgap, and say plainly that it will not give search, focus or
    dependency tracing.
+
+## Other things the extension can do for the user
+
+These are VS Code commands the **user** runs (Command Palette, or the buttons on the
+Preview toolbar). Available in versions newer than 0.2.2 — point the user at them
+instead of doing the equivalent by hand:
+
+- **DBSchema: Import SQL as .dbschema** — turns an existing `CREATE TABLE` script
+  (MySQL, SQL Server, PostgreSQL, SQLite) into a `.dbschema` file. Also on the
+  right-click menu of `.sql` files. If the user just wants the model and you can
+  read the SQL, you may also translate it into DSL yourself.
+- **DBSchema: Compare with Git…** — shows what changed against the last commit
+  (or any earlier commit of that file) directly on the diagram: added tables and
+  columns in green, removed in red, changed in yellow. Useful after you have made a
+  batch of edits, so the user can review them.
+- **DBSchema: Export…** — SQL `CREATE TABLE` for MySQL / SQL Server / PostgreSQL /
+  SQLite, `.dbschema`, JSON, PNG or SVG. Exporting DDL here is fine; writing
+  migrations or applying changes to a database is still out of scope.
+- **Compact view** (Preview toolbar, *View: Full / Compact*) — one band per group
+  with table names only; clicking a table lists its columns. Good for 100+ tables.
 
 ## Guiding the user through the diagram
 
