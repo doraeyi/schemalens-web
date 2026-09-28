@@ -50,6 +50,11 @@ export interface RendererStrings {
   fitView: string;
   /** VS Code 插件工具列的「匯出」（SQL／DSL／JSON／圖片）。 */
   exportAction: string;
+  /** VS Code 插件工具列的「比較…」（跟 git 裡的版本比較）。 */
+  compareAction: string;
+  /** 比較模式的橫幅：`base` 是舊版本（例如某個 commit），`next` 是目前的內容。 */
+  compareBanner: (base: string, next: string, added: number, removed: number, changed: number) => string;
+  exitCompare: string;
   resetLayout: string;
   resultTable: string;
   resultColumn: string;
@@ -101,6 +106,10 @@ const en: RendererStrings = {
   resetFocus: "Reset Focus",
   fitView: "Fit View",
   exportAction: "Export…",
+  compareAction: "Compare…",
+  compareBanner: (base, next, added, removed, changed) =>
+    `Comparing ${base} → ${next} · +${added} / -${removed} / ~${changed} tables`,
+  exitCompare: "Exit compare",
   resetLayout: "Reset Layout",
   resultTable: "TABLE",
   resultColumn: "COLUMN",
@@ -151,6 +160,10 @@ const zhHant: RendererStrings = {
   resetFocus: "取消聚焦",
   fitView: "全部顯示",
   exportAction: "匯出…",
+  compareAction: "比較…",
+  compareBanner: (base, next, added, removed, changed) =>
+    `比較中：${base} → ${next} · 新增 ${added} / 刪除 ${removed} / 修改 ${changed} 張表`,
+  exitCompare: "結束比較",
   resetLayout: "還原版面",
   resultTable: "資料表",
   resultColumn: "欄位",

@@ -41,7 +41,7 @@
 	import * as mutate from '$lib/schema/mutations';
 	import { lintSchema, type LintWarning } from '@schemalens/schema-lint';
 	import { diffSchemas, buildMergedSchema, tableOverlapRatio, type SchemaDiff } from '@schemalens/schema-diff';
-	import { applyDiffOverlay, clearDiffOverlay } from '$lib/canvas/diffOverlay';
+	import { applyDiffOverlay, clearDiffOverlay } from '@schemalens/schema-renderer';
 	import SchemaCanvas from '$lib/components/SchemaCanvas.svelte';
 	import Toolbar from '$lib/components/Toolbar.svelte';
 	import BottomBar from '$lib/components/BottomBar.svelte';

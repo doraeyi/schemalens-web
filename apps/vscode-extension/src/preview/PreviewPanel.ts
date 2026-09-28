@@ -44,11 +44,14 @@ export class PreviewPanel {
 
   /** 工具列按了「匯出」：由 extension.ts 註冊成跟 `DBSchema: Export…` 指令同一個動作。 */
   static onExportRequested: (() => void) | undefined;
+  /** 工具列按了「比較…」：對應 `DBSchema: Compare with Git…` 指令。 */
+  static onCompareRequested: (() => void) | undefined;
 
   private nextImageRequestId = 1;
   private readonly imageRequests = new Map<number, { resolve: (dataUrl: string) => void; reject: (error: Error) => void }>();
 
-  private pending: ExtensionToWebview | null = null;
+  /** Webview 還沒 ready 前送的訊息；schema 只留最後一則，其他（例如比較）依序保留。 */
+  private pending: ExtensionToWebview[] = [];
   private ready = false;
   private source: vscode.Uri | undefined;
   /** 目前畫面上的 Schema；Preview → Source 需要它的 SourceLocation。 */
@@ -132,10 +135,16 @@ export class PreviewPanel {
     this.post({ type: "command", command });
   }
 
+  /** 進入比較模式：跟 base（git 裡的舊版本）比。之後檔案更新時 Webview 會自己重新比較。 */
+  startCompare(base: Schema, baseLabel: string): void {
+    this.post({ type: "compare", base, baseLabel });
+  }
+
   private post(message: ExtensionToWebview): void {
-    // Webview 尚未 ready 時先留住最後一則 schema，避免開啟瞬間丟訊息。
-    if (!this.ready && message.type === "schema") {
-      this.pending = message;
+    // Webview 尚未 ready 時先排隊，避免開啟瞬間丟訊息。
+    if (!this.ready) {
+      if (message.type === "schema") this.pending = this.pending.filter((m) => m.type !== "schema");
+      this.pending.push(message);
       return;
     }
     void this.panel.webview.postMessage(message);
@@ -147,10 +156,8 @@ export class PreviewPanel {
         this.ready = true;
         // 語系要先於 schema 送達，Toolbar 才不會先閃一次預設語言。
         this.pushLocale();
-        if (this.pending) {
-          void this.panel.webview.postMessage(this.pending);
-          this.pending = null;
-        }
+        for (const message of this.pending) void this.panel.webview.postMessage(message);
+        this.pending = [];
         return;
       }
       case "setLocale": {
@@ -166,6 +173,10 @@ export class PreviewPanel {
       }
       case "requestExport": {
         PreviewPanel.onExportRequested?.();
+        return;
+      }
+      case "requestCompare": {
+        PreviewPanel.onCompareRequested?.();
         return;
       }
       case "imageExported":

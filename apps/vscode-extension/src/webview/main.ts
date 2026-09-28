@@ -1,9 +1,11 @@
 import type { Schema } from "@schemalens/schema-core";
+import { buildMergedSchema, diffSchemas } from "@schemalens/schema-diff";
 import type { SearchHit, TraversalDirection } from "@schemalens/schema-graph";
 import {
   DEFAULT_LOCALE,
   DEFAULT_VIEW_STATE,
   SchemaRenderer,
+  applyDiffOverlay,
   highlightChanges,
   stringsFor,
   type DetailLevel,
@@ -91,6 +93,7 @@ const handlers: ToolbarHandlers = {
   },
   onFitView: () => renderer.fitView(),
   onExport: () => post({ type: "requestExport" }),
+  onCompare: () => post({ type: "requestCompare" }),
   onResetLayout: () => {
     renderer.resetLayout();
     toolbar.setLayoutDirty(false);
@@ -123,6 +126,52 @@ app.append(toolbar.element, canvas);
 syncToolbar();
 
 /**
+ * 比較模式（跟 git 裡的舊版本比）。base 固定，目前的內容（schema）照常跟著檔案更新，
+ * 每次更新都重新跟 base 比——agent 一邊改，畫面上就一邊看得到跟上一次 commit 的差異。
+ */
+let compareBase: { schema: Schema; label: string } | null = null;
+let currentLabel = "";
+
+const compareBanner = document.createElement("div");
+compareBanner.style.cssText =
+  "position:absolute;top:46px;left:50%;transform:translateX(-50%);z-index:20;display:flex;gap:8px;align-items:center;" +
+  "padding:4px 10px;border-radius:999px;font-size:12px;border:1px solid var(--vscode-focusBorder);" +
+  "background:var(--vscode-editorWidget-background);color:var(--vscode-foreground);box-shadow:0 2px 8px rgba(0,0,0,.3)";
+compareBanner.hidden = true;
+const compareText = document.createElement("span");
+const compareExit = document.createElement("button");
+compareExit.className = "dbs-btn";
+compareExit.addEventListener("click", () => exitCompare());
+compareBanner.append(compareText, compareExit);
+app.append(compareBanner);
+
+function renderCompare(refit: boolean): void {
+  if (!compareBase || !schema) return;
+  const diff = diffSchemas(compareBase.schema, schema);
+  const merged = buildMergedSchema(compareBase.schema, schema);
+  if (refit) renderer.setSchema(merged);
+  else renderer.updateSchema(merged);
+  applyDiffOverlay(canvas, diff);
+  const strings = stringsFor(locale);
+  compareText.textContent = strings.compareBanner(
+    compareBase.label,
+    currentLabel,
+    diff.addedTables.length,
+    diff.removedTables.length,
+    diff.changedTables.length,
+  );
+  compareExit.textContent = strings.exitCompare;
+  compareBanner.hidden = false;
+}
+
+function exitCompare(): void {
+  if (!compareBase) return;
+  compareBase = null;
+  compareBanner.hidden = true;
+  if (schema) renderer.updateSchema(schema);
+}
+
+/**
  * 換語系。
  * Toolbar 的標籤是建構時決定的，所以整條重建再換掉；
  * 這比讓每個按鈕都持有自己的 setter 單純，而且切換語系不是熱路徑。
@@ -139,6 +188,7 @@ function applyLocale(next: Locale): void {
   if (lastMetrics) paintMetrics();
   rebuilt.setLayoutDirty(renderer.hasManualPositions());
   syncToolbar();
+  if (compareBase) renderCompare(false);
 }
 
 function resetFocus(): void {
@@ -182,11 +232,16 @@ window.addEventListener("message", (event: MessageEvent<ExtensionToWebview>) => 
     }
     case "schema": {
       const keepView = Boolean(message.preserveView && schema);
+      // 換成另一個檔案的話，原本的比較就沒意義了。
+      if (!message.preserveView) exitCompare();
       schema = message.schema;
+      currentLabel = message.label;
       toolbar.setSchema(schema);
 
       const start = performance.now();
-      if (keepView) {
+      if (compareBase) {
+        renderCompare(false);
+      } else if (keepView) {
         // 同一個檔案的更新（打字、存檔、agent 改寫）：保留縮放、平移跟聚焦，不要每次都跳回全圖。
         // 聚焦中的表被刪掉的話就取消聚焦，不留一個指向不存在的表的狀態。
         const focused = renderer.getViewState().focus.tableId;
@@ -219,6 +274,15 @@ window.addEventListener("message", (event: MessageEvent<ExtensionToWebview>) => 
     }
     case "diagnostics": {
       renderer.setDiagnostics(message.diagnostics);
+      return;
+    }
+    case "compare": {
+      compareBase = { schema: message.base, label: message.baseLabel };
+      renderCompare(true);
+      return;
+    }
+    case "exitCompare": {
+      exitCompare();
       return;
     }
     case "exportImage": {
