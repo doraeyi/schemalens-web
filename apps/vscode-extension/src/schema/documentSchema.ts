@@ -1,11 +1,43 @@
 import * as vscode from "vscode";
-import { validateSchema, type Schema, type SchemaDiagnostic } from "@schemalens/schema-core";
+import { validateSchema, type Schema, type SchemaDiagnostic, type SourceLocation } from "@schemalens/schema-core";
+import { lintSchema } from "@schemalens/schema-lint";
 import { parseMarkdownSchema, parseSchema } from "@schemalens/schema-parser";
 import { fromJson } from "@schemalens/schema-serializer";
 
 export interface LoadedSchema {
   schema: Schema;
   diagnostics: SchemaDiagnostic[];
+}
+
+/**
+ * Problems Panel 要顯示的一筆問題。比 SchemaDiagnostic 寬鬆：lint 的 code
+ * （LINT_*）不在 schema-core 那個封閉的 SchemaErrorCode 裡。
+ */
+export interface DisplayDiagnostic {
+  code: string;
+  severity: "error" | "warning" | "info";
+  message: string;
+  location?: SourceLocation;
+}
+
+/**
+ * 跟網頁版同一套最佳實踐檢查（@schemalens/schema-lint）。lint 只知道「哪張表、哪個欄位」，
+ * 這裡對回 DSL 的行號，Problems Panel 才能點過去；對不到（例如 JSON 來源沒有位置）就標在檔案開頭。
+ */
+export function lintDiagnostics(schema: Schema): DisplayDiagnostic[] {
+  const tableById = new Map(schema.tables.map((table) => [table.id, table]));
+  return lintSchema(schema).map((warning) => {
+    const table = warning.location ? tableById.get(warning.location.tableId) : undefined;
+    const column = warning.location?.column ? table?.columns.find((c) => c.name === warning.location?.column) : undefined;
+    const location = column?.location ?? headerLine(table?.location);
+    return { code: warning.code, severity: warning.severity, message: warning.message, ...(location ? { location } : {}) };
+  });
+}
+
+/** 表的 location 涵蓋整個區塊，波浪線只標表頭那一行就好。 */
+function headerLine(location: SourceLocation | undefined): SourceLocation | undefined {
+  if (!location) return undefined;
+  return { ...location, endLine: location.line, endColumn: undefined };
 }
 
 /** `database.schema.json` 這種檔名視為 Schema JSON（plan §35）。 */

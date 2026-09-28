@@ -20,16 +20,21 @@ function activeSchemaDocument(): vscode.TextDocument | undefined {
 }
 
 export function activate(context: vscode.ExtensionContext): void {
-  // 存檔或編輯後重新驗證；若該檔案正開著 Preview，順便重繪（plan §39）。
-  const diagnostics = new DiagnosticsProvider((document, result) => {
-    PreviewPanel.active?.updateIfSameDocument(document.uri, result.schema, result.diagnostics);
-  });
+  // 編輯、存檔、或檔案在磁碟上被改寫（agent 直接寫檔）後重新驗證；若該檔案正開著 Preview，順便重繪（plan §39）。
+  const diagnostics = new DiagnosticsProvider(
+    (uri, result, origin) => {
+      PreviewPanel.active?.updateIfSameDocument(uri, result.schema, result.diagnostics, origin === "disk");
+    },
+    { isLintEnabled: () => vscode.workspace.getConfiguration("dbschema").get<boolean>("lint.enabled", true) },
+  );
+  diagnostics.watchWorkspace();
   context.subscriptions.push(diagnostics);
 
-  // 語系設定變更時，立刻把新語系推給已開啟的 Preview。
   context.subscriptions.push(
     vscode.workspace.onDidChangeConfiguration((event) => {
+      // 語系設定變更時，立刻把新語系推給已開啟的 Preview。
       if (event.affectsConfiguration("dbschema.language")) PreviewPanel.active?.pushLocale();
+      if (event.affectsConfiguration("dbschema.lint.enabled")) diagnostics.refreshAll();
     }),
   );
 

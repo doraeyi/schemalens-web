@@ -4,6 +4,7 @@ import {
   DEFAULT_LOCALE,
   DEFAULT_VIEW_STATE,
   SchemaRenderer,
+  highlightChanges,
   stringsFor,
   type DetailLevel,
   type LayoutMode,
@@ -178,12 +179,22 @@ window.addEventListener("message", (event: MessageEvent<ExtensionToWebview>) => 
       return;
     }
     case "schema": {
+      const keepView = Boolean(message.preserveView && schema);
       schema = message.schema;
       toolbar.setSchema(schema);
 
       const start = performance.now();
-      renderer.setViewState(DEFAULT_VIEW_STATE);
-      renderer.setSchema(schema);
+      if (keepView) {
+        // 同一個檔案的更新（打字、存檔、agent 改寫）：保留縮放、平移跟聚焦，不要每次都跳回全圖。
+        // 聚焦中的表被刪掉的話就取消聚焦，不留一個指向不存在的表的狀態。
+        const focused = renderer.getViewState().focus.tableId;
+        if (focused && !schema.tables.some((table) => table.id === focused)) resetFocus();
+        renderer.updateSchema(schema);
+        if (message.changes) highlightChanges(canvas, message.changes);
+      } else {
+        renderer.setViewState(DEFAULT_VIEW_STATE);
+        renderer.setSchema(schema);
+      }
       const elapsed = performance.now() - start;
 
       renderer.setDiagnostics(message.diagnostics);

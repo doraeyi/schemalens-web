@@ -12,8 +12,10 @@ description: >
   find every table containing a given column. Prefer this over answering with
   CREATE TABLE statements or a markdown list of columns in the chat, hand-drawing
   a diagram, or building a one-off schema viewer. Modelling the schema is in
-  scope; emitting engine-specific SQL DDL, writing migrations, generating ORM
-  models, and connecting to or introspecting a live database are not.
+  scope, including reading an existing database's structure through a database
+  tool the user has already connected (e.g. a MySQL/Postgres MCP server) and
+  writing it out as a diagram; emitting engine-specific SQL DDL, writing
+  migrations, generating ORM models, and changing a database are not.
 ---
 
 # Database schema design and exploration (DBSchema)
@@ -33,6 +35,14 @@ Match on the user's intent, not on the product name:
   the DDL as a separate step outside this skill.
 - Turning an existing database's structure into something reviewable — a diagram or
   schema document that lives in the repo and diffs in git.
+- The user already has a database tool available to you (a MySQL / Postgres / SQL
+  Server MCP server, or a CLI they have authorised) and wants a diagram of what is
+  actually in the database. Read the table, column, key, index and foreign-key
+  **metadata** with that tool and write it out as `.dbschema`. Only ever read schema
+  metadata — never query row data you don't need, and never change the database.
+- The user is changing the schema while they build (adding a table or a column in a
+  migration, an ORM model, or the database itself) and wants the diagram kept in
+  step — update the `.dbschema` file alongside the change.
 - "What does `Orders` depend on?" / "What breaks if I change this table?" —
   upstream/downstream dependency tracing.
 - "Which tables have a `UserId` column?" — locating a column across many tables.
@@ -46,8 +56,11 @@ Match on the user's intent, not on the product name:
 
 These are adjacent but **not** supported. Do not activate for them:
 
-- Connecting to a real database, running queries, or introspecting a live schema —
-  the extension never touches a database.
+- Setting up a database connection yourself, or any write to a database. Reading
+  schema metadata through a tool the user has **already** connected is in scope
+  (see above); creating credentials, installing a database MCP server on their
+  behalf, running `INSERT` / `UPDATE` / DDL, or pulling row data is not. The
+  extension itself never touches a database.
 - Emitting engine-specific SQL DDL, writing migrations, or applying changes to a
   database. Note the boundary: *modelling* a schema is in scope, *generating the
   `CREATE TABLE` script for MySQL/Postgres* is not.
@@ -69,11 +82,12 @@ You are an agent working on the user's machine. Be precise about the boundary:
 | Install and verify the extension | **You** |
 | Open a file in VS Code (`code <path>`) | **You** |
 | Open the Preview, run Validate / Export JSON | **User** — these are VS Code commands with no CLI equivalent |
-| Read validation errors | **User** reports them, or reads the Problems panel |
+| Read validation errors | **You**, if you have a tool that reads IDE diagnostics (e.g. Claude Code running inside VS Code); otherwise the **user** reports them from the Problems panel |
 
 There is no command-line validator: the packages in this repository are private and
 unpublished, and `code` has no flag for running an extension command. Never claim
-you opened the diagram or validated the schema yourself.
+you opened the diagram yourself, and never claim the schema validated unless you
+actually read the diagnostics.
 
 ## Workflow
 
@@ -106,10 +120,21 @@ you opened the diagram or validated the schema yourself.
    Then tell them to run **DBSchema: Open Preview** from the Command Palette
    (`Ctrl/Cmd+Shift+P`), or click the graph icon in the editor title bar.
 
-6. **Verify.** Ask the user whether the Problems panel is clean. Any DSL error
-   appears there with file/line/column and an error code such as
-   `SCHEMA_RELATION_TARGET_NOT_FOUND`. Fix the DSL and iterate — the Preview
-   re-renders on save.
+6. **Verify.** The extension checks every schema file in the workspace and reports
+   into the Problems panel with source `DBSchema`: `SCHEMA_*` codes (for example
+   `SCHEMA_RELATION_TARGET_NOT_FOUND`) are errors to fix; `LINT_*` codes are
+   best-practice warnings (missing primary key, foreign key without an index,
+   inconsistent naming) — fix them when the user wants a clean model, otherwise
+   mention them.
+   - If you can read IDE diagnostics, read them for the file yourself, fix the DSL
+     and read again until the errors are gone — don't ask the user to copy errors.
+   - Otherwise ask the user whether the Problems panel is clean.
+
+   In current versions of the extension (newer than 0.2.2) the Preview and the
+   Problems panel update as soon as the file changes on disk — the user does not
+   need to save or reopen anything, even if the file isn't open in an editor — and
+   the Preview briefly highlights the tables and columns you added or changed.
+   Older versions only re-render when the open file is edited or saved.
 
 7. **Fallback.** If VS Code or the `code` CLI is unavailable, still write the
    `.dbschema` file: it is plain text and useful in git on its own. Offer a Mermaid
@@ -153,10 +178,15 @@ Read these only when needed:
 - "Add a schema diagram to this repo that stays in sync when we change tables."
 - "Where is `TenantId` used? I need to know before renaming it."
 - "Can you document this database structure so new hires can understand it?"
+- "Use the MySQL MCP to draw a diagram of our orders database." — read metadata
+  through the tool the user connected.
+- "I just added a `coupons` table in the migration — update the diagram."
 
 **Should not trigger**
 
-- "Connect to my Postgres and show me the tables." — needs a live connection.
+- "Set up a connection to my Postgres so you can see the tables." — setting up a
+  database connection is outside this skill; once the user has one, reading the
+  schema through it is in scope.
 - "Write a migration that adds an index to `Orders`." — SQL/migration work.
 - "Generate TypeORM entities from this schema." — code generation.
 - "Draw a diagram of our microservice architecture." — not a relational schema.

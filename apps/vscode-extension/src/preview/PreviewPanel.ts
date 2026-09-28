@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import type { Schema, SchemaDiagnostic } from "@schemalens/schema-core";
+import { diffSchemas, type SchemaDiff } from "@schemalens/schema-diff";
 import { currentLocale, t } from "../i18n.js";
 import type { ExtensionToWebview, WebviewToExtension } from "./protocol.js";
 import { findSourceLocation } from "./sourceNavigation.js";
@@ -67,13 +68,37 @@ export class PreviewPanel {
   }
 
   /**
-   * 來源檔案存檔／編輯後重繪（plan §39）。
+   * 來源檔案編輯、存檔或在磁碟上被改寫後重繪（plan §39）。
    * 只有正在預覽的那一份檔案會觸發，避免切到別的檔案時畫面被蓋掉。
+   *
+   * 同一個檔案的更新保留使用者目前的視角。`fromDisk`（agent 直接寫檔等外部修改）時另外算出差異：
+   * Preview 短暫標出改了哪些表／欄位，狀態列顯示摘要——agent 一次改很多地方時才看得出改了什麼。
    */
-  updateIfSameDocument(uri: vscode.Uri, schema: Schema, diagnostics: SchemaDiagnostic[]): void {
+  updateIfSameDocument(uri: vscode.Uri, schema: Schema, diagnostics: SchemaDiagnostic[], fromDisk = false): void {
     if (!this.source || this.source.toString() !== uri.toString()) return;
+    const previous = this.schema;
     this.schema = schema;
-    this.post({ type: "schema", schema, diagnostics, label: basename(uri.fsPath) });
+    const changes = fromDisk && previous ? diffSchemas(previous, schema) : undefined;
+    const label = basename(uri.fsPath);
+    this.post({
+      type: "schema",
+      schema,
+      diagnostics,
+      label,
+      preserveView: true,
+      ...(changes && hasChanges(changes) ? { changes } : {}),
+    });
+    if (changes && hasChanges(changes)) {
+      vscode.window.setStatusBarMessage(
+        t().schemaChanged(label, {
+          added: changes.addedTables.length,
+          removed: changes.removedTables.length,
+          changed: changes.changedTables.length,
+          relations: changes.addedRelations.length + changes.removedRelations.length,
+        }),
+        8000,
+      );
+    }
   }
 
   /** 把目前語系推給 Webview（開啟時與設定變更時）。 */
@@ -186,6 +211,14 @@ export class PreviewPanel {
 </body>
 </html>`;
   }
+}
+
+function hasChanges(diff: SchemaDiff): boolean {
+  return (
+    diff.addedTables.length + diff.removedTables.length + diff.changedTables.length +
+      diff.addedRelations.length + diff.removedRelations.length >
+    0
+  );
 }
 
 function basename(fsPath: string): string {

@@ -1,4 +1,5 @@
 import type { Schema, SchemaDiagnostic } from "@schemalens/schema-core";
+import type { SchemaDiff } from "@schemalens/schema-diff";
 import type { Locale } from "@schemalens/schema-renderer";
 
 /**
@@ -8,7 +9,16 @@ import type { Locale } from "@schemalens/schema-renderer";
  * Extension 端不知道 DOM（約束 #6）。
  */
 export type ExtensionToWebview =
-  | { type: "schema"; schema: Schema; diagnostics: SchemaDiagnostic[]; label: string }
+  | {
+      type: "schema";
+      schema: Schema;
+      diagnostics: SchemaDiagnostic[];
+      label: string;
+      /** 同一個檔案的更新：保留目前的縮放、平移跟聚焦，不要每次都跳回全圖。 */
+      preserveView?: boolean;
+      /** 檔案被外部改寫（agent 寫檔等）時附上這次的差異，Preview 會短暫標出新增／修改的表跟欄位。 */
+      changes?: SchemaDiff;
+    }
   /** 介面語系；Extension 端依 `dbschema.language` 設定決定後推給 Webview。 */
   | { type: "locale"; locale: Locale }
   | { type: "diagnostics"; diagnostics: SchemaDiagnostic[] }

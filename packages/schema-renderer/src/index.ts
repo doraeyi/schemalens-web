@@ -6,4 +6,5 @@ export * from "./visibility.js";
 export * from "./tableRenderer.js";
 export * from "./relationRenderer.js";
 export * from "./renderer.js";
+export * from "./changeHighlight.js";
 export { RENDERER_CSS } from "./styles.js";
