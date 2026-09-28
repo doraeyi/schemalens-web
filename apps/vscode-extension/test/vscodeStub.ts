@@ -192,7 +192,8 @@ export const workspace = {
       if (text === undefined) return Promise.reject(new Error(`ENOENT ${uri.fsPath}`));
       return Promise.resolve(new TextEncoder().encode(text));
     },
-    writeFile(): Promise<void> {
+    writeFile(uri: Uri, content: Uint8Array): Promise<void> {
+      writtenFiles.set(uri.fsPath, content);
       return Promise.resolve();
     },
   },
@@ -202,6 +203,16 @@ export const workspace = {
 };
 
 export const statusBarMessages: string[] = [];
+
+/** workspace.fs.writeFile 寫出去的檔案：路徑 → 內容。 */
+export const writtenFiles = new Map<string, Uint8Array>();
+
+/** 送進假 Webview 的訊息，跟建立過的假面板。 */
+export const webviewMessages: Array<{ type: string; [key: string]: unknown }> = [];
+export const createdPanels: Array<{ receive(message: unknown): void }> = [];
+
+/** QuickPick 要選哪一個：依 label 找；沒設定就選第一個。 */
+export const quickPickChoices: string[] = [];
 
 export const shownMessages: string[] = [];
 
@@ -219,8 +230,24 @@ export const window = {
     statusBarMessages.push(message);
     return noopDisposable;
   },
+  showErrorMessage(message: string) {
+    shownMessages.push(message);
+    return Promise.resolve(undefined);
+  },
   showQuickPick(items: unknown[]) {
-    return Promise.resolve(items[0]);
+    const wanted = quickPickChoices.shift();
+    if (wanted === undefined) return Promise.resolve(items[0]);
+    return Promise.resolve(
+      items.find((item) => (typeof item === "string" ? item : (item as { label: string }).label) === wanted),
+    );
+  },
+  /** 存檔對話框：直接接受預設路徑。 */
+  showSaveDialog(options: { defaultUri?: Uri }) {
+    return Promise.resolve(options.defaultUri);
+  },
+  openDialogResult: undefined as Uri[] | undefined,
+  showOpenDialog() {
+    return Promise.resolve(window.openDialogResult);
   },
   shownEditors: [] as Array<{ document: TextDocument; selection?: Range }>,
   showTextDocument(document: TextDocument) {
@@ -235,14 +262,51 @@ export const window = {
     window.shownEditors.push(editor);
     return Promise.resolve(editor);
   },
+  /** 假的 Preview 面板：記下送進 Webview 的訊息；收到 exportImage 時像真的 Webview 一樣回傳圖片。 */
   createWebviewPanel() {
-    throw new Error("createWebviewPanel 未在 stub 中實作");
+    let receive: (message: unknown) => void = () => {};
+    const panel = {
+      title: "",
+      webview: {
+        html: "",
+        cspSource: "vscode-resource:",
+        asWebviewUri: (uri: Uri) => uri,
+        onDidReceiveMessage(listener: (message: unknown) => void) {
+          receive = listener;
+          return noopDisposable;
+        },
+        postMessage(message: { type: string; requestId?: number; format?: string }) {
+          webviewMessages.push(message);
+          if (message.type === "exportImage") {
+            const dataUrl =
+              message.format === "png"
+                ? `data:image/png;base64,${Buffer.from("PNGDATA").toString("base64")}`
+                : `data:image/svg+xml;charset=utf-8,${encodeURIComponent("<svg>圖</svg>")}`;
+            queueMicrotask(() => receive({ type: "imageExported", requestId: message.requestId, dataUrl }));
+          }
+          return Promise.resolve(true);
+        },
+      },
+      reveal() {},
+      onDidDispose() {
+        return noopDisposable;
+      },
+      /** 測試用：模擬 Webview 送訊息給 Extension。 */
+      receive: (message: unknown) => receive(message),
+    };
+    createdPanels.push(panel);
+    return panel;
   },
 };
 
 export function resetStub(): void {
   for (const emitter of Object.values(events)) emitter.clear();
   disk.clear();
+  writtenFiles.clear();
+  webviewMessages.length = 0;
+  createdPanels.length = 0;
+  quickPickChoices.length = 0;
+  window.openDialogResult = undefined;
   statusBarMessages.length = 0;
   collections.length = 0;
   registeredCommands.clear();
@@ -251,4 +315,13 @@ export function resetStub(): void {
   window.shownEditors.length = 0;
   workspace.textDocuments = [];
   window.activeTextEditor = undefined;
+}
+
+/** VS Code 的顯示語言；i18n 在 dbschema.language = auto 時看這個。 */
+export const env = { language: "en" };
+
+export enum ConfigurationTarget {
+  Global = 1,
+  Workspace = 2,
+  WorkspaceFolder = 3,
 }

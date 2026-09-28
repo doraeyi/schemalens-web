@@ -48,6 +48,8 @@ export interface RendererStrings {
   unrelatedHide: string;
   resetFocus: string;
   fitView: string;
+  /** VS Code 插件工具列的「匯出」（SQL／DSL／JSON／圖片）。 */
+  exportAction: string;
   resetLayout: string;
   resultTable: string;
   resultColumn: string;
@@ -98,6 +100,7 @@ const en: RendererStrings = {
   unrelatedHide: "Hide",
   resetFocus: "Reset Focus",
   fitView: "Fit View",
+  exportAction: "Export…",
   resetLayout: "Reset Layout",
   resultTable: "TABLE",
   resultColumn: "COLUMN",
@@ -147,6 +150,7 @@ const zhHant: RendererStrings = {
   unrelatedHide: "隱藏",
   resetFocus: "取消聚焦",
   fitView: "全部顯示",
+  exportAction: "匯出…",
   resetLayout: "還原版面",
   resultTable: "資料表",
   resultColumn: "欄位",

@@ -31,5 +31,6 @@ out/**/*.map
 # 保留（不要 ignore）：
 #   out/extension.cjs        Extension Host 進入點
 #   out/webview.js           Preview 的 Webview bundle
+#   out/sql-import.cjs       匯入 SQL 用的解析器（node-sql-parser），執行匯入時才載入
 #   language/**              語言設定與 TextMate 文法
 #   package.json README.md LICENSE NOTICE
