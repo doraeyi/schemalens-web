@@ -3,6 +3,7 @@ import { FIXTURE_SIZES, generateSchema } from "@schemalens/schema-fixtures";
 import { DBSCHEMA_LANGUAGE_ID, DiagnosticsProvider } from "./diagnostics/DiagnosticsProvider.js";
 import { toJson } from "@schemalens/schema-serializer";
 import { t } from "./i18n.js";
+import { exportAs, importSql, pickSqlDialect, showExportMenu } from "./export/exportCommands.js";
 import { PreviewPanel } from "./preview/PreviewPanel.js";
 import { isSupportedSchemaFile, jsonExportUri, loadSchemaFromDocument } from "./schema/documentSchema.js";
 
@@ -37,6 +38,9 @@ export function activate(context: vscode.ExtensionContext): void {
       if (event.affectsConfiguration("dbschema.lint.enabled")) diagnostics.refreshAll();
     }),
   );
+
+  // Preview 工具列的「匯出…」跟 `DBSchema: Export…` 是同一個選單。
+  PreviewPanel.onExportRequested = () => void showExportMenu();
 
   context.subscriptions.push(
     vscode.commands.registerCommand("dbschema.openPreview", () => {
@@ -78,6 +82,22 @@ export function activate(context: vscode.ExtensionContext): void {
           : t().validationFailed(count),
       );
     }),
+
+    vscode.commands.registerCommand("dbschema.export", () => showExportMenu()),
+
+    vscode.commands.registerCommand("dbschema.exportSql", async () => {
+      const dialect = await pickSqlDialect(context);
+      if (dialect) await exportAs({ kind: "sql", dialect });
+    }),
+
+    vscode.commands.registerCommand("dbschema.exportDsl", () => exportAs({ kind: "dsl" })),
+
+    vscode.commands.registerCommand("dbschema.exportImage", async () => {
+      const picked = await vscode.window.showQuickPick(["PNG", "SVG"]);
+      if (picked) await exportAs({ kind: "image", format: picked === "PNG" ? "png" : "svg" });
+    }),
+
+    vscode.commands.registerCommand("dbschema.importSql", (uri?: vscode.Uri) => importSql(context, uri)),
 
     vscode.commands.registerCommand("dbschema.fitView", () => {
       PreviewPanel.active?.run("fitView");

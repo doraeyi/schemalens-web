@@ -2,7 +2,7 @@ import * as vscode from "vscode";
 import type { Schema, SchemaDiagnostic } from "@schemalens/schema-core";
 import { diffSchemas, type SchemaDiff } from "@schemalens/schema-diff";
 import { currentLocale, t } from "../i18n.js";
-import type { ExtensionToWebview, WebviewToExtension } from "./protocol.js";
+import type { ExtensionToWebview, ImageFormat, WebviewToExtension } from "./protocol.js";
 import { findSourceLocation } from "./sourceNavigation.js";
 
 /**
@@ -42,6 +42,12 @@ export class PreviewPanel {
     return PreviewPanel.current;
   }
 
+  /** 工具列按了「匯出」：由 extension.ts 註冊成跟 `DBSchema: Export…` 指令同一個動作。 */
+  static onExportRequested: (() => void) | undefined;
+
+  private nextImageRequestId = 1;
+  private readonly imageRequests = new Map<number, { resolve: (dataUrl: string) => void; reject: (error: Error) => void }>();
+
   private pending: ExtensionToWebview | null = null;
   private ready = false;
   private source: vscode.Uri | undefined;
@@ -55,6 +61,8 @@ export class PreviewPanel {
     panel.webview.html = this.buildHtml();
     panel.onDidDispose(() => {
       PreviewPanel.current = undefined;
+      for (const request of this.imageRequests.values()) request.reject(new Error("Preview closed"));
+      this.imageRequests.clear();
     });
     panel.webview.onDidReceiveMessage((message: WebviewToExtension) => this.onMessage(message));
   }
@@ -102,6 +110,20 @@ export class PreviewPanel {
   }
 
   /** 把目前語系推給 Webview（開啟時與設定變更時）。 */
+  /** 正在預覽的 Schema 跟它的來源檔（合成的壓測 Schema 沒有來源檔）。 */
+  get current(): { schema: Schema; source: vscode.Uri | undefined } | undefined {
+    return this.schema ? { schema: this.schema, source: this.source } : undefined;
+  }
+
+  /** 請 Webview 把目前的畫布輸出成圖片（data URL）。 */
+  requestImage(format: ImageFormat): Promise<string> {
+    const requestId = this.nextImageRequestId++;
+    return new Promise((resolve, reject) => {
+      this.imageRequests.set(requestId, { resolve, reject });
+      void this.panel.webview.postMessage({ type: "exportImage", requestId, format } satisfies ExtensionToWebview);
+    });
+  }
+
   pushLocale(): void {
     void this.panel.webview.postMessage({ type: "locale", locale: currentLocale() } satisfies ExtensionToWebview);
   }
@@ -140,6 +162,19 @@ export class PreviewPanel {
       }
       case "openSource": {
         void this.openSource(message.tableId, message.column);
+        return;
+      }
+      case "requestExport": {
+        PreviewPanel.onExportRequested?.();
+        return;
+      }
+      case "imageExported":
+      case "imageExportFailed": {
+        const request = this.imageRequests.get(message.requestId);
+        this.imageRequests.delete(message.requestId);
+        if (!request) return;
+        if (message.type === "imageExported") request.resolve(message.dataUrl);
+        else request.reject(new Error(message.message));
         return;
       }
       case "metrics": {
@@ -197,7 +232,7 @@ export class PreviewPanel {
 <html lang="zh-Hant">
 <head>
 <meta charset="UTF-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}'; img-src ${webview.cspSource} data: blob:; font-src ${webview.cspSource} data:;">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>DBSchema Preview</title>
 <style>

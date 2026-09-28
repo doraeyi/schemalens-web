@@ -59,6 +59,9 @@ importers:
       '@vscode/vsce':
         specifier: ^3.2.1
         version: 3.9.2(supports-color@7.2.0)
+      html-to-image:
+        specifier: ^1.11.13
+        version: 1.11.13
 
   apps/web:
     dependencies:

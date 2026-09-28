@@ -12,6 +12,14 @@ export interface ExtensionStrings {
   /** 檔案被外部改寫後，狀態列顯示的變更摘要。 */
   schemaChanged: (file: string, changes: { added: number; removed: number; changed: number; relations: number }) => string;
   noSourceForPreview: string;
+  exportPickerTitle: string;
+  exportImageNeedsPreview: string;
+  exportImageFailed: (message: string) => string;
+  savedTo: (path: string) => string;
+  sqlDialectPickerTitle: string;
+  importSqlPickFile: string;
+  importSqlNothingFound: (detail: string) => string;
+  importSqlDone: (tables: number, skipped: number) => string;
   definitionNotFound: (target: string) => string;
   spikePickerTitle: string;
   spikeSizeLabel: (size: number) => string;
@@ -35,6 +43,15 @@ const en: ExtensionStrings = {
       .filter(Boolean)
       .join(", ")}`,
   noSourceForPreview: "This preview has no source file (synthetic schema)",
+  exportPickerTitle: "DBSchema — export as",
+  exportImageNeedsPreview: "Open the DBSchema preview first — the image is taken from it",
+  exportImageFailed: (message) => `Could not render the image: ${message}`,
+  savedTo: (path) => `Saved ${path}`,
+  sqlDialectPickerTitle: "Which SQL dialect?",
+  importSqlPickFile: "Choose a .sql file to import",
+  importSqlNothingFound: (detail) => `No CREATE TABLE statements could be read: ${detail}`,
+  importSqlDone: (tables, skipped) =>
+    `Imported ${tables} tables${skipped > 0 ? ` (${skipped} statements could not be parsed and were skipped)` : ""}`,
   definitionNotFound: (target) => `Could not find the definition of ${target}`,
   spikePickerTitle: "DBSchema Spike — choose a schema size",
   spikeSizeLabel: (size) => `${size} Tables`,
@@ -58,6 +75,15 @@ const zhHant: ExtensionStrings = {
       .filter(Boolean)
       .join("、")}`,
   noSourceForPreview: "目前的 Preview 沒有對應的原始檔（合成 Schema）",
+  exportPickerTitle: "DBSchema — 匯出成",
+  exportImageNeedsPreview: "請先開啟 DBSchema Preview——圖片是從 Preview 畫面輸出的",
+  exportImageFailed: (message) => `圖片輸出失敗：${message}`,
+  savedTo: (path) => `已儲存 ${path}`,
+  sqlDialectPickerTitle: "SQL 是哪一種方言？",
+  importSqlPickFile: "選擇要匯入的 .sql 檔",
+  importSqlNothingFound: (detail) => `讀不到任何 CREATE TABLE：${detail}`,
+  importSqlDone: (tables, skipped) =>
+    `已匯入 ${tables} 張表${skipped > 0 ? `（${skipped} 個敘述無法解析，已略過）` : ""}`,
   definitionNotFound: (target) => `找不到 ${target} 的定義位置`,
   spikePickerTitle: "DBSchema Spike — 選擇 Schema 規模",
   spikeSizeLabel: (size) => `${size} 張 Table`,

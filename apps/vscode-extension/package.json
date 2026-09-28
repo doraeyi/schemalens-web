@@ -85,6 +85,27 @@
         "title": "DBSchema: Export JSON"
       },
       {
+        "command": "dbschema.export",
+        "title": "DBSchema: Export…"
+      },
+      {
+        "command": "dbschema.exportSql",
+        "title": "DBSchema: Export SQL (CREATE TABLE)"
+      },
+      {
+        "command": "dbschema.exportDsl",
+        "title": "DBSchema: Export DSL (.dbschema)"
+      },
+      {
+        "command": "dbschema.exportImage",
+        "title": "DBSchema: Export Image (PNG / SVG)"
+      },
+      {
+        "command": "dbschema.importSql",
+        "title": "DBSchema: Import SQL as .dbschema",
+        "icon": "$(database)"
+      },
+      {
         "command": "dbschema.fitView",
         "title": "DBSchema: Fit View"
       },
@@ -103,6 +124,18 @@
           "command": "dbschema.openPreview",
           "when": "resourceLangId == dbschema || resourceFilename =~ /\\.schema\\.(md|json)$/",
           "group": "navigation"
+        },
+        {
+          "command": "dbschema.importSql",
+          "when": "resourceLangId == sql || resourceExtname == .sql",
+          "group": "navigation"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "dbschema.importSql",
+          "when": "resourceLangId == sql || resourceExtname == .sql",
+          "group": "navigation@90"
         }
       ]
     }
@@ -123,6 +156,7 @@
     "@schemalens/schema-renderer": "workspace:*",
     "@schemalens/schema-serializer": "workspace:*",
     "@types/vscode": "^1.90.0",
-    "@vscode/vsce": "^3.2.1"
+    "@vscode/vsce": "^3.2.1",
+    "html-to-image": "^1.11.13"
   }
 }

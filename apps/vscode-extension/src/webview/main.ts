@@ -11,7 +11,8 @@ import {
   type Locale,
   type UnrelatedMode,
 } from "@schemalens/schema-renderer";
-import type { ExtensionToWebview, WebviewToExtension } from "../preview/protocol.js";
+import { toPng, toSvg } from "html-to-image";
+import type { ExtensionToWebview, ImageFormat, WebviewToExtension } from "../preview/protocol.js";
 import { TOOLBAR_CSS, Toolbar, type ToolbarHandlers } from "./toolbar.js";
 
 declare function acquireVsCodeApi(): { postMessage(message: unknown): void };
@@ -89,6 +90,7 @@ const handlers: ToolbarHandlers = {
     resetFocus();
   },
   onFitView: () => renderer.fitView(),
+  onExport: () => post({ type: "requestExport" }),
   onResetLayout: () => {
     renderer.resetLayout();
     toolbar.setLayoutDirty(false);
@@ -219,6 +221,10 @@ window.addEventListener("message", (event: MessageEvent<ExtensionToWebview>) => 
       renderer.setDiagnostics(message.diagnostics);
       return;
     }
+    case "exportImage": {
+      void exportImage(message.requestId, message.format);
+      return;
+    }
     case "command": {
       if (message.command === "fitView") renderer.fitView();
       else resetFocus();
@@ -226,6 +232,19 @@ window.addEventListener("message", (event: MessageEvent<ExtensionToWebview>) => 
     }
   }
 });
+
+/**
+ * 跟網頁版「複製成 PNG／SVG」同一套（html-to-image，輸出目前畫布可見的範圍）。
+ * Webview 裡不方便直接存檔或寫剪貼簿，所以把 data URL 丟回 Extension 端，由它用存檔對話框寫檔。
+ */
+async function exportImage(requestId: number, format: ImageFormat): Promise<void> {
+  try {
+    const dataUrl = format === "png" ? await toPng(canvas, { pixelRatio: 2 }) : await toSvg(canvas);
+    post({ type: "imageExported", requestId, dataUrl });
+  } catch (error) {
+    post({ type: "imageExportFailed", requestId, message: error instanceof Error ? error.message : String(error) });
+  }
+}
 
 // plan §42：Esc 取消 Focus、Ctrl/Cmd+F 進搜尋。
 window.addEventListener("keydown", (event) => {
