@@ -1,21 +1,22 @@
 {
-	"name": "schemalens",
-	"private": true,
-	"version": "0.0.1",
-	"type": "module",
-	"scripts": {
-		"build": "pnpm run -r --if-present build",
-		"typecheck": "tsc -p tsconfig.json",
-		"test": "vitest run",
-		"test:watch": "vitest",
-		"package:vsix": "pnpm --filter dbschema build && pnpm --filter dbschema package:vsix",
-		"example:large": "esbuild scripts/generate-large-example.ts --bundle --platform=node --format=cjs --outfile=dist/generate-large-example.cjs --log-level=error && node dist/generate-large-example.cjs"
-	},
-	"devDependencies": {
-		"@types/node": "^22.10.2",
-		"esbuild": "^0.24.2",
-		"jsdom": "^25.0.1",
-		"typescript": "^5.7.2",
-		"vitest": "^2.1.8"
-	}
+  "name": "schemalens",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "build": "pnpm run -r --if-present build",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "package:vsix": "pnpm --filter dbschema build && pnpm --filter dbschema package:vsix",
+    "example:large": "esbuild scripts/generate-large-example.ts --bundle --platform=node --format=cjs --outfile=dist/generate-large-example.cjs --log-level=error && node dist/generate-large-example.cjs",
+    "layout:metrics": "esbuild scripts/layout-metrics.ts --bundle --platform=node --format=cjs --outfile=dist/layout-metrics.cjs --log-level=error && node dist/layout-metrics.cjs"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "esbuild": "^0.24.2",
+    "jsdom": "^25.0.1",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
 }
