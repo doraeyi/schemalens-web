@@ -1,4 +1,4 @@
-import type { SchemaDiff } from '$lib/schema/diff';
+import type { SchemaDiff } from '@schemalens/schema-diff';
 
 /**
  * 渲染完 buildMergedSchema() 產生的合成 schema 之後，直接對已經畫出來的 .dbs-card/.dbs-row

@@ -7,8 +7,8 @@ import { parseSchema } from '@schemalens/schema-parser';
 import { getDb } from '$lib/server/db';
 import { pageCollaboratorsTable, pagesTable } from '$lib/server/db/schema';
 import { findAccessiblePage } from '$lib/server/pages';
-import { lintSchema } from '$lib/schema/lint';
-import { diffSchemas, type SchemaDiff } from '$lib/schema/diff';
+import { lintSchema } from '@schemalens/schema-lint';
+import { diffSchemas, type SchemaDiff } from '@schemalens/schema-diff';
 import { createPage, readPage, StaleRevisionError, writePage } from './pageStore';
 // skill 裡給 agent 看的 DSL 語法說明，跟 Claude Code plugin 用同一份，不另外維護。
 import dslReference from '../../../../../../plugins/schemalens-vscode-extension/skills/database-schema-visualization/references/dsl-syntax.md?raw';

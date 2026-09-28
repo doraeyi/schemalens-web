@@ -9,6 +9,7 @@ import {
   type Relation,
   type Schema,
   type SchemaDiagnostic,
+  type SourceComments,
   type Table,
   type TableGroup,
 } from "@schemalens/schema-core";
@@ -62,19 +63,24 @@ export function toJsonObject(schema: Schema, options: JsonSerializeOptions = {})
         foreignKey: column.foreignKey,
         unique: column.unique,
         indexed: column.indexed,
+        ...commentsOut(column.sourceComments),
         ...(options.includeLocations && column.location ? { location: column.location } : {}),
       })),
       indexes: table.indexes.map((index) => ({
         name: index.name,
         columns: index.columns,
         unique: index.unique,
+        ...commentsOut(index.sourceComments),
         ...(options.includeLocations && index.location ? { location: index.location } : {}),
       })),
+      ...(table.schemaQualified === false ? { schemaQualified: false } : {}),
+      ...commentsOut(table.sourceComments),
       ...(options.includeLocations && table.location ? { location: table.location } : {}),
     })),
     groups: groups.map((group) => ({
       name: group.name,
       description: group.description,
+      ...commentsOut(group.sourceComments),
       ...(options.includeLocations && group.location ? { location: group.location } : {}),
     })),
     relations: relations.map((relation) => ({
@@ -84,8 +90,30 @@ export function toJsonObject(schema: Schema, options: JsonSerializeOptions = {})
       targetTable: relation.targetTable,
       targetColumns: relation.targetColumns,
       cardinality: relation.cardinality,
+      ...commentsOut(relation.sourceComments),
       ...(options.includeLocations && relation.location ? { location: relation.location } : {}),
     })),
+    ...(schema.trailingComments?.length ? { trailingComments: schema.trailingComments } : {}),
+  };
+}
+
+/** 沒有任何 `//` 註解時完全不輸出這個欄位，既有的 JSON 輸出維持不變。 */
+function commentsOut(comments: (SourceComments & { footer?: string[] }) | undefined): { sourceComments?: SourceComments } {
+  if (!comments) return {};
+  const hasAny = Boolean(comments.leading?.length || comments.trailing !== undefined || comments.footer?.length);
+  return hasAny ? { sourceComments: comments } : {};
+}
+
+function commentsIn(value: unknown): (SourceComments & { footer?: string[] }) | undefined {
+  if (!isRecord(value)) return undefined;
+  const leading = stringArray(value.leading);
+  const footer = stringArray(value.footer);
+  const trailing = typeof value.trailing === "string" ? value.trailing : undefined;
+  if (leading.length === 0 && footer.length === 0 && trailing === undefined) return undefined;
+  return {
+    ...(leading.length ? { leading } : {}),
+    ...(trailing !== undefined ? { trailing } : {}),
+    ...(footer.length ? { footer } : {}),
   };
 }
 
@@ -161,6 +189,7 @@ export function fromJson(input: string | unknown, file?: string): FromJsonResult
         foreignKey: rawColumn.foreignKey === true,
         unique: rawColumn.unique === true,
         indexed: rawColumn.indexed === true,
+        ...optionalComments(rawColumn.sourceComments),
       });
     }
 
@@ -176,6 +205,7 @@ export function fromJson(input: string | unknown, file?: string): FromJsonResult
           (value): value is string => typeof value === "string",
         ),
         unique: rawIndex.unique === true,
+        ...optionalComments(rawIndex.sourceComments),
       });
     }
 
@@ -187,6 +217,8 @@ export function fromJson(input: string | unknown, file?: string): FromJsonResult
       group: typeof entry.group === "string" ? entry.group : undefined,
       columns,
       indexes,
+      ...(entry.schemaQualified === false ? { schemaQualified: false } : {}),
+      ...optionalComments(entry.sourceComments),
     });
   }
 
@@ -202,6 +234,7 @@ export function fromJson(input: string | unknown, file?: string): FromJsonResult
     groups.push({
       name: entry.name,
       description: typeof entry.description === "string" ? entry.description : undefined,
+      ...optionalComments(entry.sourceComments),
     });
   }
 
@@ -231,6 +264,7 @@ export function fromJson(input: string | unknown, file?: string): FromJsonResult
       targetTable: entry.targetTable,
       targetColumns: stringArray(entry.targetColumns),
       cardinality,
+      ...optionalComments(entry.sourceComments),
     });
   }
 
@@ -240,6 +274,7 @@ export function fromJson(input: string | unknown, file?: string): FromJsonResult
     tables,
     relations,
     groups,
+    ...(stringArray(raw.trailingComments).length ? { trailingComments: stringArray(raw.trailingComments) } : {}),
   };
   // JSON 內的 foreignKey / indexed 可能沒寫或過期，一律重新推導。
   const declared = snapshotFlags(schema);
@@ -247,6 +282,11 @@ export function fromJson(input: string | unknown, file?: string): FromJsonResult
   restoreDeclaredFlags(schema, declared);
 
   return { schema, diagnostics };
+}
+
+function optionalComments(value: unknown): { sourceComments?: SourceComments & { footer?: string[] } } {
+  const comments = commentsIn(value);
+  return comments ? { sourceComments: comments } : {};
 }
 
 function emptySchemaWith(name: string | undefined): Schema {

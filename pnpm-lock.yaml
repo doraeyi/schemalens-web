@@ -77,12 +77,18 @@ importers:
       '@schemalens/schema-core':
         specifier: workspace:*
         version: link:../../packages/schema-core
+      '@schemalens/schema-diff':
+        specifier: workspace:*
+        version: link:../../packages/schema-diff
       '@schemalens/schema-graph':
         specifier: workspace:*
         version: link:../../packages/schema-graph
       '@schemalens/schema-layout':
         specifier: workspace:*
         version: link:../../packages/schema-layout
+      '@schemalens/schema-lint':
+        specifier: workspace:*
+        version: link:../../packages/schema-lint
       '@schemalens/schema-parser':
         specifier: workspace:*
         version: link:../../packages/schema-parser
@@ -92,6 +98,9 @@ importers:
       '@schemalens/schema-serializer':
         specifier: workspace:*
         version: link:../../packages/schema-serializer
+      '@schemalens/schema-sql':
+        specifier: workspace:*
+        version: link:../../packages/schema-sql
       drizzle-orm:
         specifier: ^0.45.2
         version: 0.45.2(mysql2@3.24.3(@types/node@22.20.1))
@@ -104,9 +113,6 @@ importers:
       mysql2:
         specifier: ^3.24.3
         version: 3.24.3(@types/node@22.20.1)
-      node-sql-parser:
-        specifier: ^5.4.0
-        version: 5.4.0
       openai:
         specifier: ^7.23.0
         version: 7.23.0(undici@7.29.1)(ws@8.21.3)(zod@4.6.5)
@@ -165,6 +171,12 @@ importers:
 
   packages/schema-core: {}
 
+  packages/schema-diff:
+    dependencies:
+      '@schemalens/schema-core':
+        specifier: workspace:*
+        version: link:../schema-core
+
   packages/schema-fixtures:
     dependencies:
       '@schemalens/schema-core':
@@ -185,6 +197,12 @@ importers:
       '@schemalens/schema-graph':
         specifier: workspace:*
         version: link:../schema-graph
+
+  packages/schema-lint:
+    dependencies:
+      '@schemalens/schema-core':
+        specifier: workspace:*
+        version: link:../schema-core
 
   packages/schema-parser:
     dependencies:
@@ -209,6 +227,15 @@ importers:
       '@schemalens/schema-core':
         specifier: workspace:*
         version: link:../schema-core
+
+  packages/schema-sql:
+    dependencies:
+      '@schemalens/schema-core':
+        specifier: workspace:*
+        version: link:../schema-core
+      node-sql-parser:
+        specifier: ^5.4.0
+        version: 5.4.0
 
 packages:
 

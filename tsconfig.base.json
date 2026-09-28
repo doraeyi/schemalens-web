@@ -22,7 +22,12 @@
       "@schemalens/schema-layout": ["./packages/schema-layout/src/index.ts"],
       "@schemalens/schema-serializer": ["./packages/schema-serializer/src/index.ts"],
       "@schemalens/schema-renderer": ["./packages/schema-renderer/src/index.ts"],
-      "@schemalens/schema-fixtures": ["./packages/schema-fixtures/src/index.ts"]
+      "@schemalens/schema-fixtures": ["./packages/schema-fixtures/src/index.ts"],
+      "@schemalens/schema-lint": ["./packages/schema-lint/src/index.ts"],
+      "@schemalens/schema-diff": ["./packages/schema-diff/src/index.ts"],
+      "@schemalens/schema-sql": ["./packages/schema-sql/src/index.ts"],
+      "@schemalens/schema-sql/export": ["./packages/schema-sql/src/export/index.ts"],
+      "@schemalens/schema-sql/import": ["./packages/schema-sql/src/import/index.ts"]
     }
   }
 }

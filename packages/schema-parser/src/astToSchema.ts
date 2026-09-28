@@ -81,6 +81,8 @@ export function astToSchema(ast: SchemaFileNode, options: AstToSchemaOptions = {
       group: statement.group,
       columns,
       indexes: [],
+      // 只在省略時標記，讓序列化照原樣省略預設 schema；有寫的維持原本「一律寫出」的行為。
+      ...(statement.name.schema === undefined ? { schemaQualified: false } : {}),
       location: statement.location,
     };
     tables.push(table);

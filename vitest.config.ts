@@ -14,6 +14,11 @@ export default defineConfig({
       "@schemalens/schema-renderer": pkg("schema-renderer"),
       "@schemalens/schema-serializer": pkg("schema-serializer"),
       "@schemalens/schema-fixtures": pkg("schema-fixtures"),
+      "@schemalens/schema-lint": pkg("schema-lint"),
+      "@schemalens/schema-diff": pkg("schema-diff"),
+      "@schemalens/schema-sql/export": fileURLToPath(new URL("./packages/schema-sql/src/export/index.ts", import.meta.url)),
+      "@schemalens/schema-sql/import": fileURLToPath(new URL("./packages/schema-sql/src/import/index.ts", import.meta.url)),
+      "@schemalens/schema-sql": pkg("schema-sql"),
       // Extension 端的測試用 stub 取代真實 VS Code API（只有 Extension Host 才有）。
       vscode: fileURLToPath(new URL("./apps/vscode-extension/test/vscodeStub.ts", import.meta.url)),
     },

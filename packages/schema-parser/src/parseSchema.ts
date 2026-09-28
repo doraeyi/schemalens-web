@@ -1,5 +1,6 @@
 import type { Schema, SchemaDiagnostic } from "@schemalens/schema-core";
 import { astToSchema, type AstToSchemaOptions } from "./astToSchema.js";
+import { attachComments } from "./attachComments.js";
 import { parse } from "./parser.js";
 
 export interface ParseSchemaResult {
@@ -20,6 +21,7 @@ export function parseSchema(
 ): ParseSchemaResult {
   const parsed = parse(source, file);
   const converted = astToSchema(parsed.ast, options);
+  attachComments(converted.schema, parsed.comments);
   return {
     schema: converted.schema,
     diagnostics: [...parsed.diagnostics, ...converted.diagnostics],

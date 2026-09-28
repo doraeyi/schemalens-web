@@ -4,6 +4,16 @@ import { isKeyword, type Token } from "./tokens.js";
 export interface LexResult {
   tokens: Token[];
   diagnostics: SchemaDiagnostic[];
+  /** `//` 註解，不進 token 串（Parser 不需要知道），另外交給 attachComments 掛回 Schema。 */
+  comments: CommentToken[];
+}
+
+export interface CommentToken {
+  /** `//` 之後的原文，去掉行尾空白。 */
+  text: string;
+  line: number;
+  /** 這一行在註解之前沒有任何程式碼——獨立成行的註解，而不是接在某個定義尾端的。 */
+  ownLine: boolean;
 }
 
 const PUNCT = new Set(["{", "}", "(", ")", ",", ".", "-", ">"]);
@@ -19,6 +29,7 @@ const PUNCT = new Set(["{", "}", "(", ")", ",", ".", "-", ">"]);
 export function tokenize(source: string, file?: string): LexResult {
   const tokens: Token[] = [];
   const diagnostics: SchemaDiagnostic[] = [];
+  const comments: CommentToken[] = [];
 
   let index = 0;
   let line = 1;
@@ -63,7 +74,16 @@ export function tokenize(source: string, file?: string): LexResult {
 
     // 註解吃到行尾，但不吃掉換行本身（換行是 token）。
     if (char === "/" && at(1) === "/") {
-      while (index < source.length && at() !== "\n") advance();
+      const commentLine = line;
+      const previous = tokens[tokens.length - 1];
+      const ownLine = !previous || previous.type === "newline" || previous.location.line !== commentLine;
+      advance(2);
+      let text = "";
+      while (index < source.length && at() !== "\n") {
+        if (at() !== "\r") text += at();
+        advance();
+      }
+      comments.push({ text: text.trimEnd(), line: commentLine, ownLine });
       continue;
     }
 
@@ -151,5 +171,5 @@ export function tokenize(source: string, file?: string): LexResult {
   }
 
   tokens.push({ type: "eof", value: "", location: loc(line, column, column) });
-  return { tokens, diagnostics };
+  return { tokens, diagnostics, comments };
 }
