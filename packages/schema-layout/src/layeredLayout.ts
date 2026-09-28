@@ -162,10 +162,11 @@ function layoutSubset(
   opts: ResolvedOptions,
 ): SubsetResult {
   const positions = new Map<TableId, { x: number; y: number; layer: number }>();
-  // 元件沿次要軸（LR 時為 y）依序堆疊，彼此不重疊。
-  let componentOffset = 0;
+  // 每個連通元件先各自排在自己的區域座標裡，最後再用 packComponents 擺到一起。
+  const laidOut: Array<{ positions: Map<TableId, { x: number; y: number; layer: number }>; width: number; height: number }> = [];
 
   for (const component of connectedComponents(nodeIds, edges)) {
+    const local = new Map<TableId, { x: number; y: number; layer: number }>();
     const componentSet = new Set(component);
     const componentEdges = edges.filter(
       (e) => componentSet.has(e.source) && componentSet.has(e.target),
@@ -213,17 +214,25 @@ function layoutSubset(
       );
     }
 
+    let localWidth = 0;
+    let localHeight = 0;
     for (const p of placements) {
       const centering = (componentExtent - (crossExtentByLayer.get(p.layer) ?? 0)) / 2;
-      const cross = p.cross + Math.max(0, centering) + componentOffset;
-      positions.set(p.id, {
-        x: opts.direction === "LR" ? p.main : cross,
-        y: opts.direction === "LR" ? cross : p.main,
-        layer: p.layer,
-      });
+      const cross = p.cross + Math.max(0, centering);
+      const x = opts.direction === "LR" ? p.main : cross;
+      const y = opts.direction === "LR" ? cross : p.main;
+      local.set(p.id, { x, y, layer: p.layer });
+      const size = sizeById.get(p.id)!;
+      localWidth = Math.max(localWidth, x + size.width);
+      localHeight = Math.max(localHeight, y + size.height);
     }
+    laidOut.push({ positions: local, width: localWidth, height: localHeight });
+  }
 
-    componentOffset += componentExtent + opts.componentGap;
+  for (const block of packComponents(laidOut, opts.componentGap)) {
+    for (const [id, pos] of block.item.positions) {
+      positions.set(id, { x: pos.x + block.x, y: pos.y + block.y, layer: pos.layer });
+    }
   }
 
   let width = 0;
@@ -234,6 +243,324 @@ function layoutSubset(
     height = Math.max(height, pos.y + size.height);
   }
   return { positions, width, height };
+}
+
+/**
+ * 把一堆矩形像排書架一樣擺在一起：由左往右，超過目標寬度就換行，讓整體接近方形。
+ *
+ * 以前連通元件是沿次要軸一路往下疊：一個群組裡如果有很多彼此沒有關聯的表（每張都是一個元件），
+ * 就會排成一條又細又長的直條，畫面大部分是空白。輸入已經依大小排好（大的在前）。
+ */
+function packComponents<T extends { width: number; height: number }>(
+  items: readonly T[],
+  gap: number,
+): Array<{ item: T; x: number; y: number }> {
+  if (items.length === 0) return [];
+  const widest = items.reduce((max, item) => Math.max(max, item.width), 0);
+  const totalArea = items.reduce((sum, item) => sum + (item.width + gap) * (item.height + gap), 0);
+  // 稍微偏寬：螢幕是橫的。
+  const targetWidth = Math.max(widest, Math.sqrt(totalArea * 1.6));
+
+  const placed: Array<{ item: T; x: number; y: number }> = [];
+  let x = 0;
+  let y = 0;
+  let rowHeight = 0;
+  for (const item of items) {
+    if (x > 0 && x + item.width > targetWidth) {
+      x = 0;
+      y += rowHeight + gap;
+      rowHeight = 0;
+    }
+    placed.push({ item, x, y });
+    x += item.width + gap;
+    rowHeight = Math.max(rowHeight, item.height);
+  }
+  return placed;
+}
+
+/**
+ * 決定每個群組區塊擺在哪裡（以前是照字母順序一列一列排，完全不看群組之間的關聯）。
+ *
+ * 一次放一塊：先放跟其他群組關聯最多的那塊當中心，之後每次挑跟「已經放好的」關聯最多的那塊，
+ * 在已放好區塊的上下左右找候選位置，選 Σ(關聯數 × 中心距離) 最小的——關聯多的群組會貼在一起。
+ * 另外加一點「整體外框變長」的代價，沒有關聯的群組才會往空位補、整體接近方形，不會越擺越散。
+ * 回傳每塊左上角座標（已平移成從 0,0 開始）。
+ */
+function placeBlocks(
+  blocks: ReadonlyArray<{ width: number; height: number }>,
+  weights: ReadonlyArray<ReadonlyArray<number>>,
+  gap: number,
+): Array<{ x: number; y: number }> {
+  const n = blocks.length;
+  const result: Array<{ x: number; y: number }> = blocks.map(() => ({ x: 0, y: 0 }));
+  if (n === 0) return result;
+
+  const size = (i: number) => blocks[i]!;
+  const weight = (i: number, j: number) => weights[i]![j]!;
+  const totalWeight = (i: number) => weights[i]!.reduce((sum, w) => sum + w, 0);
+  const area = (i: number) => size(i).width * size(i).height;
+
+  const placed: number[] = [];
+  const isPlaced = new Array<boolean>(n).fill(false);
+  const overlapsPlaced = (x: number, y: number, w: number, h: number) =>
+    placed.some((j) => {
+      const p = result[j]!;
+      const b = size(j);
+      return x < p.x + b.width + gap && p.x < x + w + gap && y < p.y + b.height + gap && p.y < y + h + gap;
+    });
+
+  // 第一塊：關聯最多的，一樣多就取面積大的。
+  let first = 0;
+  for (let i = 1; i < n; i++) {
+    if (totalWeight(i) > totalWeight(first) || (totalWeight(i) === totalWeight(first) && area(i) > area(first))) first = i;
+  }
+  placed.push(first);
+  isPlaced[first] = true;
+  let bounds = { minX: 0, minY: 0, maxX: size(first).width, maxY: size(first).height };
+
+  // 「外框變長」代價的尺度：跟區塊的平均邊長同一個量級，才能跟距離代價互相比較。
+  const typicalSide = blocks.reduce((sum, b) => sum + Math.sqrt(b.width * b.height), 0) / n;
+
+  while (placed.length < n) {
+    // 下一塊：跟已放好的關聯最多的；都沒有關聯就取面積最大的。
+    let next = -1;
+    let nextAttachment = -1;
+    for (let i = 0; i < n; i++) {
+      if (isPlaced[i]) continue;
+      const attachment = placed.reduce((sum, j) => sum + weight(i, j), 0);
+      if (next === -1 || attachment > nextAttachment || (attachment === nextAttachment && area(i) > area(next))) {
+        next = i;
+        nextAttachment = attachment;
+      }
+    }
+
+    const { width: w, height: h } = size(next);
+    let best: { x: number; y: number } | null = null;
+    let bestCost = Infinity;
+    for (const j of placed) {
+      const p = result[j]!;
+      const b = size(j);
+      const candidates = [
+        { x: p.x + b.width + gap, y: p.y },
+        { x: p.x + b.width + gap, y: p.y + b.height - h },
+        { x: p.x - w - gap, y: p.y },
+        { x: p.x - w - gap, y: p.y + b.height - h },
+        { x: p.x, y: p.y + b.height + gap },
+        { x: p.x + b.width - w, y: p.y + b.height + gap },
+        { x: p.x, y: p.y - h - gap },
+        { x: p.x + b.width - w, y: p.y - h - gap },
+      ];
+      for (const c of candidates) {
+        if (overlapsPlaced(c.x, c.y, w, h)) continue;
+        let cost = 0;
+        for (const k of placed) {
+          const wk = weight(next, k);
+          if (wk === 0) continue;
+          const q = result[k]!;
+          const qb = size(k);
+          cost += wk * Math.hypot(c.x + w / 2 - (q.x + qb.width / 2), c.y + h / 2 - (q.y + qb.height / 2));
+        }
+        // 用新外框「較長的那一邊」衡量（寬度打 1.6 折，因為螢幕是橫的），偏好接近方形。
+        const longSide = Math.max(
+          (Math.max(bounds.maxX, c.x + w) - Math.min(bounds.minX, c.x)) / 1.6,
+          Math.max(bounds.maxY, c.y + h) - Math.min(bounds.minY, c.y),
+        );
+        cost += (longSide * typicalSide) / 400;
+        if (cost < bestCost) {
+          bestCost = cost;
+          best = c;
+        }
+      }
+    }
+
+    // 所有候選位置都會重疊的極端情況：放到目前外框右邊。
+    const position = best ?? { x: bounds.maxX + gap, y: bounds.minY };
+    result[next] = position;
+    placed.push(next);
+    isPlaced[next] = true;
+    bounds = {
+      minX: Math.min(bounds.minX, position.x),
+      minY: Math.min(bounds.minY, position.y),
+      maxX: Math.max(bounds.maxX, position.x + w),
+      maxY: Math.max(bounds.maxY, position.y + h),
+    };
+  }
+
+  return result.map((p) => ({ x: p.x - bounds.minX, y: p.y - bounds.minY }));
+}
+
+/**
+ * 群組內部是只看群組內關聯排出來的，不知道外面的群組擺在哪：要連到右邊群組的表，
+ * 可能剛好在最左邊，線就會橫越整個群組、跟別的線交叉。這裡讓每個群組在四種方向
+ * （原樣、左右翻、上下翻、都翻）裡挑「交叉數 + 跨群組連線總長」最小的，重複幾輪直到穩定。
+ * 交叉以卡片中心之間的直線估算（實際畫的是曲線，但趨勢一樣）。
+ * 翻轉不改變群組內部的排版品質，所以只會改善、不會變差。直接改寫 block.result.positions。
+ */
+function orientBlocks(
+  blocks: ReadonlyArray<{ result: SubsetResult }>,
+  placements: ReadonlyArray<{ x: number; y: number }>,
+  edges: readonly LayoutEdge[],
+  sizeById: ReadonlyMap<TableId, LayoutNode>,
+  opts: ResolvedOptions,
+): void {
+  const blockOf = new Map<TableId, number>();
+  blocks.forEach((block, index) => {
+    for (const id of block.result.positions.keys()) blockOf.set(id, index);
+  });
+  const allEdges = edges.filter((e) => e.source !== e.target && blockOf.has(e.source) && blockOf.has(e.target));
+  const crossEdges = allEdges.filter((e) => blockOf.get(e.source) !== blockOf.get(e.target));
+  if (crossEdges.length === 0) return;
+  // 一個交叉大約等於多長的線：取區塊平均邊長的一半，讓兩種代價同一個量級。
+  const crossingPenalty =
+    blocks.reduce((sum, b) => sum + Math.sqrt(Math.max(1, b.result.width * b.result.height)), 0) / blocks.length / 2;
+  // 算交叉數的成本大約是「跨群組連線數 × 全部連線數」。排版每次重畫都會跑，線太多時只看連線長度
+  // （400 張表左右才會碰到；只看長度也比不翻轉好，只是少了最後那一點改善）。
+  const countCrossingsToo = crossEdges.length * allEdges.length <= 60_000;
+
+  const flips = blocks.map(() => ({ x: false, y: false }));
+  const centerOf = (id: TableId, flip: { x: boolean; y: boolean }) => {
+    const index = blockOf.get(id)!;
+    const { result } = blocks[index]!;
+    const pos = result.positions.get(id)!;
+    const size = sizeById.get(id)!;
+    const x = flip.x ? result.width - pos.x - size.width : pos.x;
+    const y = flip.y ? result.height - pos.y - size.height : pos.y;
+    return {
+      x: placements[index]!.x + opts.groupPadding + x + size.width / 2,
+      y: placements[index]!.y + opts.groupHeaderHeight + y + size.height / 2,
+    };
+  };
+  const flipFor = (id: TableId, index: number, candidate: { x: boolean; y: boolean }) =>
+    blockOf.get(id) === index ? candidate : flips[blockOf.get(id)!]!;
+
+  const options = [
+    { x: false, y: false },
+    { x: true, y: false },
+    { x: false, y: true },
+    { x: true, y: true },
+  ];
+  const innerByBlock: LayoutEdge[][] = blocks.map(() => []);
+  for (const e of allEdges) {
+    const a = blockOf.get(e.source)!;
+    if (a === blockOf.get(e.target)) innerByBlock[a]!.push(e);
+  }
+  const incidentByBlock = blocks.map((_, index) =>
+    crossEdges.filter((e) => blockOf.get(e.source) === index || blockOf.get(e.target) === index),
+  );
+  // 端點編成數字：交叉計算是這個函式最熱的迴圈，比對字串 id 太慢。
+  const nodeNumber = new Map<TableId, number>();
+  for (const id of blockOf.keys()) nodeNumber.set(id, nodeNumber.size);
+  const makeSegment = (e: LayoutEdge, a: { x: number; y: number }, b: { x: number; y: number }): Segment => ({
+    e,
+    s: nodeNumber.get(e.source)!,
+    t: nodeNumber.get(e.target)!,
+    a,
+    b,
+    minX: Math.min(a.x, b.x),
+    maxX: Math.max(a.x, b.x),
+    minY: Math.min(a.y, b.y),
+    maxY: Math.max(a.y, b.y),
+  });
+  const currentSegment = (e: LayoutEdge): Segment =>
+    makeSegment(e, centerOf(e.source, flips[blockOf.get(e.source)!]!), centerOf(e.target, flips[blockOf.get(e.target)!]!));
+  const countCrossings = (moved: readonly Segment[], others: readonly Segment[]): number => {
+    let count = 0;
+    for (const p of moved) {
+      for (const q of others) {
+        // 外框不重疊就一定不相交，大部分線對在這裡就排除掉了。
+        if (p.maxX < q.minX || q.maxX < p.minX || p.maxY < q.minY || q.maxY < p.minY) continue;
+        if (p.s === q.s || p.s === q.t || p.t === q.s || p.t === q.t) continue;
+        if (segmentsCross(p.a, p.b, q.a, q.b)) count++;
+      }
+    }
+    return count;
+  };
+
+  for (let pass = 0; pass < 3; pass++) {
+    let changed = false;
+    for (let index = 0; index < blocks.length; index++) {
+      const incident = incidentByBlock[index]!;
+      if (incident.length === 0) continue;
+      // 翻轉會改變的交叉只有「至少一條是跨群組連線」的線對：同一群組內部的兩條線一起翻，
+      // 相對位置不變；不同群組內部的線各自落在互不重疊的外框裡，本來就不可能交叉。
+      // 不隨這個群組翻轉而改變的線段，每個群組只算一次。
+      const incidentSet = new Set(incident);
+      const otherCross = countCrossingsToo ? crossEdges.filter((e) => !incidentSet.has(e)).map(currentSegment) : [];
+      const otherInner = countCrossingsToo
+        ? innerByBlock.flatMap((list, i) => (i === index ? [] : list)).map(currentSegment)
+        : [];
+
+      let best = flips[index]!;
+      let bestCost = Infinity;
+      // 目前的方向排第一個：平手時才會保留它，不會在幾輪之間來回翻。
+      for (const candidate of [flips[index]!, ...options]) {
+        const segment = (e: LayoutEdge): Segment =>
+          makeSegment(
+            e,
+            centerOf(e.source, flipFor(e.source, index, candidate)),
+            centerOf(e.target, flipFor(e.target, index, candidate)),
+          );
+        const movedCross = incident.map(segment);
+
+        let cost = 0;
+        for (const { a, b } of movedCross) cost += Math.hypot(a.x - b.x, a.y - b.y);
+        if (countCrossingsToo) {
+          const movedInner = innerByBlock[index]!.map(segment);
+          let crossings = countCrossings(movedCross, otherCross) + countCrossings(movedCross, otherInner);
+          crossings += countCrossings(movedCross, movedInner) + countCrossings(movedInner, otherCross);
+          for (let i = 0; i < movedCross.length; i++) crossings += countCrossings([movedCross[i]!], movedCross.slice(i + 1));
+          cost += crossings * crossingPenalty;
+        }
+
+        if (cost < bestCost - 1e-6) {
+          bestCost = cost;
+          best = candidate;
+        }
+      }
+      if (best.x !== flips[index]!.x || best.y !== flips[index]!.y) {
+        flips[index] = best;
+        changed = true;
+      }
+    }
+    if (!changed) break;
+  }
+
+  blocks.forEach((block, index) => {
+    const flip = flips[index]!;
+    if (!flip.x && !flip.y) return;
+    const { result } = block;
+    for (const [id, pos] of result.positions) {
+      const size = sizeById.get(id)!;
+      result.positions.set(id, {
+        ...pos,
+        x: flip.x ? result.width - pos.x - size.width : pos.x,
+        y: flip.y ? result.height - pos.y - size.height : pos.y,
+      });
+    }
+  });
+}
+
+/** 以卡片中心之間的直線近似一條關聯線；s／t 是端點編號，min／max 是外框。 */
+interface Segment {
+  e: LayoutEdge;
+  s: number;
+  t: number;
+  a: { x: number; y: number };
+  b: { x: number; y: number };
+  minX: number;
+  maxX: number;
+  minY: number;
+  maxY: number;
+}
+
+function segmentsCross(
+  a: { x: number; y: number },
+  b: { x: number; y: number },
+  c: { x: number; y: number },
+  d: { x: number; y: number },
+): boolean {
+  const orient = (p: typeof a, q: typeof a, r: typeof a) => Math.sign((q.x - p.x) * (r.y - p.y) - (q.y - p.y) * (r.x - p.x));
+  return orient(a, b, c) * orient(a, b, d) < 0 && orient(c, d, a) * orient(c, d, b) < 0;
 }
 
 /** 依群組把節點分塊；沒有群組的節點集中成一塊放最後。 */
@@ -311,7 +638,8 @@ export const layeredLayout: LayoutEngine = {
       };
     }
 
-    const blocks = partitionByGroup(input.nodes).map((block) => {
+    const partitioned = partitionByGroup(input.nodes);
+    const blocks = partitioned.map((block) => {
       const memberSet = new Set(block.ids);
       // 只用群組內部的邊來排版；跨群組的關聯仍會畫，但不影響聚攏。
       const innerEdges = edges.filter((e) => memberSet.has(e.source) && memberSet.has(e.target));
@@ -324,25 +652,32 @@ export const layeredLayout: LayoutEngine = {
       };
     });
 
-    // 分塊以列為單位排放，超過目標寬度就換行；
-    // 目標寬度取總面積的平方根，讓整體接近方形而不是拉成一長條。
-    const totalArea = blocks.reduce((sum, b) => sum + b.outerWidth * b.outerHeight, 0);
-    const widest = blocks.reduce((max, b) => Math.max(max, b.outerWidth), 0);
-    const targetWidth = Math.max(widest, Math.sqrt(totalArea) * 1.4);
+    // 群組之間的關聯數：關聯多的兩個群組要擺在一起，跨群組的線才不會拉得又長又亂。
+    const blockOf = new Map<TableId, number>();
+    partitioned.forEach((block, index) => {
+      for (const id of block.ids) blockOf.set(id, index);
+    });
+    const weights = blocks.map(() => new Array<number>(blocks.length).fill(0));
+    for (const e of edges) {
+      const a = blockOf.get(e.source);
+      const b = blockOf.get(e.target);
+      if (a === undefined || b === undefined || a === b) continue;
+      weights[a]![b]! += 1;
+      weights[b]![a]! += 1;
+    }
+    const placements = placeBlocks(
+      blocks.map((b) => ({ width: b.outerWidth, height: b.outerHeight })),
+      weights,
+      opts.groupGap,
+    );
+
+    orientBlocks(blocks, placements, edges, sizeById, opts);
 
     const groupBounds = new Map<string, Rect>();
     const nodes: PositionedNode[] = [];
 
-    let cursorX = 0;
-    let cursorY = 0;
-    let rowHeight = 0;
-
-    for (const block of blocks) {
-      if (cursorX > 0 && cursorX + block.outerWidth > targetWidth) {
-        cursorX = 0;
-        cursorY += rowHeight + opts.groupGap;
-        rowHeight = 0;
-      }
+    for (const [index, block] of blocks.entries()) {
+      const { x: cursorX, y: cursorY } = placements[index]!;
 
       // 節點在塊內要讓出外框的邊距與標題列。
       nodes.push(
@@ -361,9 +696,6 @@ export const layeredLayout: LayoutEngine = {
           height: block.outerHeight,
         });
       }
-
-      cursorX += block.outerWidth + opts.groupGap;
-      rowHeight = Math.max(rowHeight, block.outerHeight);
     }
 
     return {
