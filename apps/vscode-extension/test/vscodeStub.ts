@@ -61,6 +61,8 @@ export class Diagnostic {
 }
 
 export class Uri {
+  readonly scheme = "file";
+
   private constructor(readonly fsPath: string) {}
 
   static file(path: string): Uri {
@@ -79,12 +81,47 @@ export class Uri {
 export interface TextDocument {
   uri: Uri;
   languageId: string;
+  isDirty?: boolean;
   getText(): string;
 }
 
-export function makeDocument(text: string, path = "database.dbschema", languageId = "dbschema"): TextDocument {
-  return { uri: Uri.file(path), languageId, getText: () => text };
+export function makeDocument(
+  text: string,
+  path = "database.dbschema",
+  languageId = "dbschema",
+  isDirty = false,
+): TextDocument {
+  return { uri: Uri.file(path), languageId, isDirty, getText: () => text };
 }
+
+/** 最小的 EventEmitter：註冊的 listener 用 fire() 手動觸發，模擬 VS Code 送出事件。 */
+class StubEvent<T> {
+  private listeners: Array<(value: T) => void> = [];
+  readonly event = (listener: (value: T) => void) => {
+    this.listeners.push(listener);
+    return { dispose: () => (this.listeners = this.listeners.filter((l) => l !== listener)) };
+  };
+  fire(value: T): void {
+    for (const listener of this.listeners) listener(value);
+  }
+  clear(): void {
+    this.listeners = [];
+  }
+}
+
+/** 模擬 VS Code 送出的 workspace 事件，測試用 `events.xxx.fire(...)` 觸發。 */
+export const events = {
+  open: new StubEvent<TextDocument>(),
+  save: new StubEvent<TextDocument>(),
+  close: new StubEvent<TextDocument>(),
+  change: new StubEvent<{ document: TextDocument }>(),
+  diskChange: new StubEvent<Uri>(),
+  diskCreate: new StubEvent<Uri>(),
+  diskDelete: new StubEvent<Uri>(),
+};
+
+/** 假的磁碟：路徑 → 內容。 */
+export const disk = new Map<string, string>();
 
 class DiagnosticCollection {
   readonly entries = new Map<string, Diagnostic[]>();
@@ -134,11 +171,37 @@ export const workspace = {
     openedDocuments.push(uri.toString());
     return Promise.resolve(makeDocument("", uri.fsPath));
   },
-  onDidOpenTextDocument: () => noopDisposable,
-  onDidSaveTextDocument: () => noopDisposable,
-  onDidCloseTextDocument: () => noopDisposable,
-  onDidChangeTextDocument: () => noopDisposable,
+  onDidOpenTextDocument: events.open.event,
+  onDidSaveTextDocument: events.save.event,
+  onDidCloseTextDocument: events.close.event,
+  onDidChangeTextDocument: events.change.event,
+  createFileSystemWatcher(_glob: string) {
+    return {
+      onDidChange: events.diskChange.event,
+      onDidCreate: events.diskCreate.event,
+      onDidDelete: events.diskDelete.event,
+      dispose(): void {},
+    };
+  },
+  findFiles(_include: string, _exclude?: string, _max?: number): Promise<Uri[]> {
+    return Promise.resolve([...disk.keys()].map((path) => Uri.file(path)));
+  },
+  fs: {
+    readFile(uri: Uri): Promise<Uint8Array> {
+      const text = disk.get(uri.fsPath);
+      if (text === undefined) return Promise.reject(new Error(`ENOENT ${uri.fsPath}`));
+      return Promise.resolve(new TextEncoder().encode(text));
+    },
+    writeFile(): Promise<void> {
+      return Promise.resolve();
+    },
+  },
+  getConfiguration(_section?: string) {
+    return { get: <T>(_key: string, fallback: T): T => fallback, update: () => Promise.resolve() };
+  },
 };
+
+export const statusBarMessages: string[] = [];
 
 export const shownMessages: string[] = [];
 
@@ -151,6 +214,10 @@ export const window = {
   showWarningMessage(message: string) {
     shownMessages.push(message);
     return Promise.resolve(undefined);
+  },
+  setStatusBarMessage(message: string) {
+    statusBarMessages.push(message);
+    return noopDisposable;
   },
   showQuickPick(items: unknown[]) {
     return Promise.resolve(items[0]);
@@ -174,6 +241,9 @@ export const window = {
 };
 
 export function resetStub(): void {
+  for (const emitter of Object.values(events)) emitter.clear();
+  disk.clear();
+  statusBarMessages.length = 0;
   collections.length = 0;
   registeredCommands.clear();
   shownMessages.length = 0;

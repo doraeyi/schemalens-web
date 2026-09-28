@@ -29,6 +29,9 @@ importers:
       '@schemalens/schema-core':
         specifier: workspace:*
         version: link:../../packages/schema-core
+      '@schemalens/schema-diff':
+        specifier: workspace:*
+        version: link:../../packages/schema-diff
       '@schemalens/schema-fixtures':
         specifier: workspace:*
         version: link:../../packages/schema-fixtures
@@ -38,6 +41,9 @@ importers:
       '@schemalens/schema-layout':
         specifier: workspace:*
         version: link:../../packages/schema-layout
+      '@schemalens/schema-lint':
+        specifier: workspace:*
+        version: link:../../packages/schema-lint
       '@schemalens/schema-parser':
         specifier: workspace:*
         version: link:../../packages/schema-parser

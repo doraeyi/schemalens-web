@@ -9,6 +9,8 @@ export interface ExtensionStrings {
   exported: (tables: number, path: string) => string;
   validationPassed: (tables: number) => string;
   validationFailed: (issues: number) => string;
+  /** 檔案被外部改寫後，狀態列顯示的變更摘要。 */
+  schemaChanged: (file: string, changes: { added: number; removed: number; changed: number; relations: number }) => string;
   noSourceForPreview: string;
   definitionNotFound: (target: string) => string;
   spikePickerTitle: string;
@@ -23,6 +25,15 @@ const en: ExtensionStrings = {
   exported: (tables, path) => `Exported ${tables} tables to ${path}`,
   validationPassed: (tables) => `Schema is valid: ${tables} tables`,
   validationFailed: (issues) => `Schema has ${issues} issues — see the Problems panel`,
+  schemaChanged: (file, c) =>
+    `DBSchema: ${file} updated — ${[
+      c.added && `+${c.added} tables`,
+      c.removed && `-${c.removed} tables`,
+      c.changed && `~${c.changed} tables`,
+      c.relations && `${c.relations} relation changes`,
+    ]
+      .filter(Boolean)
+      .join(", ")}`,
   noSourceForPreview: "This preview has no source file (synthetic schema)",
   definitionNotFound: (target) => `Could not find the definition of ${target}`,
   spikePickerTitle: "DBSchema Spike — choose a schema size",
@@ -37,6 +48,15 @@ const zhHant: ExtensionStrings = {
   exported: (tables, path) => `已匯出 ${tables} 張 Table 到 ${path}`,
   validationPassed: (tables) => `Schema 驗證通過：${tables} 張 Table`,
   validationFailed: (issues) => `Schema 有 ${issues} 個問題，詳見 Problems Panel`,
+  schemaChanged: (file, c) =>
+    `DBSchema：${file} 已更新——${[
+      c.added && `新增 ${c.added} 張表`,
+      c.removed && `刪除 ${c.removed} 張表`,
+      c.changed && `修改 ${c.changed} 張表`,
+      c.relations && `${c.relations} 個關聯變動`,
+    ]
+      .filter(Boolean)
+      .join("、")}`,
   noSourceForPreview: "目前的 Preview 沒有對應的原始檔（合成 Schema）",
   definitionNotFound: (target) => `找不到 ${target} 的定義位置`,
   spikePickerTitle: "DBSchema Spike — 選擇 Schema 規模",
