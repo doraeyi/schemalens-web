@@ -23,6 +23,8 @@
 		selectedCount: number;
 		layoutDirty: boolean;
 		metricsText: string;
+		/** 有聚焦某張表時才顯示深度／方向／不相關——沒有聚焦時這三組按了也沒有任何效果。 */
+		hasFocus: boolean;
 		onDetailLevel: (level: DetailLevel) => void;
 		onDepth: (depth: number | null) => void;
 		onDirection: (direction: TraversalDirection) => void;
@@ -45,6 +47,7 @@
 		selectedCount,
 		layoutDirty,
 		metricsText,
+		hasFocus,
 		onDetailLevel,
 		onDepth,
 		onDirection,
@@ -118,10 +121,12 @@
 </script>
 
 <div
-	class="flex flex-wrap items-center gap-2.5 border-b border-border bg-surface/80 px-3 py-2 text-xs text-fg backdrop-blur-md"
+	class="sl-toolbar flex items-center gap-x-3 gap-y-2 overflow-x-auto border-b border-border bg-surface px-3 py-2 text-xs text-fg md:flex-wrap md:overflow-visible"
+	role="toolbar"
+	aria-label="檢視設定"
 >
 	<div class="relative">
-		<div class="flex items-center gap-1.5 rounded-md border border-border bg-bg/60 px-2 py-1">
+		<div class="flex items-center gap-1.5 rounded-full border border-border bg-bg/60 px-3 py-1">
 			<SearchIcon size={13} class="text-muted" />
 			<input
 				bind:this={searchInput}
@@ -130,8 +135,10 @@
 				onkeydown={handleKeydown}
 				type="search"
 				placeholder={t.searchPlaceholder}
-				class="w-56 bg-transparent text-xs text-fg placeholder:text-muted focus:outline-none"
+				aria-label={t.searchPlaceholder}
+				class="w-40 bg-transparent text-xs text-fg placeholder:text-muted focus:outline-none md:w-56"
 			/>
+			<kbd class="hidden flex-none rounded border border-border px-1 font-mono text-[10px] text-muted md:inline">Ctrl F</kbd>
 		</div>
 		{#if resultsOpen}
 			<div
@@ -162,33 +169,41 @@
 	</div>
 
 	{@render buttonGroup(t.viewGroup, [
-		{ label: t.viewOverview, value: 'overview' },
-		{ label: t.viewKeys, value: 'keys' },
-		{ label: t.viewFull, value: 'full' }
+		{ label: t.viewOverview, value: 'overview', hint: t.viewOverviewHint },
+		{ label: t.viewKeys, value: 'keys', hint: t.viewKeysHint },
+		{ label: t.viewFull, value: 'full', hint: t.viewFullHint }
 	], active.detailLevel, onDetailLevel)}
 
-	{@render buttonGroup(t.depthGroup, [
-		{ label: t.depthAll, value: null },
-		{ label: t.depthLevels(1), value: 1 },
-		{ label: t.depthLevels(2), value: 2 }
-	], active.depth, onDepth)}
+	{#if hasFocus}
+		<div class="sl-focus-cluster flex flex-none items-center gap-x-3 px-2 py-1">
+			{@render buttonGroup(t.depthGroup, [
+				{ label: t.depthAll, value: null },
+				{ label: t.depthLevels(1), value: 1 },
+				{ label: t.depthLevels(2), value: 2 }
+			], active.depth, onDepth)}
 
-	{@render buttonGroup(t.directionGroup, [
-		{ label: t.directionAll, value: 'all' },
-		{ label: t.directionUpstream, value: 'upstream' },
-		{ label: t.directionDownstream, value: 'downstream' }
-	], active.direction, onDirection)}
+			{@render buttonGroup(t.directionGroup, [
+				{ label: t.directionAll, value: 'all', hint: t.directionAllHint },
+				{ label: t.directionUpstream, value: 'upstream', hint: t.directionUpstreamHint },
+				{ label: t.directionDownstream, value: 'downstream', hint: t.directionDownstreamHint }
+			], active.direction, onDirection)}
 
-	{@render buttonGroup(t.unrelatedGroup, [
-		{ label: t.unrelatedDim, value: 'dim' },
-		{ label: t.unrelatedHide, value: 'hide' }
-	], active.unrelated, onUnrelated)}
+			{@render buttonGroup(t.unrelatedGroup, [
+				{ label: t.unrelatedDim, value: 'dim' },
+				{ label: t.unrelatedHide, value: 'hide' }
+			], active.unrelated, onUnrelated)}
+
+			<button class="sl-button sl-button-secondary sl-button-sm" onclick={onResetFocus}>{t.resetFocus}<kbd class="font-mono text-[10px] opacity-70">Esc</kbd></button>
+		</div>
+	{:else}
+		<span class="hidden flex-none text-muted lg:inline">點任一張表的標題，就能調整關聯深度與方向</span>
+	{/if}
 
 	{#if groups.length > 0}
 		<div class="flex items-center gap-1.5">
 			<span class="text-muted">{t.groupLabel}</span>
 			<select
-				class="max-w-40 rounded-md border border-border bg-bg/60 px-1.5 py-1 text-xs text-fg"
+				class="max-w-40 rounded-full border border-border bg-bg/60 px-2.5 py-1 text-xs text-fg"
 				value={active.groupFilter ?? ''}
 				onchange={onGroupSelectChange}
 			>
@@ -201,23 +216,22 @@
 	{/if}
 
 	{@render buttonGroup(t.commentsGroup, [
-		{ label: t.commentsTruncate, value: false },
-		{ label: t.commentsExpand, value: true }
+		{ label: t.commentsTruncate, value: false, hint: t.commentsTruncateHint },
+		{ label: t.commentsExpand, value: true, hint: t.commentsExpandHint }
 	], active.expandComments, onComments)}
 
-	<div class="flex items-center gap-1.5">
-		<button class="sl-btn" onclick={onResetFocus}>{t.resetFocus}</button>
-		<button class="sl-btn" onclick={onFitView}><Maximize2 size={12} class="mr-1 inline" />{t.fitView}</button>
+	<div class="flex flex-none items-center gap-1.5">
+		<button class="sl-button sl-button-secondary sl-button-sm" onclick={onFitView}><Maximize2 size={12} />{t.fitView}</button>
 		{#if layoutDirty}
-			<button class="sl-btn" onclick={onResetLayout}
-				><RotateCcw size={12} class="mr-1 inline" />{t.resetLayout}</button
+			<button class="sl-button sl-button-secondary sl-button-sm" onclick={onResetLayout}
+				><RotateCcw size={12} />{t.resetLayout}</button
 			>
 		{/if}
 	</div>
 
 	{#if selectedCount > 0}
 		<button
-			class="ml-auto flex items-center gap-1 rounded-md border border-violet px-2 py-1 text-violet"
+			class="sl-chip ml-auto border-violet text-violet"
 			onclick={onClearSelection}
 		>
 			已選取 {selectedCount} 張表 <X size={11} />
@@ -226,27 +240,29 @@
 
 	{#if columnFocusLabel}
 		<button
-			class="{selectedCount > 0 ? '' : 'ml-auto'} flex items-center gap-1 rounded-md border border-cyan px-2 py-1 text-cyan"
+			class="sl-chip {selectedCount > 0 ? '' : 'ml-auto'}" aria-pressed="true"
 			onclick={onClearColumnFocus}
 		>
 			{t.columnFocus}: {columnFocusLabel} <X size={11} />
 		</button>
 	{/if}
 
-	<div class="{columnFocusLabel || selectedCount > 0 ? '' : 'ml-auto'} text-muted">{metricsText}</div>
+	<div class="{columnFocusLabel || selectedCount > 0 ? '' : 'ml-auto'} flex-none text-muted tabular-nums">{metricsText}</div>
 </div>
 
 {#snippet buttonGroup(
 	label: string,
-	options: Array<{ label: string; value: string | number | boolean | null }>,
+	options: Array<{ label: string; value: string | number | boolean | null; hint?: string }>,
 	activeValue: string | number | boolean | null,
 	onPick: (value: any) => void
 )}
-	<div class="flex items-center gap-1">
-		<span class="text-muted">{label}</span>
+	<div class="flex flex-none items-center gap-1" role="group" aria-label={label}>
+		<span class="mr-0.5 text-muted">{label}</span>
 		{#each options as option (String(option.value))}
 			<button
-				class="sl-btn {option.value === activeValue ? 'sl-btn-active' : ''}"
+				class="sl-chip"
+				aria-pressed={option.value === activeValue}
+				title={option.hint}
 				onclick={() => onPick(option.value)}
 			>
 				{option.label}
@@ -256,23 +272,12 @@
 {/snippet}
 
 <style>
-	:global(.sl-btn) {
-		padding: 3px 8px;
-		border-radius: 6px;
-		border: 1px solid var(--sl-border);
-		background: transparent;
-		color: inherit;
-		font: inherit;
-		cursor: pointer;
-		white-space: nowrap;
+	.sl-toolbar {
+		scrollbar-width: none;
 	}
-	:global(.sl-btn:hover) {
-		background: color-mix(in oklab, var(--sl-cyan) 12%, transparent);
-		border-color: var(--sl-cyan);
-	}
-	:global(.sl-btn-active) {
-		background: var(--sl-cyan);
-		color: var(--sl-bg);
-		border-color: transparent;
+	.sl-focus-cluster {
+		border-radius: 9999px;
+		background: color-mix(in oklab, var(--sl-cyan) 7%, transparent);
+		box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--sl-cyan) 25%, transparent);
 	}
 </style>

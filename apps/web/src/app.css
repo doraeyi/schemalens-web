@@ -1,8 +1,10 @@
 @import 'tailwindcss';
 
 @theme {
+	/* Geist 管拉丁字、Noto Sans TC 管中文：兩套都從 Google Fonts 載入，不同作業系統看起來一致，
+	   不再依賴使用者剛好有沒有裝 Inter（之前根本沒載入，實際上都是系統字型）。 */
 	--font-sans:
-		'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+		'Geist', 'Noto Sans TC', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', 'Microsoft JhengHei', sans-serif;
 	--font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
 
 	/* indirection so these Tailwind utilities stay theme-aware at runtime —
@@ -23,112 +25,134 @@
  * @schemalens/schema-renderer and toolbar CSS (packages/schema-renderer/src/styles.ts).
  * Defining them here re-skins the diagram without touching the vendored source.
  */
+/*
+ * 設計規範（首頁、工作區、OAuth 頁共用）：
+ * - 中性鋅灰階：深色是近乎純黑的頁面、稍亮的卡片；淺色是同一套的反相。
+ * - 一個強調色（藍）只用在選取、聚焦、連結、資料關聯；主要動作用「白底黑字／黑底白字」的膠囊按鈕。
+ * - 元件：.sl-button（膠囊按鈕）、.sl-chip（切換用的小膠囊）、.sl-icon-btn（只有圖示）。
+ * VS Code 插件沿用同樣的元件造型，但顏色吃 VS Code 主題（見 apps/vscode-extension/src/webview/toolbar.ts）。
+ *
+ * --vscode-* 這組是給共用渲染引擎（packages/schema-renderer/src/styles.ts）讀的，
+ * 在網頁版這裡定義就能重新上色，不用動引擎本身。
+ */
 :root {
 	color-scheme: dark;
 
-	--sl-page-bg: #05070d;
-	--sl-page-bg-2: #070b16;
+	--sl-page-bg: #050505;
+	--sl-page-bg-2: #0b0b0c;
 
-	--sl-bg: #05070d;
-	--sl-surface: #0b0f1c;
-	--sl-surface-2: #121a2e;
-	--sl-border: #1e2942;
-	--sl-fg: #e6ecff;
-	--sl-muted: #7a8bb0;
-	--sl-cyan: #22d3ee;
-	--sl-violet: #8b5cf6;
-	--sl-magenta: #f472b6;
+	--sl-bg: #08080a;
+	--sl-surface: #0f0f11;
+	--sl-surface-2: #18181b;
+	--sl-border: #27272a;
+	--sl-fg: #fafafa;
+	--sl-muted: #a1a1aa;
+	--sl-cyan: #3b9eff;
+	/* 實心藍底按鈕用深一階：#3b9eff 上白字只有約 2.9:1 */
+	--sl-accent-strong: #1f6feb;
+	--sl-primary-bg: #fafafa;
+	--sl-primary-fg: #09090b;
+	--sl-violet: #b083ff;
+	--sl-magenta: #ff6b9d;
+	/* 狀態色：錯誤／警告。在 surface 上都至少 4.5:1，Schema 問題面板跟匯入提示共用。 */
+	--sl-danger: #ff7b72;
+	--sl-warning: #e3b341;
 
-	--vscode-editor-background: #0b0f1c;
-	--vscode-editor-foreground: #e6ecff;
-	--vscode-font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+	--vscode-editor-background: #08080a;
+	--vscode-editor-foreground: #fafafa;
+	--vscode-font-family: 'Geist', 'Noto Sans TC', ui-sans-serif, system-ui, sans-serif;
 	--vscode-editor-font-family: 'JetBrains Mono', ui-monospace, monospace;
 
-	--vscode-panel-border: #1e2942;
-	--vscode-editorWidget-background: #121a2e;
-	--vscode-titleBar-activeBackground: #16203a;
-	--vscode-descriptionForeground: #7a8bb0;
-	--vscode-focusBorder: #22d3ee;
+	--vscode-panel-border: #2e2e33;
+	--vscode-editorWidget-background: #111113;
+	--vscode-titleBar-activeBackground: #19191c;
+	--vscode-descriptionForeground: #a1a1aa;
+	--vscode-focusBorder: #3b9eff;
 
-	--vscode-editorIndentGuide-activeBackground: #2c3a5c;
-	--vscode-list-hoverBackground: rgba(148, 197, 255, 0.08);
-	--vscode-list-activeSelectionBackground: rgba(34, 211, 238, 0.18);
-	--vscode-list-inactiveSelectionBackground: rgba(139, 92, 246, 0.12);
-	--vscode-editor-findMatchHighlightBackground: rgba(251, 146, 60, 0.35);
+	--vscode-editorIndentGuide-activeBackground: #6b6b74;
+	--vscode-list-hoverBackground: rgba(59, 158, 255, 0.1);
+	--vscode-list-activeSelectionBackground: rgba(59, 158, 255, 0.22);
+	--vscode-list-inactiveSelectionBackground: rgba(176, 131, 255, 0.14);
+	--vscode-editor-findMatchHighlightBackground: rgba(255, 159, 67, 0.35);
 
-	--vscode-charts-blue: #38bdf8;
-	--vscode-charts-orange: #fb923c;
-	--vscode-charts-yellow: #facc15;
-	--vscode-charts-purple: #c084fc;
-	--vscode-charts-green: #34d399;
-	--vscode-symbolIcon-typeParameterForeground: #8b5cf6;
+	--vscode-charts-blue: #58a6ff;
+	--vscode-charts-orange: #ff9f43;
+	--vscode-charts-yellow: #e3b341;
+	--vscode-charts-purple: #c297ff;
+	--vscode-charts-green: #3fd07a;
+	--vscode-symbolIcon-typeParameterForeground: #4fd6c4;
 
-	--vscode-inputValidation-errorBorder: #f43f5e;
-	--vscode-inputValidation-errorBackground: rgba(244, 63, 94, 0.14);
+	--vscode-inputValidation-errorBorder: #ff5c6c;
+	--vscode-inputValidation-errorBackground: rgba(255, 92, 108, 0.14);
 
-	--vscode-toolbar-hoverBackground: rgba(148, 197, 255, 0.1);
-	--vscode-button-background: #0ea5b7;
-	--vscode-button-foreground: #04141a;
-	--vscode-input-border: #26314d;
-	--vscode-input-background: #0b0f1c;
-	--vscode-input-foreground: #e6ecff;
-	--vscode-quickInput-background: #0b0f1c;
-	--vscode-dropdown-border: #26314d;
-	--vscode-dropdown-background: #0b0f1c;
-	--vscode-dropdown-foreground: #e6ecff;
+	--vscode-toolbar-hoverBackground: rgba(250, 250, 250, 0.08);
+	--vscode-button-background: #1f6feb;
+	--vscode-button-foreground: #ffffff;
+	--vscode-input-border: #2e2e33;
+	--vscode-input-background: #0b0b0c;
+	--vscode-input-foreground: #fafafa;
+	--vscode-quickInput-background: #111113;
+	--vscode-dropdown-border: #2e2e33;
+	--vscode-dropdown-background: #111113;
+	--vscode-dropdown-foreground: #fafafa;
 }
 
 :root[data-theme='light'] {
 	color-scheme: light;
 
-	--sl-page-bg: #f5f7fc;
-	--sl-page-bg-2: #eef2fa;
+	--sl-page-bg: #fafafa;
+	--sl-page-bg-2: #f4f4f5;
 
-	--sl-bg: #f5f7fc;
+	--sl-bg: #f4f4f5;
 	--sl-surface: #ffffff;
-	--sl-surface-2: #eef2fa;
-	--sl-border: #dbe2f0;
-	--sl-fg: #101625;
-	--sl-muted: #5b6b8c;
-	--sl-cyan: #0891b2;
-	--sl-violet: #7c3aed;
-	--sl-magenta: #db2777;
+	--sl-surface-2: #f4f4f5;
+	--sl-border: #e4e4e7;
+	--sl-fg: #09090b;
+	--sl-muted: #52525b;
+	--sl-cyan: #0969da;
+	--sl-accent-strong: #0969da;
+	--sl-primary-bg: #09090b;
+	--sl-primary-fg: #fafafa;
+	--sl-violet: #8250df;
+	--sl-magenta: #cf2276;
+	--sl-danger: #c4232e;
+	--sl-warning: #8a5d00;
 
-	--vscode-editor-background: #ffffff;
-	--vscode-editor-foreground: #101625;
+	--vscode-editor-background: #f4f4f5;
+	--vscode-editor-foreground: #09090b;
 
-	--vscode-panel-border: #dbe2f0;
-	--vscode-editorWidget-background: #f3f5fb;
-	--vscode-titleBar-activeBackground: #e9edf8;
-	--vscode-descriptionForeground: #5b6b8c;
-	--vscode-focusBorder: #0891b2;
+	--vscode-panel-border: #d4d4d8;
+	--vscode-editorWidget-background: #ffffff;
+	--vscode-titleBar-activeBackground: #f4f4f5;
+	--vscode-descriptionForeground: #52525b;
+	--vscode-focusBorder: #0969da;
 
-	--vscode-editorIndentGuide-activeBackground: #c7d1e6;
-	--vscode-list-hoverBackground: rgba(8, 145, 178, 0.07);
-	--vscode-list-activeSelectionBackground: rgba(8, 145, 178, 0.15);
-	--vscode-list-inactiveSelectionBackground: rgba(124, 58, 237, 0.1);
-	--vscode-editor-findMatchHighlightBackground: rgba(234, 88, 12, 0.25);
+	--vscode-editorIndentGuide-activeBackground: #a1a1aa;
+	--vscode-list-hoverBackground: rgba(9, 105, 218, 0.07);
+	--vscode-list-activeSelectionBackground: rgba(9, 105, 218, 0.15);
+	--vscode-list-inactiveSelectionBackground: rgba(130, 80, 223, 0.1);
+	--vscode-editor-findMatchHighlightBackground: rgba(209, 87, 11, 0.22);
 
-	--vscode-charts-blue: #0284c7;
-	--vscode-charts-orange: #ea580c;
-	--vscode-charts-yellow: #ca8a04;
-	--vscode-charts-purple: #7c3aed;
-	--vscode-charts-green: #059669;
-	--vscode-symbolIcon-typeParameterForeground: #7c3aed;
+	--vscode-charts-blue: #0969da;
+	--vscode-charts-orange: #d1570b;
+	--vscode-charts-yellow: #8a5d00;
+	--vscode-charts-purple: #8250df;
+	--vscode-charts-green: #1a7f37;
+	--vscode-symbolIcon-typeParameterForeground: #0a7d6c;
 
-	--vscode-inputValidation-errorBorder: #dc2626;
-	--vscode-inputValidation-errorBackground: rgba(220, 38, 38, 0.08);
+	--vscode-inputValidation-errorBorder: #cf222e;
+	--vscode-inputValidation-errorBackground: rgba(207, 34, 46, 0.08);
 
-	--vscode-toolbar-hoverBackground: rgba(15, 23, 42, 0.06);
-	--vscode-button-background: #0891b2;
+	--vscode-toolbar-hoverBackground: rgba(9, 9, 11, 0.06);
+	--vscode-button-background: #0969da;
 	--vscode-button-foreground: #ffffff;
-	--vscode-input-border: #cbd5e1;
+	--vscode-input-border: #d4d4d8;
 	--vscode-input-background: #ffffff;
-	--vscode-input-foreground: #101625;
+	--vscode-input-foreground: #09090b;
 	--vscode-quickInput-background: #ffffff;
-	--vscode-dropdown-border: #cbd5e1;
+	--vscode-dropdown-border: #d4d4d8;
 	--vscode-dropdown-background: #ffffff;
-	--vscode-dropdown-foreground: #101625;
+	--vscode-dropdown-foreground: #09090b;
 }
 
 /*
@@ -253,4 +277,179 @@ body {
 	background: var(--sl-page-bg);
 	color: var(--vscode-editor-foreground);
 	font-family: var(--vscode-font-family);
+}
+
+/* 瀏覽器原生的部分也跟著主題走：選取、游標、焦點環、捲軸。 */
+::selection {
+	background: color-mix(in oklab, var(--sl-cyan) 30%, transparent);
+	color: var(--sl-fg);
+}
+input,
+textarea {
+	caret-color: var(--sl-cyan);
+}
+:focus-visible {
+	outline: 2px solid var(--sl-cyan);
+	outline-offset: 2px;
+	border-radius: 4px;
+}
+* {
+	scrollbar-width: thin;
+	scrollbar-color: color-mix(in oklab, var(--sl-muted) 45%, transparent) transparent;
+}
+
+@layer components {
+/* 膠囊按鈕：primary 是「白底黑字／黑底白字」，一個畫面只放一顆；secondary 是細框；danger 只給刪除。 */
+.sl-button {
+	display: inline-flex;
+	flex: none;
+	align-items: center;
+	justify-content: center;
+	gap: 6px;
+	min-height: 34px;
+	padding: 0 16px;
+	border: 1px solid transparent;
+	border-radius: 9999px;
+	font-size: 13px;
+	font-weight: 600;
+	white-space: nowrap;
+	cursor: pointer;
+	transition:
+		background-color 0.15s ease,
+		border-color 0.15s ease,
+		color 0.15s ease,
+		transform 0.1s ease;
+}
+.sl-button:active:not(:disabled) {
+	transform: translateY(1px);
+}
+.sl-button:disabled {
+	opacity: 0.45;
+	cursor: not-allowed;
+}
+.sl-button-sm {
+	min-height: 28px;
+	padding: 0 11px;
+	font-size: 12px;
+	font-weight: 500;
+}
+.sl-button-primary {
+	background: var(--sl-primary-bg);
+	color: var(--sl-primary-fg);
+}
+.sl-button-primary:hover:not(:disabled) {
+	background: color-mix(in oklab, var(--sl-primary-bg) 86%, var(--sl-cyan));
+}
+.sl-button-accent {
+	background: var(--sl-accent-strong);
+	color: #fff;
+}
+.sl-button-secondary {
+	border-color: var(--sl-border);
+	color: var(--sl-fg);
+}
+.sl-button-secondary:hover:not(:disabled) {
+	border-color: var(--sl-muted);
+	background: color-mix(in oklab, var(--sl-fg) 5%, transparent);
+}
+.sl-button-danger {
+	background: var(--sl-danger);
+	color: var(--sl-bg);
+}
+.sl-button-danger:hover:not(:disabled) {
+	background: color-mix(in oklab, var(--sl-danger) 85%, var(--sl-fg));
+}
+
+/* 切換用的小膠囊（工具列的欄位顯示、深度、方向……）：選中是淡藍底＋藍字，不是實心——
+   一列同時有好幾個選中，實心會跟真正的主要動作搶視線。 */
+.sl-chip {
+	display: inline-flex;
+	flex: none;
+	align-items: center;
+	gap: 4px;
+	min-height: 26px;
+	padding: 0 10px;
+	border: 1px solid var(--sl-border);
+	border-radius: 9999px;
+	color: var(--sl-muted);
+	font-size: 12px;
+	white-space: nowrap;
+	cursor: pointer;
+	transition:
+		background-color 0.15s ease,
+		border-color 0.15s ease,
+		color 0.15s ease;
+}
+.sl-chip:hover {
+	border-color: var(--sl-muted);
+	color: var(--sl-fg);
+}
+.sl-chip[aria-pressed='true'] {
+	border-color: color-mix(in oklab, var(--sl-cyan) 55%, transparent);
+	background: color-mix(in oklab, var(--sl-cyan) 13%, transparent);
+	color: var(--sl-cyan);
+	font-weight: 600;
+}
+
+/* 只有圖示的按鈕（側欄、底部工具列、檢視面板共用）。之前側欄跟工具列各自定義一份
+   :global 版本，尺寸一個 22px 一個 28px，誰最後載入誰贏。 */
+.sl-icon-btn {
+	display: flex;
+	flex: none;
+	align-items: center;
+	justify-content: center;
+	width: 28px;
+	height: 28px;
+	border-radius: 6px;
+	color: inherit;
+	cursor: pointer;
+}
+.sl-icon-btn:hover {
+	background: color-mix(in oklab, var(--sl-cyan) 14%, transparent);
+	color: var(--sl-cyan);
+}
+.sl-icon-btn-active,
+.sl-icon-btn-active:hover {
+	background: var(--sl-cyan);
+	color: var(--sl-bg);
+}
+.sl-bottom-bar .sl-icon-btn {
+	border-radius: 9999px;
+}
+
+/* 對話框右上角的關閉鈕（各對話框共用；見 $lib/actions/modal.ts） */
+.sl-close-btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 28px;
+	height: 28px;
+	margin: -4px -6px -4px 0;
+	border-radius: 6px;
+	color: var(--sl-muted);
+}
+.sl-close-btn:hover {
+	color: var(--sl-fg);
+	background: color-mix(in oklab, var(--sl-fg) 8%, transparent);
+}
+}
+
+/*
+ * 卡片上的微型標註（schema 名、PK/FK 徽章、null、備註）在共用渲染引擎裡是 9–10px，
+ * 預設 55% 縮放下實際只剩 5–6px。網頁版這裡拉高一級，不動 VS Code 插件那邊的預設值。
+ * 卡片寬度由 renderer 實際量 DOM 決定，所以字放大不會被截掉。
+ */
+/* 加上 .dbs-root 前綴：renderer 的樣式是執行時才插進 <head>，同權重會被它蓋掉。 */
+.dbs-root .dbs-row-badges {
+	font-size: 10px;
+}
+.dbs-root .dbs-card-schema,
+.dbs-root .dbs-card-comment,
+.dbs-root .dbs-row-flags,
+.dbs-root .dbs-row-comment {
+	font-size: 11px;
+}
+.dbs-root .dbs-row-type,
+.dbs-root .dbs-row-flags {
+	font-variant-numeric: tabular-nums;
 }

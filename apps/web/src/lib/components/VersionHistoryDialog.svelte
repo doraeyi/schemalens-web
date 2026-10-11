@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { modal } from '$lib/actions/modal';
 	import { Eye, GitCompare, History, Trash2, X } from '@lucide/svelte';
 
 	export interface VersionSummary {
@@ -55,14 +56,14 @@
 	}
 </script>
 
-<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm" use:modal={onClose}>
 	<div class="flex max-h-[80vh] w-full max-w-lg flex-col rounded-xl border border-border bg-surface p-5 text-fg shadow-2xl">
 		<div class="mb-3 flex items-center justify-between">
 			<h2 class="flex items-center gap-1.5 text-sm font-semibold">
 				<History size={15} class="text-cyan" />
 				版本歷史
 			</h2>
-			<button class="text-muted hover:text-fg" onclick={onClose}><X size={16} /></button>
+			<button class="sl-close-btn" onclick={onClose} aria-label="關閉" title="關閉（Esc）"><X size={16} /></button>
 		</div>
 
 		<div class="mb-3 flex items-center gap-2">
@@ -131,21 +132,3 @@
 		</div>
 	</div>
 </div>
-
-<style>
-	:global(.sl-icon-btn) {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 22px;
-		height: 22px;
-		border-radius: 4px;
-		border: none;
-		background: transparent;
-		color: inherit;
-		cursor: pointer;
-	}
-	:global(.sl-icon-btn:hover) {
-		background: color-mix(in oklab, var(--sl-cyan) 14%, transparent);
-	}
-</style>

@@ -4,8 +4,11 @@
 	import { signIn, signOut } from '@auth/sveltekit/client';
 	import { clearDraft } from '$lib/persistence/localDraft';
 	import type { Session } from '@auth/sveltekit';
+	import { onMount } from 'svelte';
 	import {
+		Cloud,
 		FileText,
+		HardDrive,
 		Github,
 		LogOut,
 		PanelLeftClose,
@@ -16,7 +19,7 @@
 		Trash2
 	} from '@lucide/svelte';
 	import TableInspector from './TableInspector.svelte';
-	import logoUrl from '$lib/assets/logo.png';
+	import Logo from './Logo.svelte';
 
 	export interface PageSummary {
 		id: string;
@@ -36,6 +39,8 @@
 		onSearchResults: (hits: SearchHit[]) => void;
 		onSelectPage: (pageId: string) => void;
 		onCreatePage: (event: MouseEvent) => void;
+		/** 訪客按「存到雲端」：開說明登入好處的對話框，不是直接跳 GitHub。 */
+		onSaveToCloud: () => void;
 		onRenamePage: (pageId: string, title: string) => void;
 		onDeletePage: (pageId: string) => void;
 		onCloseInspector: () => void;
@@ -60,6 +65,7 @@
 		onSearchResults,
 		onSelectPage,
 		onCreatePage,
+		onSaveToCloud,
 		onRenamePage,
 		onDeletePage,
 		onCloseInspector,
@@ -99,6 +105,20 @@
 	}
 
 	let collapsed = $state(false);
+	/** 手機寬度：側欄改成蓋在畫布上的抽屜，預設收起來，不然 320px 的側欄會把畫布擠到只剩一條。 */
+	let isNarrow = $state(false);
+
+	onMount(() => {
+		const query = window.matchMedia('(max-width: 767px)');
+		isNarrow = query.matches;
+		if (isNarrow) collapsed = true;
+		const handleChange = (event: MediaQueryListEvent) => {
+			isNarrow = event.matches;
+			if (event.matches) collapsed = true;
+		};
+		query.addEventListener('change', handleChange);
+		return () => query.removeEventListener('change', handleChange);
+	});
 
 	let query = $state('');
 	let hits = $state<SearchHit[]>([]);
@@ -151,17 +171,27 @@
 	}
 </script>
 
+{#if isNarrow && !collapsed}
+	<button
+		class="absolute inset-0 z-40 bg-black/40"
+		aria-label="收合側欄"
+		tabindex="-1"
+		onclick={() => (collapsed = true)}
+	></button>
+{/if}
+
+<div class="relative h-full flex-none {collapsed ? 'w-14' : 'w-14 md:w-80'}">
 <div
-	class="flex h-full flex-none flex-col border-r border-border bg-surface/60 text-xs text-fg transition-[width] duration-150 {collapsed
-		? 'w-14'
-		: 'w-80'}"
+	class="absolute inset-y-0 left-0 flex flex-col border-r border-border text-xs text-fg transition-[width] duration-150 {collapsed
+		? 'w-14 bg-surface/60'
+		: 'z-50 w-[min(20rem,calc(100vw-3rem))] bg-surface shadow-2xl md:w-80 md:bg-surface/60 md:shadow-none'}"
 >
 	<div class="flex items-center gap-2 border-b border-border p-3 {collapsed ? 'flex-col' : 'flex-row'}">
 		<a href="/" title="回首頁" class="{collapsed ? 'flex-none' : 'flex-1'} min-w-0">
 			{#if collapsed}
-				<img src={logoUrl} alt="SchemaLens" class="h-10 w-10 object-contain" />
+				<Logo size={30} wordmark={false} />
 			{:else}
-				<img src={logoUrl} alt="SchemaLens" class="h-14 w-full object-contain object-left" />
+				<Logo size={30} />
 			{/if}
 		</a>
 		<button
@@ -216,10 +246,25 @@
 		<div class="max-h-48 overflow-auto border-b border-border p-2">
 			<div class="mb-1 flex items-center justify-between px-1">
 				<span class="text-muted">分頁</span>
-				<button class="sl-icon-btn" onclick={onCreatePage} title="新增分頁（一般或即時協作）" aria-label="新增分頁">
-					<Plus size={13} />
-				</button>
+				{#if session?.user}
+					<button class="sl-icon-btn" onclick={onCreatePage} title="新增分頁（一般或即時協作）" aria-label="新增分頁">
+						<Plus size={13} />
+					</button>
+				{/if}
 			</div>
+			{#if !session?.user}
+				<div class="flex items-center gap-1.5 rounded-md bg-surface-2 px-1.5 py-1.5 text-cyan">
+					<HardDrive size={13} class="flex-none" />
+					<span class="min-w-0 flex-1 truncate">本機草稿</span>
+					<span class="flex-none text-[11px] text-muted">只存在這個瀏覽器</span>
+				</div>
+				<button
+					class="mt-1.5 flex w-full items-center justify-center gap-1.5 rounded-md border border-border py-1.5 text-muted hover:border-cyan hover:text-cyan"
+					onclick={onSaveToCloud}
+				>
+					<Cloud size={12} /> 存到雲端、建立更多分頁…
+				</button>
+			{/if}
 			{#each pages as p (p.id)}
 				<div
 					class="group flex items-center gap-1.5 rounded-md px-1.5 py-1.5 {activePageId === p.id
@@ -243,7 +288,7 @@
 							{/if}
 						</button>
 						<button
-							class="sl-icon-btn flex-none opacity-0 group-hover:opacity-100"
+							class="sl-icon-btn flex-none opacity-0 group-focus-within:opacity-100 group-hover:opacity-100"
 							onclick={() => (renamingPageId = p.id)}
 							title="重新命名"
 							aria-label="重新命名"
@@ -261,7 +306,7 @@
 					{/if}
 				</div>
 			{/each}
-			{#if pages.length === 0}
+			{#if session?.user && pages.length === 0}
 				<button
 					class="flex w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-border py-1.5 text-muted hover:border-cyan hover:text-cyan"
 					onclick={onCreatePage}
@@ -331,25 +376,9 @@
 		</div>
 	{/if}
 </div>
+</div>
 
 <style>
-	:global(.sl-icon-btn) {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 22px;
-		height: 22px;
-		border-radius: 4px;
-		border: none;
-		background: transparent;
-		color: inherit;
-		cursor: pointer;
-		font-size: 11px;
-		font-weight: 700;
-	}
-	:global(.sl-icon-btn:hover) {
-		background: color-mix(in oklab, var(--sl-cyan) 14%, transparent);
-	}
 	:global(.sl-dock-zone.sl-dock-hover) {
 		outline: 2px dashed var(--sl-cyan);
 		outline-offset: -2px;

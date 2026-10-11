@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { modal } from '$lib/actions/modal';
 	import { Check, Copy, X } from '@lucide/svelte';
 
 	interface Props {
@@ -23,7 +24,7 @@
 	}
 </script>
 
-<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm" use:modal={onClose}>
 	<div class="flex max-h-[80vh] w-full max-w-2xl flex-col rounded-xl border border-border bg-surface p-5 text-fg shadow-2xl">
 		<div class="mb-3 flex items-center justify-between">
 			<h2 class="text-sm font-semibold">目前的 DSL 原始碼</h2>
@@ -38,7 +39,7 @@
 						<Copy size={12} /> 複製到剪貼簿
 					{/if}
 				</button>
-				<button class="text-muted hover:text-fg" onclick={onClose}><X size={16} /></button>
+				<button class="sl-close-btn" onclick={onClose} aria-label="關閉" title="關閉（Esc）"><X size={16} /></button>
 			</div>
 		</div>
 		<p class="mb-2 text-xs text-muted">不用下載檔案——直接複製這段文字貼給 AI 或貼到別的地方。</p>

@@ -3,7 +3,7 @@
 	import { groupColor } from '@schemalens/schema-renderer';
 	import { relationsTouching } from '$lib/schema/mutations';
 	import ConfirmDeleteDialog from './ConfirmDeleteDialog.svelte';
-	import { ArrowRight, Copy, EyeOff, Eye, Key, Plus, Trash2, X } from '@lucide/svelte';
+	import { ArrowLeft, ArrowRight, Copy, EyeOff, Eye, Plus, Trash2, X } from '@lucide/svelte';
 
 	interface Props {
 		schema: Schema;
@@ -66,11 +66,19 @@
 				const isSource = r.sourceTable === tableId;
 				return {
 					relation: r,
+					/** true：這張表有外鍵指向對方；false：對方的外鍵指向這張表。 */
+					outgoing: isSource,
 					otherTable: isSource ? r.targetTable : r.sourceTable,
-					localColumns: isSource ? r.sourceColumns : r.targetColumns
+					localColumns: isSource ? r.sourceColumns : r.targetColumns,
+					otherColumns: isSource ? r.targetColumns : r.sourceColumns
 				};
 			})
 	);
+
+	/** 表名顯示時省略 schema 前綴（同一份 schema 裡幾乎都一樣），只留表名本身。 */
+	function shortName(id: TableId): string {
+		return schema.tables.find((t) => t.id === id)?.name ?? id;
+	}
 
 	function commitName(event: Event): void {
 		if (!table) return;
@@ -209,7 +217,7 @@
 		bind:this={panelEl}
 		class={effectiveDocked
 			? 'flex w-full flex-1 min-h-0 flex-col overflow-hidden border-t border-border bg-surface text-xs text-fg'
-			: 'fixed z-30 flex max-h-[calc(100vh-2rem)] w-80 flex-col overflow-hidden rounded-xl border border-border bg-surface text-xs text-fg shadow-2xl shadow-black/40'}
+			: 'fixed z-30 flex max-h-[calc(100vh-2rem)] w-80 flex-col overflow-hidden rounded-xl border border-border bg-surface text-xs text-fg shadow-2xl shadow-black/40 max-md:!top-auto max-md:!right-2 max-md:!bottom-20 max-md:!left-2 max-md:max-h-[42dvh] max-md:!w-auto'}
 		style:top={effectiveDocked ? undefined : `${posY}px`}
 		style:left={effectiveDocked ? undefined : `${posX}px`}
 	>
@@ -266,14 +274,15 @@
 				<div class="mb-2 font-semibold">欄位</div>
 				<div class="flex flex-col gap-1.5">
 					{#each table.columns as column (column.name)}
-						<div class="flex items-center gap-1">
+						<div class="group/col flex items-center gap-1">
 							<button
-								class="sl-icon-btn flex-none {column.primaryKey ? 'text-yellow-400' : 'text-muted'}"
+								class="sl-flag {column.primaryKey ? 'is-on sl-flag-pk' : ''}"
 								onclick={() => onUpdateColumn(table.id, column.name, { primaryKey: !column.primaryKey })}
-								title="主鍵"
-								aria-label="切換主鍵"
+								title={column.primaryKey ? '主鍵（按一下取消）' : '設為主鍵'}
+								aria-label="主鍵"
+								aria-pressed={column.primaryKey}
 							>
-								<Key size={12} />
+								PK
 							</button>
 							<input
 								value={column.name}
@@ -289,15 +298,16 @@
 								class="w-20 flex-none rounded border border-border bg-bg/60 px-1.5 py-1 font-mono focus:border-cyan focus:outline-none"
 							/>
 							<button
-								class="sl-icon-btn flex-none {column.nullable ? 'text-cyan' : 'text-muted'}"
+								class="sl-flag {column.nullable ? 'is-on' : ''}"
 								onclick={() => onUpdateColumn(table.id, column.name, { nullable: !column.nullable })}
-								title="允許 NULL"
-								aria-label="切換允許 NULL"
+								title={column.nullable ? '允許 NULL（按一下改成 NOT NULL）' : 'NOT NULL（按一下改成允許 NULL）'}
+								aria-label="允許 NULL"
+								aria-pressed={column.nullable}
 							>
-								?
+								NULL
 							</button>
 							<button
-								class="sl-icon-btn flex-none text-red-400 hover:text-red-300"
+								class="sl-icon-btn flex-none text-red-400 opacity-0 group-focus-within/col:opacity-100 group-hover/col:opacity-100 hover:text-red-300 max-md:opacity-100"
 								onclick={() => requestDeleteColumn(column.name)}
 								title="刪除欄位"
 								aria-label="刪除欄位"
@@ -323,11 +333,18 @@
 							class="w-full rounded-md border border-border px-2.5 py-2 text-left hover:border-cyan hover:text-cyan"
 							onclick={() => onFocusTable(item.otherTable)}
 						>
-							<div class="flex items-center gap-1.5 font-mono">
-								<ArrowRight size={12} class="flex-none" />
-								{item.otherTable}
+							<div class="flex items-center gap-1.5">
+								{#if item.outgoing}<ArrowRight size={12} class="flex-none" />{:else}<ArrowLeft size={12} class="flex-none" />{/if}
+								<span class="font-mono font-semibold">{shortName(item.otherTable)}</span>
+								<span class="ml-auto text-muted">{item.outgoing ? '參照' : '被參照'}</span>
 							</div>
-							<div class="mt-0.5 pl-[18px] text-muted">{item.localColumns.join(', ')}</div>
+							<div class="mt-0.5 pl-[18px] font-mono text-muted">
+								{#if item.outgoing}
+									{table.name}.{item.localColumns.join(', ')} → {shortName(item.otherTable)}.{item.otherColumns.join(', ')}
+								{:else}
+									{shortName(item.otherTable)}.{item.otherColumns.join(', ')} → {table.name}.{item.localColumns.join(', ')}
+								{/if}
+							</div>
 						</button>
 					{/each}
 					{#if relations.length === 0}
@@ -359,21 +376,31 @@
 </datalist>
 
 <style>
-	:global(.sl-icon-btn) {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 22px;
-		height: 22px;
-		border-radius: 4px;
-		border: none;
-		background: transparent;
-		color: inherit;
-		cursor: pointer;
-		font-size: 11px;
+	/* PK / NULL 直接寫字：之前是鑰匙圖示跟一個「?」，看不出是在切換什麼。 */
+	.sl-flag {
+		flex: none;
+		min-width: 34px;
+		height: 24px;
+		border: 1px solid var(--sl-border);
+		border-radius: 5px;
+		padding: 0 5px;
+		font-family: var(--font-mono);
+		font-size: 10px;
 		font-weight: 700;
+		color: var(--sl-muted);
 	}
-	:global(.sl-icon-btn:hover) {
+	.sl-flag:hover {
+		border-color: var(--sl-cyan);
+		color: var(--sl-fg);
+	}
+	.sl-flag.is-on {
+		border-color: color-mix(in oklab, var(--sl-cyan) 55%, transparent);
 		background: color-mix(in oklab, var(--sl-cyan) 14%, transparent);
+		color: var(--sl-cyan);
+	}
+	.sl-flag-pk.is-on {
+		border-color: color-mix(in oklab, var(--sl-warning) 60%, transparent);
+		background: color-mix(in oklab, var(--sl-warning) 14%, transparent);
+		color: var(--sl-warning);
 	}
 </style>

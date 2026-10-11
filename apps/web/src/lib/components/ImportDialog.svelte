@@ -1,6 +1,8 @@
 <script lang="ts">
+	import { modal } from '$lib/actions/modal';
 	import { FileUp, X } from '@lucide/svelte';
 	import { SQL_DIALECTS, type SqlDialectId } from '@schemalens/schema-sql';
+	import { SNIPPET_DSL, SNIPPET_SQL } from '$lib/schema/sampleSchema';
 
 	interface Props {
 		mode?: 'import' | 'compare';
@@ -47,8 +49,20 @@
 		onImport(source, file.name);
 	}
 
+	const canSubmit = $derived(text.trim().length > 0);
+
+	/** 只示範語法，不是完整範例——兩張表加一條 FK，照著改就知道關聯怎麼寫。 */
+	function fillSnippet(): void {
+		if (format === 'sql') {
+			text = SNIPPET_SQL;
+			sqlDialect = 'postgresql';
+		} else {
+			text = SNIPPET_DSL;
+		}
+	}
+
 	function handlePasteSubmit(): void {
-		if (!text.trim()) return;
+		if (!canSubmit) return;
 		if (format === 'sql') {
 			onImport(text, `pasted.${sqlDialect}.sql`, sqlDialect);
 			return;
@@ -60,22 +74,24 @@
 
 </script>
 
-<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm" use:modal={onClose}>
 	<div class="w-full max-w-xl rounded-xl border border-border bg-surface p-5 text-fg shadow-2xl">
 		<div class="mb-3 flex items-center justify-between">
 			<h2 class="text-sm font-semibold">{mode === 'compare' ? '選擇要比較的版本' : '匯入 Schema'}</h2>
-			<button class="text-muted hover:text-fg" onclick={onClose}><X size={16} /></button>
+			<button class="sl-close-btn" onclick={onClose} aria-label="關閉" title="關閉（Esc）"><X size={16} /></button>
 		</div>
 
-		<div class="mb-3 flex items-center gap-1 rounded-lg border border-border bg-bg/40 p-1 text-xs">
+		<div class="mb-3 flex items-center gap-1 rounded-lg border border-border bg-bg/40 p-1 text-xs" role="group" aria-label="來源格式">
 			<button
 				class="flex-1 rounded-md py-1.5 {format === 'schema' ? 'bg-cyan text-bg' : 'text-muted hover:text-fg'}"
+				aria-pressed={format === 'schema'}
 				onclick={() => (format = 'schema')}
 			>
 				DSL / JSON / MD
 			</button>
 			<button
 				class="flex-1 rounded-md py-1.5 {format === 'sql' ? 'bg-cyan text-bg' : 'text-muted hover:text-fg'}"
+				aria-pressed={format === 'sql'}
 				onclick={() => (format = 'sql')}
 			>
 				SQL
@@ -92,9 +108,10 @@
 			<p class="mb-2 text-xs text-muted">
 				貼上或上傳任意 <code class="font-mono text-cyan">CREATE TABLE</code> 為主的 SQL DDL，先確認一下方言：
 			</p>
-			<div class="mb-3 flex items-center gap-1">
+			<div class="mb-3 flex flex-wrap items-center gap-1" role="group" aria-label="SQL 方言">
 				{#each SQL_DIALECTS as dialect (dialect.id)}
 					<button
+						aria-pressed={sqlDialect === dialect.id}
 						class="rounded-full border px-2.5 py-1 text-xs {sqlDialect === dialect.id
 							? 'border-cyan bg-cyan/15 text-cyan'
 							: 'border-border text-muted hover:text-fg'}"
@@ -121,36 +138,33 @@
 			onchange={handleFile}
 		/>
 
-		<div class="mb-2 text-xs text-muted">…或直接貼上{format === 'sql' ? ' SQL' : ' DSL'}文字</div>
+		<div class="mb-2 flex items-baseline justify-between gap-2 text-xs text-muted">
+			<label for="sl-import-text">…或直接貼上{format === 'sql' ? ' SQL' : ' DSL'}文字</label>
+			<button class="text-cyan underline-offset-2 hover:underline" onclick={fillSnippet}>
+				不知道怎麼寫？填入語法範例
+			</button>
+			<a href="/docs" target="_blank" rel="noopener" class="text-muted underline-offset-2 hover:text-fg hover:underline">完整語法</a>
+		</div>
 		<textarea
+			id="sl-import-text"
 			bind:value={text}
-			rows="6"
-			placeholder={format === 'sql' ? 'CREATE TABLE Users (...);' : 'table Users ... PK Id bigint not null ...'}
-			class="w-full resize-none rounded-lg border border-border bg-bg/60 p-2 font-mono text-xs text-fg placeholder:text-muted focus:border-cyan focus:outline-none"
+			rows="8"
+			data-autofocus
+			placeholder={format === 'sql'
+				? 'CREATE TABLE users (\n  id bigint PRIMARY KEY,\n  email text NOT NULL\n);'
+				: 'table Users {\n  PK Id bigint not null\n}'}
+			class="w-full resize-y rounded-lg border border-border bg-bg/60 p-2 font-mono text-xs text-fg placeholder:text-muted focus:border-cyan focus:outline-none"
 		></textarea>
 
-		<div class="mt-3 flex justify-end gap-2">
-			<button class="sl-btn" onclick={onClose}>取消</button>
-			<button class="sl-btn sl-btn-active" onclick={handlePasteSubmit}>
+		<div class="mt-3 flex items-center justify-end gap-2">
+			{#if !canSubmit}
+				<span class="mr-auto text-xs text-muted">貼上文字或上傳檔案後就能{mode === 'compare' ? '比較' : '匯入'}</span>
+			{/if}
+			<button class="sl-button sl-button-secondary" onclick={onClose}>取消</button>
+			<button class="sl-button sl-button-primary" onclick={handlePasteSubmit} disabled={!canSubmit}>
 				{mode === 'compare' ? '開始比較' : '匯入貼上的文字'}
 			</button>
 		</div>
 	</div>
 </div>
 
-<style>
-	.sl-btn {
-		padding: 4px 12px;
-		border-radius: 6px;
-		border: 1px solid var(--sl-border);
-		background: transparent;
-		color: inherit;
-		font: inherit;
-		cursor: pointer;
-	}
-	.sl-btn-active {
-		background: var(--sl-cyan);
-		color: var(--sl-bg);
-		border-color: transparent;
-	}
-</style>

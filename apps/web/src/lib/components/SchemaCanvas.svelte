@@ -54,7 +54,12 @@
 				viewportChanged: (scale) => onViewportChanged?.(scale)
 			}
 		});
-		onReady(renderer, host);
+		// 卡片寬度是量實際文字算出來的：網頁字型（Geist / JetBrains Mono）還沒載入就先畫，
+		// 字型換上來之後欄位名稱會被截掉。等字型好了再交出 renderer，最多等 1.5 秒。
+		let disposed = false;
+		void Promise.race([document.fonts.ready, new Promise((r) => setTimeout(r, 1500))]).then(() => {
+			if (!disposed && host) onReady(renderer, host);
+		});
 
 		const handleContextMenu = (event: MouseEvent) => {
 			if (!onTableContextMenu) return;
@@ -165,6 +170,7 @@
 		window.addEventListener('resize', handleResize);
 
 		return () => {
+			disposed = true;
 			host?.removeEventListener('contextmenu', handleContextMenu);
 			host?.removeEventListener('click', handleClickCapture, true);
 			host?.removeEventListener('pointerdown', handlePointerDown, true);

@@ -55,6 +55,8 @@
 	import ViewSourceDialog from '$lib/components/ViewSourceDialog.svelte';
 	import ConfirmDeleteDialog from '$lib/components/ConfirmDeleteDialog.svelte';
 	import LoginPromptDialog from '$lib/components/LoginPromptDialog.svelte';
+	import EmptyCanvas from '$lib/components/EmptyCanvas.svelte';
+	import { SAMPLE_SCHEMA_DSL, SAMPLE_SCHEMA_FILENAME } from '$lib/schema/sampleSchema';
 	import AiSettingsDialog from '$lib/components/AiSettingsDialog.svelte';
 	import { clearAiSettings, loadAiSettings, saveAiSettings, type AiSettings } from '$lib/ai/settings';
 	import VersionHistoryDialog, { type VersionSummary } from '$lib/components/VersionHistoryDialog.svelte';
@@ -92,6 +94,7 @@
 		...lintWarnings.map((w) => ({
 			code: w.code,
 			severity: w.severity,
+			advisory: true,
 			message: w.message,
 			detail: w.location ? (w.location.column ? `${w.location.tableId}.${w.location.column}` : w.location.tableId) : undefined
 		}))
@@ -148,6 +151,10 @@
 	let versions = $state<VersionSummary[]>([]);
 
 	let draftSaveTimer: ReturnType<typeof setTimeout> | undefined;
+
+	/** renderer 還沒準備好、或雲端分頁還在載入時不要閃一下空狀態。 */
+	let canvasReady = $state(false);
+	const hasTables = $derived((schema?.tables.length ?? 0) > 0);
 
 	function showToast(message: string, durationMs = 2500): void {
 		toast = message;
@@ -462,6 +469,8 @@
 	function handleReady(instance: SchemaRenderer, host: HTMLDivElement): void {
 		renderer = instance;
 		canvasHost = host;
+		canvasReady = true;
+		syncBottomInset();
 		renderer.setInteractionMode(interactionMode);
 		scalePercent = Math.round(renderer.getScale() * 100);
 
@@ -746,11 +755,41 @@
 			// 「載入我自己原本狀態」的呼叫點不同，所以這裡呼叫端自己 push，不是共用函式無條件 push。
 			void loadSchemaFromSqlAndApply(source, fileName, sqlDialect).then(() => {
 				if (schema) collab?.pushLocalSchema(schema);
+				announceImport();
 			});
 			return;
 		}
 		loadSchema(source, fileName, undefined, true);
 		if (schema) collab?.pushLocalSchema(schema);
+		announceImport();
+	}
+
+	/** 匯入完明確說結果：幾張表、幾條關聯；解析不到任何東西時直接講，不要只留一張空畫布。 */
+	function announceImport(): void {
+		if (!schema) return;
+		const problems = diagnostics.length;
+		if (schema.tables.length === 0) {
+			showToast(
+				problems > 0
+					? `沒有匯入任何資料表：${diagnostics[0].message}`
+					: '沒有匯入任何資料表——確認一下格式或 SQL 方言有沒有選對。',
+				6000
+			);
+			return;
+		}
+		const base = `已匯入 ${schema.tables.length} 張表、${schema.relations.length} 條關聯`;
+		showToast(problems > 0 ? `${base}，有 ${problems} 個解析問題，詳見左下角。` : `${base}。點任一張表的標題就能聚焦它的關聯。`, 4500);
+	}
+
+	function handleLoadSample(): void {
+		loadSchema(SAMPLE_SCHEMA_DSL, SAMPLE_SCHEMA_FILENAME);
+		if (schema) collab?.pushLocalSchema(schema);
+		showToast('已載入範例：點「Posts」的標題，看看它跟哪些表有關。', 5000);
+	}
+
+	function handleStartBlank(): void {
+		if (!schema) return;
+		commitSchema(mutate.createTable(schema), { refit: true });
 	}
 
 	/**
@@ -898,6 +937,16 @@
 		downloadFile(`${base}.${dialectId}.sql`, renderSchemaAsSql(schema, dialectId), 'text/plain');
 	}
 
+	/**
+	 * 手機寬度時檢視面板從畫布底部浮上來（約 42% 高 + 底部工具列），聚焦時要把表置中在面板上方，
+	 * 不然點了一張表，它剛好被面板蓋住。桌面版面板在側欄裡，不用扣。
+	 */
+	function syncBottomInset(): void {
+		if (!renderer) return;
+		const narrow = window.matchMedia('(max-width: 767px)').matches;
+		renderer.setBottomInset(narrow ? Math.round(window.innerHeight * 0.42) + 88 : 0);
+	}
+
 	function handleToggleTheme(): void {
 		toggleTheme();
 		theme = getTheme();
@@ -958,7 +1007,9 @@
 			}
 		};
 		window.addEventListener('keydown', handleKeydown);
+		window.addEventListener('resize', syncBottomInset);
 		return () => {
+			window.removeEventListener('resize', syncBottomInset);
 			window.removeEventListener('keydown', handleKeydown);
 			window.removeEventListener('focus', handleExternalCheck);
 			document.removeEventListener('visibilitychange', handleExternalCheck);
@@ -996,7 +1047,7 @@
 	<title>SchemaLens — 工作區</title>
 </svelte:head>
 
-<div class="flex h-screen bg-bg text-fg">
+<div class="relative flex h-dvh overflow-hidden bg-bg text-fg">
 	<AppSidebar
 		bind:this={appSidebarRef}
 		{schema}
@@ -1009,6 +1060,7 @@
 		onSearchResults={handleSearchResults}
 		onSelectPage={handleSelectPage}
 		onCreatePage={openCreatePageMenu}
+		onSaveToCloud={() => (showLoginPrompt = true)}
 		onRenamePage={handleRenamePage}
 		onDeletePage={handleDeletePage}
 		onCloseInspector={resetFocus}
@@ -1022,8 +1074,8 @@
 		onDeleteColumn={handleDeleteColumn}
 	/>
 
-	<div class="flex flex-1 flex-col">
-		{#if viewMode === 'full'}
+	<div class="flex min-w-0 flex-1 flex-col">
+		{#if viewMode === 'full' && hasTables}
 			<Toolbar
 				bind:this={toolbarRef}
 				{schema}
@@ -1032,6 +1084,7 @@
 				selectedCount={selectedTables.size}
 				{layoutDirty}
 				{metricsText}
+				hasFocus={!!focusedTableId}
 				onDetailLevel={(level: DetailLevel) => {
 					renderer?.setViewState({ detailLevel: level });
 					syncToolbarState();
@@ -1094,6 +1147,14 @@
 					syncSelectionHighlight();
 				}}
 			/>
+
+			{#if canvasReady && schema && !hasTables && !diffMode}
+				<EmptyCanvas
+					onLoadSample={handleLoadSample}
+					onImport={() => (showImportDialog = true)}
+					onStartBlank={handleStartBlank}
+				/>
+			{/if}
 
 			{#if collabRoom}
 				<div class="absolute top-3 left-3 z-10 flex items-center gap-2 text-xs">
@@ -1171,11 +1232,14 @@
 				historyDisabled={!activePageId}
 				onAiClick={() => (showAiSettings = true)}
 				aiConfigured={!!aiSettings}
+				signedIn={!!session?.user}
 			/>
 
 			{#if toast}
 				<div
-					class="absolute top-3 right-3 z-30 max-w-sm rounded-lg border border-cyan bg-surface px-3 py-2 text-xs whitespace-pre-wrap text-fg shadow-lg"
+					class="absolute top-3 right-3 left-3 z-30 ml-auto max-w-sm rounded-lg border border-cyan bg-surface px-3 py-2 text-xs whitespace-pre-wrap text-fg shadow-lg sm:left-auto"
+					role="status"
+					aria-live="polite"
 				>
 					{toast}
 				</div>
@@ -1264,9 +1328,5 @@
 {/if}
 
 {#if showLoginPrompt}
-	<LoginPromptDialog
-		message="請先登入才能新增分頁——分頁會儲存在雲端，跟你的 GitHub 帳號綁在一起。"
-		onConfirm={confirmLoginPrompt}
-		onCancel={cancelLoginPrompt}
-	/>
+	<LoginPromptDialog onConfirm={confirmLoginPrompt} onCancel={cancelLoginPrompt} />
 {/if}

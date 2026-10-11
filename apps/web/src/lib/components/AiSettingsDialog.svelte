@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { modal } from '$lib/actions/modal';
 	import { onMount, untrack } from 'svelte';
 	import { Eye, EyeOff, ExternalLink, Loader2, X } from '@lucide/svelte';
 	import { AI_PROVIDERS, type AiProviderId, type AiSettings } from '$lib/ai/settings';
@@ -79,11 +80,11 @@
 	}
 </script>
 
-<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm" use:modal={onClose}>
 	<div class="flex max-h-[85vh] w-full max-w-md flex-col overflow-auto rounded-xl border border-border bg-surface p-5 text-fg shadow-2xl">
 		<div class="mb-3 flex items-center justify-between">
 			<h2 class="text-sm font-semibold">AI 助手</h2>
-			<button class="text-muted hover:text-fg" onclick={onClose}><X size={16} /></button>
+			<button class="sl-close-btn" onclick={onClose} aria-label="關閉" title="關閉（Esc）"><X size={16} /></button>
 		</div>
 
 		<div class="mb-4 flex gap-1 rounded-lg bg-bg/60 p-1">
@@ -100,7 +101,7 @@
 		{#if tab === 'connect'}
 			<McpConnectPanel {signedIn} />
 			<div class="mt-4 flex justify-end">
-				<button class="sl-btn" onclick={onClose}>關閉</button>
+				<button class="sl-button sl-button-secondary" onclick={onClose}>關閉</button>
 			</div>
 		{:else}
 
@@ -162,7 +163,7 @@
 						{#if showKey}<EyeOff size={13} />{:else}<Eye size={13} />{/if}
 					</button>
 				</div>
-				<button class="sl-btn" onclick={verify} disabled={verifying || !apiKey.trim()}>
+				<button class="sl-button sl-button-secondary" onclick={verify} disabled={verifying || !apiKey.trim()}>
 					{#if verifying}<Loader2 size={12} class="animate-spin" />{/if}
 					驗證
 				</button>
@@ -195,8 +196,8 @@
 				<button class="text-xs text-muted hover:text-red-300" onclick={onClear}>移除已存的 key</button>
 			{/if}
 			<div class="ml-auto flex gap-2">
-				<button class="sl-btn" onclick={onClose}>取消</button>
-				<button class="sl-btn sl-btn-primary" onclick={save} disabled={!verified || !model}>儲存</button>
+				<button class="sl-button sl-button-secondary" onclick={onClose}>取消</button>
+				<button class="sl-button sl-button-primary" onclick={save} disabled={!verified || !model}>儲存</button>
 			</div>
 		</div>
 		{/if}
@@ -210,27 +211,5 @@
 	 */
 	.masked {
 		-webkit-text-security: disc;
-	}
-	.sl-btn {
-		display: inline-flex;
-		align-items: center;
-		gap: 6px;
-		padding: 4px 12px;
-		border-radius: 6px;
-		border: 1px solid var(--sl-border);
-		background: transparent;
-		color: inherit;
-		font: inherit;
-		font-size: 12px;
-		cursor: pointer;
-	}
-	.sl-btn:disabled {
-		opacity: 0.5;
-		cursor: default;
-	}
-	.sl-btn-primary {
-		background: var(--sl-cyan);
-		border-color: transparent;
-		color: var(--sl-bg);
 	}
 </style>

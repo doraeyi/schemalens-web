@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { modal } from '$lib/actions/modal';
 	import { Download, X } from '@lucide/svelte';
 	import { SQL_DIALECTS, type SqlDialectId } from '@schemalens/schema-sql';
 
@@ -22,11 +23,11 @@
 	}
 </script>
 
-<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm" use:modal={onClose}>
 	<div class="w-full max-w-xl rounded-xl border border-border bg-surface p-5 text-fg shadow-2xl">
 		<div class="mb-3 flex items-center justify-between">
 			<h2 class="text-sm font-semibold">匯出 Schema</h2>
-			<button class="text-muted hover:text-fg" onclick={onClose}><X size={16} /></button>
+			<button class="sl-close-btn" onclick={onClose} aria-label="關閉" title="關閉（Esc）"><X size={16} /></button>
 		</div>
 
 		<div class="mb-3 flex items-center gap-1 rounded-lg border border-border bg-bg/40 p-1 text-xs">
@@ -66,28 +67,9 @@
 		{/if}
 
 		<div class="mt-3 flex justify-end gap-2">
-			<button class="sl-btn" onclick={onClose}>取消</button>
-			<button class="sl-btn sl-btn-active" onclick={handleExport}><Download size={13} /> 確定匯出</button>
+			<button class="sl-button sl-button-secondary" onclick={onClose}>取消</button>
+			<button class="sl-button sl-button-primary" onclick={handleExport}><Download size={13} /> 確定匯出</button>
 		</div>
 	</div>
 </div>
 
-<style>
-	.sl-btn {
-		padding: 4px 12px;
-		border-radius: 6px;
-		border: 1px solid var(--sl-border);
-		background: transparent;
-		color: inherit;
-		font: inherit;
-		cursor: pointer;
-	}
-	.sl-btn-active {
-		display: inline-flex;
-		align-items: center;
-		gap: 4px;
-		background: var(--sl-cyan);
-		color: var(--sl-bg);
-		border-color: transparent;
-	}
-</style>

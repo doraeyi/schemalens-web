@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { modal } from '$lib/actions/modal';
 	import type { Relation } from '@schemalens/schema-core';
 	import { AlertTriangle, X } from '@lucide/svelte';
 
@@ -12,14 +13,14 @@
 	let { title, relations, onConfirm, onCancel }: Props = $props();
 </script>
 
-<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm" use:modal={onCancel}>
 	<div class="w-full max-w-sm rounded-xl border border-border bg-surface p-5 text-fg shadow-2xl">
 		<div class="mb-3 flex items-center justify-between">
 			<h2 class="flex items-center gap-1.5 text-sm font-semibold">
 				<AlertTriangle size={15} class="text-yellow-400" />
 				{title}
 			</h2>
-			<button class="text-muted hover:text-fg" onclick={onCancel}><X size={16} /></button>
+			<button class="sl-close-btn" onclick={onCancel} aria-label="關閉" title="關閉（Esc）"><X size={16} /></button>
 		</div>
 
 		{#if relations.length > 0}
@@ -39,25 +40,9 @@
 		{/if}
 
 		<div class="flex justify-end gap-2">
-			<button class="sl-btn" onclick={onCancel}>取消</button>
-			<button class="sl-btn sl-btn-danger" onclick={onConfirm}>確定刪除</button>
+			<button class="sl-button sl-button-secondary" onclick={onCancel}>取消</button>
+			<button class="sl-button sl-button-danger" onclick={onConfirm}>確定刪除</button>
 		</div>
 	</div>
 </div>
 
-<style>
-	.sl-btn {
-		padding: 4px 12px;
-		border-radius: 6px;
-		border: 1px solid var(--sl-border);
-		background: transparent;
-		color: inherit;
-		font: inherit;
-		cursor: pointer;
-	}
-	.sl-btn-danger {
-		background: color-mix(in oklab, red 55%, transparent);
-		border-color: transparent;
-		color: white;
-	}
-</style>

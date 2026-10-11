@@ -30,6 +30,7 @@ export default defineConfig({
     environmentMatchGlobs: [
       ["packages/schema-renderer/test/**", "jsdom"],
       ["apps/vscode-extension/test/**/*.dom.test.ts", "jsdom"],
+      ["apps/web/test/**/*.dom.test.ts", "jsdom"],
     ],
   },
 });
