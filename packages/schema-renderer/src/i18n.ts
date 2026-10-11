@@ -48,6 +48,13 @@ export interface RendererStrings {
   unrelatedHide: string;
   resetFocus: string;
   fitView: string;
+  /** 沒有聚焦任何表時，工具列提示「點表名才能調深度／方向」。 */
+  focusHint: string;
+  /** 空狀態（schema 裡一張表都沒有）。 */
+  emptyTitle: string;
+  emptyBody: string;
+  /** 畫布上資料表卡片的無障礙名稱，例如「資料表 Users，4 個欄位」。 */
+  tableCardLabel: (name: string, columns: number) => string;
   /** VS Code 插件工具列的「匯出」（SQL／DSL／JSON／圖片）。 */
   exportAction: string;
   /** VS Code 插件工具列的「比較…」（跟 git 裡的版本比較）。 */
@@ -111,6 +118,10 @@ const en: RendererStrings = {
   unrelatedHide: "Hide",
   resetFocus: "Reset Focus",
   fitView: "Fit View",
+  focusHint: "Click a table title to adjust depth and direction",
+  emptyTitle: "No tables yet",
+  emptyBody: "Add a table block, or run “DBSchema: Import SQL as .dbschema” on a .sql file.",
+  tableCardLabel: (name, columns) => `Table ${name}, ${columns} column${columns === 1 ? "" : "s"}`,
   exportAction: "Export…",
   compareAction: "Compare…",
   compareBanner: (base, next, added, removed, changed) =>
@@ -169,6 +180,10 @@ const zhHant: RendererStrings = {
   unrelatedHide: "隱藏",
   resetFocus: "取消聚焦",
   fitView: "全部顯示",
+  focusHint: "點任一張表的標題，就能調整關聯深度與方向",
+  emptyTitle: "這份 schema 還沒有資料表",
+  emptyBody: "加一個 table 區塊試試，或在 .sql 檔上執行「DBSchema: Import SQL as .dbschema」。",
+  tableCardLabel: (name, columns) => `資料表 ${name}，${columns} 個欄位`,
   exportAction: "匯出…",
   compareAction: "比較…",
   compareBanner: (base, next, added, removed, changed) =>

@@ -30,12 +30,18 @@ export function renderCard(
 ): CardElements {
   const root = el("div", "dbs-card");
   root.dataset.tableId = card.table.id;
+  // 鍵盤也要進得了圖：Tab 走到每張表，Enter／空白鍵聚焦，Shift+Enter 跳回定義（見 renderer.ts）。
+  root.tabIndex = 0;
+  root.setAttribute("role", "button");
+  root.setAttribute("aria-label", strings.tableCardLabel(card.table.name, card.table.columns.length));
+  root.setAttribute("aria-pressed", "false");
   if (card.group) root.dataset.group = card.group;
   if (card.group && card.detailLevel !== "compact") {
     // 左緣色條：掃視 150 張表時，顏色比文字更快辨識模組。
     // compact 卡片跳過這個——外層已經有整片分區色塊在標示群組，
     // 每張卡片再畫一次色條只是雜訊。
     root.style.borderLeftColor = groupColor(card.group);
+    root.style.setProperty("--dbs-accent", groupColor(card.group));
     root.classList.add("has-group");
   }
   root.style.left = `${position.x}px`;

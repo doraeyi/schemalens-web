@@ -57,6 +57,12 @@ export interface RendererOptions {
 
 const MIN_SCALE = 0.08;
 const MAX_SCALE = 2.5;
+/**
+ * schemalens-web 新增：自動 fitView 最多放大到 100%。
+ * 表很少（例如刪到只剩一兩張）時，照比例塞滿畫面會放大到 2.5 倍，
+ * 卡片突然變超大；使用者要更大可以自己滾輪放大（上限仍是 MAX_SCALE）。
+ */
+const FIT_MAX_SCALE = 1;
 
 /**
  * 群組外框的邊距與標題高度。
@@ -105,12 +111,15 @@ export class SchemaRenderer {
   private ty = 0;
   private scale = 1;
   private animateTimeout: ReturnType<typeof setTimeout> | undefined;
+  private settleTimeout: ReturnType<typeof setTimeout> | undefined;
   /**
    * schemalens-web 新增：精簡模式的分區版面本來就是由上往下排好的固定順序，
    * 點表格/關聯再自動把畫面 pan 過去反而讓人覺得「跳來跳去」，所以精簡模式
    * 會把這個關掉，只更新 focus 狀態（卡片 emphasis 仍然正常），不移動視口。
    */
   private autoCenterOnFocus = true;
+  /** 畫布底部被外層 UI 蓋住的高度（例如手機上的檢視面板），置中時要扣掉。 */
+  private bottomInset = 0;
 
   constructor(host: HTMLElement, options: RendererOptions = {}) {
     this.host = host;
@@ -248,7 +257,27 @@ export class SchemaRenderer {
   focusTable(tableId: TableId, patch: Partial<ViewState["focus"]> = {}): void {
     this.setViewState({ focus: { ...this.state.focus, ...patch, tableId } });
     // 全部的表現在都看得到就不用置中——置中只會把其他表擠出畫面，違背聚焦的目的。
-    if (this.autoCenterOnFocus && !this.allTablesVisible()) this.centerOn(tableId);
+    // 例外：聚焦的這張剛好被底部的面板蓋住（手機），還是要移到看得到的地方。
+    if (this.autoCenterOnFocus && (!this.allTablesVisible() || this.isObscured(tableId))) {
+      this.centerOn(tableId);
+    }
+  }
+
+  /**
+   * schemalens-web 新增：告訴 renderer 畫布底部有多少高度被別的 UI 蓋住
+   * （手機上的檢視面板是從底部浮上來的）。置中與「是否全部可見」都會扣掉這一段。
+   */
+  setBottomInset(pixels: number): void {
+    this.bottomInset = Math.max(0, pixels);
+  }
+
+  private isObscured(tableId: TableId): boolean {
+    if (this.bottomInset === 0) return false;
+    const node = this.positioned?.positionById.get(tableId);
+    if (!node) return false;
+    const { height } = this.host.getBoundingClientRect();
+    const bottom = (node.y + node.height) * this.scale + this.ty;
+    return bottom > height - this.bottomInset;
   }
 
   /** Column Search 命中後的 Jump + Highlight + Focus（US6）。 */
@@ -304,7 +333,7 @@ export class SchemaRenderer {
       (width - padding * 2) / bounds.width,
       (height - padding * 2) / bounds.height,
     );
-    this.centerAtScale(clamp(scale, MIN_SCALE, MAX_SCALE));
+    this.centerAtScale(clamp(scale, MIN_SCALE, FIT_MAX_SCALE));
   }
 
   /**
@@ -348,7 +377,8 @@ export class SchemaRenderer {
    */
   private allTablesVisible(padding = 40): boolean {
     if (!this.positioned || this.positioned.nodes.length === 0) return true;
-    const { width, height } = this.host.getBoundingClientRect();
+    const { width } = this.host.getBoundingClientRect();
+    const height = this.host.getBoundingClientRect().height - this.bottomInset;
     const bounds = this.positioned.bounds;
     const screenX = bounds.x * this.scale + this.tx;
     const screenY = bounds.y * this.scale + this.ty;
@@ -369,8 +399,24 @@ export class SchemaRenderer {
     const rect = this.host.getBoundingClientRect();
     if (this.scale < minScale) this.scale = minScale;
     this.tx = rect.width / 2 - (node.x + node.width / 2) * this.scale;
-    this.ty = rect.height / 2 - (node.y + node.height / 2) * this.scale;
+    this.ty = (rect.height - this.bottomInset) / 2 - (node.y + node.height / 2) * this.scale;
     this.animateTransform();
+  }
+
+  /**
+   * 使用者點了表的標題（或在卡片上按 Enter）：再點一次目前已經聚焦的表就取消聚焦，
+   * 跟欄位的 toggle 是同一個精神，不用特地按 Reset。
+   */
+  private toggleTableFocusFromUser(tableId: TableId): void {
+    this.clearColumnFocus();
+    this.events.columnSelected?.(null);
+    if (this.state.focus.tableId === tableId) {
+      this.setViewState({ focus: { ...this.state.focus, tableId: null } });
+      this.events.viewStateChanged?.(this.state);
+    } else {
+      this.focusTable(tableId);
+      this.events.tableSelected?.(tableId);
+    }
   }
 
   /** 是否有手動調整過的位置，供 Toolbar 決定要不要顯示「還原版面」。 */
@@ -415,6 +461,8 @@ export class SchemaRenderer {
   }
 
   dispose(): void {
+    clearTimeout(this.animateTimeout);
+    clearTimeout(this.settleTimeout);
     this.root.remove();
     this.errorLayer.remove();
   }
@@ -698,6 +746,7 @@ export class SchemaRenderer {
       root.classList.toggle("is-hidden", emphasis === "hidden");
       root.classList.toggle("is-filtered-out", emphasis === "filtered");
       root.classList.toggle("is-selected", emphasis === "selected");
+      root.setAttribute("aria-pressed", String(emphasis === "selected"));
       // 因聚焦而被點亮的相關表：比焦點弱，但明顯有別於「沒被淡化」。
       root.classList.toggle("is-related", emphasis === "related");
       root.classList.toggle("is-search-match", this.state.searchMatches.has(tableId));
@@ -789,7 +838,21 @@ export class SchemaRenderer {
 
   private applyTransform(): void {
     this.viewport.style.transform = `translate(${this.tx}px, ${this.ty}px) scale(${this.scale})`;
+    this.markTransforming();
     this.events.viewportChanged?.(this.scale);
+  }
+
+  /**
+   * schemalens-web：`will-change: transform` 只在拖曳／縮放的過程中開著。一直開著的話
+   * Chrome 會把整層畫布當成一張點陣圖快取、縮放時直接拉伸，不會用新比例重畫文字，
+   * 放大後字就糊了。停下來一小段時間後拿掉，瀏覽器就會用目前的比例重新清晰地繪製。
+   */
+  private markTransforming(): void {
+    this.viewport.classList.add("is-transforming");
+    clearTimeout(this.settleTimeout);
+    this.settleTimeout = setTimeout(() => {
+      this.viewport.classList.remove("is-transforming");
+    }, 300);
   }
 
   /**
@@ -828,6 +891,7 @@ export class SchemaRenderer {
     let suppressClick = false;
 
     const DRAG_THRESHOLD = 4;
+    let panPointerId: number | null = null;
 
     this.root.addEventListener("pointerdown", (event) => {
       if (event.button !== 0) return;
@@ -873,8 +937,10 @@ export class SchemaRenderer {
       panMoved = false;
       lastX = event.clientX;
       lastY = event.clientY;
+      // 跟卡片拖曳同一個道理：不能一按下就 setPointerCapture，被捕捉後 click 會被改送到 root，
+      // 從淡化卡片上按下去（move 模式會走到這裡）就永遠點不到那張表。真的開始平移再捕捉。
+      panPointerId = event.pointerId;
       this.root.classList.add("is-panning");
-      this.root.setPointerCapture?.(event.pointerId);
     });
 
     this.root.addEventListener("pointermove", (event) => {
@@ -895,6 +961,10 @@ export class SchemaRenderer {
       }
 
       if (!panning) return;
+      if (!panMoved) {
+        if (Math.hypot(event.clientX - lastX, event.clientY - lastY) < DRAG_THRESHOLD) return;
+        if (panPointerId !== null) this.root.setPointerCapture?.(panPointerId);
+      }
       panMoved = true;
       this.tx += event.clientX - lastX;
       this.ty += event.clientY - lastY;
@@ -923,9 +993,10 @@ export class SchemaRenderer {
       if (panMoved) {
         // 平移過就吃掉隨後的 click，否則從淡化卡片起手平移，放開手會誤把焦點跳過去。
         suppressClick = true;
+        this.root.releasePointerCapture?.(event.pointerId);
       }
       panMoved = false;
-      this.root.releasePointerCapture?.(event.pointerId);
+      panPointerId = null;
     };
     this.root.addEventListener("pointerup", endPointer);
     this.root.addEventListener("pointercancel", endPointer);
@@ -1006,17 +1077,33 @@ export class SchemaRenderer {
         return;
       }
 
-      this.clearColumnFocus();
-      this.events.columnSelected?.(null);
-      // schemalens-web 新增：再點一次目前已經聚焦的表就取消聚焦，跟上面欄位的
-      // toggle 邏輯是同一個精神，不用特地按 Reset。
-      if (this.state.focus.tableId === tableId) {
-        this.setViewState({ focus: { ...this.state.focus, tableId: null } });
-        this.events.viewStateChanged?.(this.state);
-      } else {
-        this.focusTable(tableId);
-        this.events.tableSelected?.(tableId);
+      this.toggleTableFocusFromUser(tableId);
+    });
+
+    // 鍵盤操作：卡片本身有 tabindex，Enter／空白鍵＝點標題（聚焦／再按一次取消），
+    // Shift+Enter＝雙擊（跳回定義）。只處理焦點就在卡片本身時，卡片裡的按鈕維持自己的行為。
+    this.root.addEventListener("keydown", (event) => {
+      const card = event.target as HTMLElement;
+      if (!card.classList?.contains("dbs-card")) return;
+      const tableId = card.dataset.tableId!;
+      if (event.key === "Enter" && event.shiftKey) {
+        event.preventDefault();
+        this.events.openSource?.({ tableId });
+      } else if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        this.toggleTableFocusFromUser(tableId);
       }
+    });
+
+    // 用 Tab 走到畫面外的表時，把它移進畫面（維持目前縮放）。
+    this.root.addEventListener("focusin", (event) => {
+      const card = event.target as HTMLElement;
+      if (!card.classList?.contains("dbs-card")) return;
+      const view = this.host.getBoundingClientRect();
+      const box = card.getBoundingClientRect();
+      const outside =
+        box.right < view.left || box.left > view.right || box.bottom < view.top || box.top > view.bottom;
+      if (outside) this.centerOn(card.dataset.tableId!, this.scale);
     });
 
     this.root.addEventListener("dblclick", (event) => {

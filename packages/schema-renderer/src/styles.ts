@@ -26,6 +26,10 @@ export const RENDERER_CSS = `
   top: 0;
   left: 0;
   transform-origin: 0 0;
+}
+/* 只在拖曳／縮放中開 will-change（renderer.markTransforming），停下來就拿掉讓文字依目前比例重畫，
+   一直開著的話放大後字會糊（Chrome 會直接拉伸快取的點陣圖）。 */
+.dbs-viewport.is-transforming {
   will-change: transform;
 }
 /* centerOn / fitView 用的短暫過場（schemalens-web 新增）；拖曳平移與滾輪縮放
@@ -100,7 +104,7 @@ export const RENDERER_CSS = `
 .dbs-edge-path {
   fill: none;
   stroke: var(--vscode-editorIndentGuide-activeBackground, #6e7681);
-  stroke-width: 1.25;
+  stroke-width: 1.5;
   pointer-events: stroke;
   cursor: pointer;
 }
@@ -133,7 +137,7 @@ export const RENDERER_CSS = `
   cursor: pointer;
   contain: layout paint;
 }
-.dbs-card.has-group { border-left-width: 3px; }
+.dbs-card.has-group { border-left-width: 4px; }
 
 /* "compact" detail level（schemalens-web 精簡模式專用）：固定寬度的極簡卡片，
    只有表名（可換行）跟 schema/欄位數一行，不畫欄位、群組色條、collapse 按鈕。 */
@@ -194,6 +198,12 @@ export const RENDERER_CSS = `
   opacity: 0.95;
 }
 .dbs-card.is-hidden { display: none; }
+/* 鍵盤走到卡片時要看得見在哪裡（滑鼠點擊不會出現這圈）。 */
+.dbs-card:focus { outline: none; }
+.dbs-card:focus-visible {
+  outline: 2px solid var(--vscode-focusBorder, #007fd4);
+  outline-offset: 3px;
+}
 .dbs-card.is-selected {
   border-color: var(--vscode-focusBorder, #007fd4);
   box-shadow: 0 0 0 1px var(--vscode-focusBorder, #007fd4);
@@ -215,7 +225,11 @@ export const RENDERER_CSS = `
   padding: 0 8px;
   box-sizing: border-box;
   background: var(--vscode-titleBar-activeBackground, #3c3c3c);
-  border-bottom: 1px solid var(--vscode-panel-border, #3c3c3c);
+  /* schemalens-web：標題列染上群組色（沒有群組就用主色藍），
+     一眼就能把卡片標題跟欄位區分開，也能從顏色認出模組。
+     --dbs-accent 由 tableRenderer 依群組設定在卡片上。 */
+  background: color-mix(in srgb, var(--dbs-accent, var(--vscode-charts-blue, #4daafc)) 22%, var(--vscode-editorWidget-background, #252526));
+  border-bottom: 1px solid color-mix(in srgb, var(--dbs-accent, var(--vscode-charts-blue, #4daafc)) 45%, transparent);
 }
 .dbs-card-toggle {
   flex: none;
@@ -224,7 +238,7 @@ export const RENDERER_CSS = `
   color: var(--vscode-descriptionForeground, #9d9d9d);
 }
 .dbs-card-name {
-  font-weight: 600;
+  font-weight: 700;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
