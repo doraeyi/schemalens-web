@@ -34,4 +34,11 @@ const csrfGuard: Handle = ({ event, resolve }) => {
 	return resolve(event);
 };
 
-export const handle = sequence(csrfGuard, authHandle);
+/** 英文版首頁（/en）的 <html lang> 要是 en，螢幕閱讀器跟搜尋引擎才會用對的語言。 */
+const htmlLang: Handle = ({ event, resolve }) => {
+	const isEnglish = event.url.pathname === '/en' || event.url.pathname.startsWith('/en/');
+	if (!isEnglish) return resolve(event);
+	return resolve(event, { transformPageChunk: ({ html }) => html.replace('<html lang="zh-Hant">', '<html lang="en">') });
+};
+
+export const handle = sequence(csrfGuard, htmlLang, authHandle);
