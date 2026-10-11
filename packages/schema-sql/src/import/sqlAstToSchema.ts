@@ -91,7 +91,11 @@ export function sqlAstToSchema(statements: SqlStatement[], options: SqlAstToSche
 
 		if (statement.tablePrimaryKey) {
 			const pk = new Set(statement.tablePrimaryKey);
-			for (const column of columns) if (pk.has(column.name)) column.primaryKey = true;
+			for (const column of columns) {
+				if (!pk.has(column.name)) continue;
+				column.primaryKey = true;
+				column.nullable = false;
+			}
 		}
 		for (const unique of statement.tableUniques) {
 			if (unique.columns.length === 1) {

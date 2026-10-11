@@ -4,6 +4,15 @@ import { astToStatements } from './astToStatements';
 import { sqlAstToSchema } from './sqlAstToSchema';
 import type { SqlDialectId } from './types';
 
+/**
+ * DDL 沒寫 schema 時要歸到哪個 schema——照各資料庫自己的預設，不要一律套 SQL Server 的 dbo
+ * （PostgreSQL 匯入後卡片上標著 dbo 很像匯錯方言）。MySQL 沒有 schema 層級，沿用 dbo 只是佔位。
+ */
+const DIALECT_DEFAULT_SCHEMA: Partial<Record<SqlDialectId, string>> = {
+	postgresql: 'public',
+	sqlite: 'main'
+};
+
 export interface ParseSqlResult {
 	schema: Schema;
 	diagnostics: SchemaDiagnostic[];
@@ -41,6 +50,10 @@ export async function parseSql(source: string, dialectId: SqlDialectId, file?: s
 		}
 	}
 
-	const { schema, diagnostics: buildDiagnostics } = sqlAstToSchema(statements, { schemaName: file, file });
+	const { schema, diagnostics: buildDiagnostics } = sqlAstToSchema(statements, {
+		schemaName: file,
+		file,
+		defaultSchema: DIALECT_DEFAULT_SCHEMA[dialectId]
+	});
 	return { schema, diagnostics: [...diagnostics, ...buildDiagnostics] };
 }

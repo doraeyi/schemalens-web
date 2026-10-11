@@ -56,6 +56,8 @@ interface RawColumnDefinition {
 	default_val?: RawDefaultVal;
 	unique?: unknown;
 	primary_key?: unknown;
+	/** 欄位層級的 `REFERENCES t(col)`（PostgreSQL / SQLite / MySQL 都允許），跟表層級 FOREIGN KEY 同一個形狀。 */
+	reference_definition?: RawReferenceDefinition;
 }
 interface RawReferenceDefinition {
 	table: RawTableRef[];
@@ -119,7 +121,8 @@ function toColumnDef(raw: RawColumnDefinition): SqlColumnDef {
 		length: raw.definition.scale === undefined ? raw.definition.length : undefined,
 		precision: raw.definition.scale === undefined ? undefined : raw.definition.length,
 		scale: raw.definition.scale,
-		nullable: nullableType !== 'not null',
+		// 主鍵一定是 NOT NULL，就算 DDL 沒有明寫（`id bigint primary key`）也一樣。
+		nullable: nullableType !== 'not null' && raw.primary_key === undefined,
 		defaultValue: renderDefaultValue(raw.default_val),
 		primaryKey: raw.primary_key !== undefined,
 		unique: raw.unique !== undefined
@@ -157,7 +160,18 @@ function convertCreateTable(node: RawCreateTableNode): CreateTableStatement | Un
 
 	for (const def of node.create_definitions ?? []) {
 		if (def.resource === 'column') {
-			columns.push(toColumnDef(def));
+			const column = toColumnDef(def);
+			columns.push(column);
+			// 欄位層級的 inline `REFERENCES users(id)`——之前直接被丟掉，匯入後關聯數是 0 卻沒有任何提示。
+			const targetRef = def.reference_definition?.table[0];
+			if (targetRef) {
+				inlineForeignKeys.push({
+					sourceColumns: [column.name],
+					targetSchema: targetRef.db ?? undefined,
+					targetTable: targetRef.table,
+					targetColumns: def.reference_definition!.definition.map(columnRefName)
+				});
+			}
 			continue;
 		}
 		// resource === 'constraint'——內嵌的單純 KEY/INDEX（非具名 constraint，例如
