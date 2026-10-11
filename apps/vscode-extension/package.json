@@ -2,6 +2,11 @@
   "name": "dbschema",
   "displayName": "DBSchema",
   "description": "Database Schema Visualization for VS Code",
+  "icon": "images/icon.png",
+  "galleryBanner": {
+    "color": "#0e1b33",
+    "theme": "dark"
+  },
   "version": "0.2.2",
   "private": true,
   "publisher": "kaikaizhen",

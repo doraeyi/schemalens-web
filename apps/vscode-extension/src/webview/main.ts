@@ -29,8 +29,38 @@ const post = (message: WebviewToExtension): void => vscode.postMessage(message);
 
 const app = document.getElementById("app")!;
 
+/** 空狀態：檔案裡一張表都沒有時，畫布中央說明下一步（跟網頁版的空狀態同一個造型）。 */
+const EMPTY_CSS = `
+/* 很多元素用 inline style 寫了 display（例如比較模式的提示列），hidden 屬性要明確優先，
+   不然「隱藏」的東西會一直露在畫面上。 */
+[hidden] { display: none !important; }
+.dbs-empty {
+  position: absolute;
+  inset: 42px 0 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  pointer-events: none;
+}
+.dbs-empty[hidden] { display: none; }
+.dbs-empty-card {
+  max-width: 380px;
+  border: 1px solid var(--vscode-widget-border, var(--vscode-panel-border, #3c3c3c));
+  border-radius: 14px;
+  background: var(--vscode-editorWidget-background, #252526);
+  padding: 20px 22px;
+  font-family: var(--vscode-font-family, system-ui, sans-serif);
+  color: var(--vscode-editor-foreground, #d4d4d4);
+  box-shadow: 0 18px 40px -24px rgba(0, 0, 0, 0.5);
+}
+.dbs-empty-title { margin: 0; font-size: 14px; font-weight: 600; }
+.dbs-empty-body { margin: 6px 0 0; font-size: 12px; line-height: 1.6; color: var(--vscode-descriptionForeground, #9d9d9d); }
+`;
+
 const style = document.createElement("style");
-style.textContent = TOOLBAR_CSS + DETAIL_PANEL_CSS;
+style.textContent = TOOLBAR_CSS + DETAIL_PANEL_CSS + EMPTY_CSS;
 document.head.append(style);
 
 const canvas = document.createElement("div");
@@ -134,8 +164,39 @@ function buildToolbar(h: ToolbarHandlers): Toolbar {
 }
 
 let toolbar = buildToolbar(handlers);
-app.append(toolbar.element, canvas);
-syncToolbar();
+const emptyState = document.createElement("div");
+emptyState.className = "dbs-empty";
+emptyState.hidden = true;
+app.append(toolbar.element, canvas, emptyState);
+
+/** 工具列會換行（視窗窄、聚焦區塊出現），畫布永遠從工具列底下開始，不再寫死 38px。 */
+function fitCanvasBelowToolbar(): void {
+  const top = `${toolbar.element.offsetHeight || 42}px`;
+  canvas.style.top = top;
+  emptyState.style.top = top;
+  compareBanner.style.top = `${(toolbar.element.offsetHeight || 42) + 8}px`;
+}
+window.addEventListener("resize", fitCanvasBelowToolbar);
+
+function paintEmptyState(): void {
+  const isEmpty = schema !== null && schema.tables.length === 0 && !compareBase;
+  emptyState.hidden = !isEmpty;
+  if (!isEmpty) return;
+  const strings = stringsFor(locale);
+  const card = document.createElement("div");
+  card.className = "dbs-empty-card";
+  const title = document.createElement("p");
+  title.className = "dbs-empty-title";
+  title.textContent = strings.emptyTitle;
+  const body = document.createElement("p");
+  body.className = "dbs-empty-body";
+  body.textContent = strings.emptyBody;
+  card.append(title, body);
+  emptyState.replaceChildren(card);
+}
+// 第一次同步延到整個模組跑完：syncToolbar() 會用到下面才建立的 detailPanel，
+// 直接在這裡呼叫會在啟動時就丟例外，後面的訊息監聽也跟著沒註冊，預覽整片空白。
+queueMicrotask(syncToolbar);
 
 /**
  * 比較模式（跟 git 裡的舊版本比）。base 固定，目前的內容（schema）照常跟著檔案更新，
@@ -250,6 +311,7 @@ function applyLocale(next: Locale): void {
   toolbar = rebuilt;
   if (schema) toolbar.setSchema(schema);
   if (lastMetrics) paintMetrics();
+  paintEmptyState();
   rebuilt.setLayoutDirty(renderer.hasManualPositions());
   syncToolbar();
   if (compareBase) renderCompare(false);
@@ -279,6 +341,8 @@ function syncToolbar(): void {
     locale,
     viewMode,
   });
+  toolbar.setHasFocus(state.focus.tableId !== null);
+  fitCanvasBelowToolbar();
   syncCompact();
   syncDetailPanel();
 }
@@ -325,6 +389,7 @@ window.addEventListener("message", (event: MessageEvent<ExtensionToWebview>) => 
 
       renderer.setDiagnostics(message.diagnostics);
       syncToolbar();
+      paintEmptyState();
 
       lastMetrics = {
         tables: schema.tables.length,

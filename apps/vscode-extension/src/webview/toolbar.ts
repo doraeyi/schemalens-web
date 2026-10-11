@@ -9,80 +9,120 @@ import type {
 } from "@schemalens/schema-renderer";
 import type { TraversalDirection } from "@schemalens/schema-graph";
 
+/**
+ * 跟網頁版（apps/web/src/app.css 的 .sl-chip / .sl-button）同一套元件造型：
+ * 膠囊形的切換鈕、選中是淡色底＋強調色字、聚焦後才出現的進階設定。
+ * 顏色一律吃 VS Code 主題變數，這樣在任何佈景主題下都自然；網頁版則用自己的色票。
+ */
 export const TOOLBAR_CSS = `
 .dbs-toolbar {
+  --dbs-accent: var(--vscode-textLink-foreground, var(--vscode-focusBorder, #3794ff));
+  --dbs-line: var(--vscode-widget-border, var(--vscode-panel-border, #3c3c3c));
   position: absolute;
   top: 0; left: 0; right: 0;
   z-index: 10;
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 10px;
-  padding: 6px 10px;
+  gap: 8px 12px;
+  padding: 8px 12px;
   background: var(--vscode-editorWidget-background, #252526);
-  border-bottom: 1px solid var(--vscode-panel-border, #3c3c3c);
+  border-bottom: 1px solid var(--dbs-line);
   font-family: var(--vscode-font-family, system-ui, sans-serif);
-  font-size: 11px;
+  font-size: 12px;
   color: var(--vscode-editor-foreground, #d4d4d4);
 }
-.dbs-group { display: flex; align-items: center; gap: 4px; }
-.dbs-group-label { color: var(--vscode-descriptionForeground, #9d9d9d); }
+.dbs-group { display: flex; flex: none; align-items: center; gap: 4px; }
+.dbs-group-label { margin-right: 2px; color: var(--vscode-descriptionForeground, #9d9d9d); }
 .dbs-btn {
-  padding: 3px 8px;
-  border: 1px solid var(--vscode-panel-border, #3c3c3c);
-  border-radius: 3px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 24px;
+  padding: 0 10px;
+  border: 1px solid var(--dbs-line);
+  border-radius: 999px;
   background: transparent;
-  color: inherit;
+  color: var(--vscode-descriptionForeground, #9d9d9d);
   font: inherit;
+  white-space: nowrap;
   cursor: pointer;
 }
-.dbs-btn:hover { background: var(--vscode-toolbar-hoverBackground, #383838); }
-.dbs-btn.is-active {
-  background: var(--vscode-button-background, #0e639c);
-  color: var(--vscode-button-foreground, #fff);
-  border-color: transparent;
+.dbs-btn:hover { color: var(--vscode-editor-foreground, #d4d4d4); border-color: var(--vscode-descriptionForeground, #9d9d9d); }
+.dbs-btn.is-active,
+.dbs-btn.is-active:hover {
+  border-color: color-mix(in srgb, var(--dbs-accent) 55%, transparent);
+  background: color-mix(in srgb, var(--dbs-accent) 16%, transparent);
+  color: var(--dbs-accent);
+  font-weight: 600;
+}
+/* 動作類按鈕（全部顯示、匯出、比較）：跟切換鈕同形，但用前景色，看得出是「做一件事」而不是狀態。 */
+.dbs-btn.dbs-action { color: var(--vscode-editor-foreground, #d4d4d4); }
+.dbs-btn:focus-visible,
+.dbs-search input:focus-visible,
+.dbs-select:focus-visible {
+  outline: 2px solid var(--vscode-focusBorder, #007fd4);
+  outline-offset: 2px;
 }
 .dbs-search { position: relative; }
-.dbs-search input {
-  width: 240px;
-  padding: 4px 8px;
-  border: 1px solid var(--vscode-input-border, #3c3c3c);
-  border-radius: 3px;
+.dbs-search-box {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--vscode-input-border, var(--dbs-line));
+  border-radius: 999px;
   background: var(--vscode-input-background, #3c3c3c);
+  padding: 0 6px 0 12px;
+}
+.dbs-search input {
+  width: 220px;
+  padding: 4px 0;
+  border: 0;
+  outline: none;
+  background: transparent;
   color: var(--vscode-input-foreground, #ccc);
   font: inherit;
+}
+.dbs-kbd {
+  flex: none;
+  border: 1px solid var(--dbs-line);
+  border-radius: 4px;
+  padding: 0 4px;
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 10px;
+  color: var(--vscode-descriptionForeground, #9d9d9d);
 }
 .dbs-results {
   position: absolute;
   top: 100%;
   left: 0;
-  margin-top: 4px;
+  margin-top: 6px;
   width: 340px;
   max-height: 320px;
   overflow: auto;
   background: var(--vscode-quickInput-background, #252526);
-  border: 1px solid var(--vscode-panel-border, #3c3c3c);
-  border-radius: 4px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+  border: 1px solid var(--dbs-line);
+  border-radius: 10px;
+  box-shadow: 0 12px 28px -12px rgba(0,0,0,0.5);
 }
 .dbs-result {
   display: flex;
   align-items: baseline;
   gap: 8px;
-  padding: 4px 10px;
+  padding: 5px 12px;
   cursor: pointer;
 }
 .dbs-result:hover, .dbs-result.is-cursor { background: var(--vscode-list-activeSelectionBackground, #04395e); }
 .dbs-result-kind {
   flex: none;
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 700;
   color: var(--vscode-descriptionForeground, #9d9d9d);
   width: 44px;
 }
 .dbs-result-label { font-family: var(--vscode-editor-font-family, monospace); }
-.dbs-result-meta { margin-left: auto; color: var(--vscode-descriptionForeground, #9d9d9d); font-size: 10px; }
-.dbs-step { min-width: 22px; padding: 3px 6px; }
+.dbs-result-meta { margin-left: auto; color: var(--vscode-descriptionForeground, #9d9d9d); font-size: 11px; }
+.dbs-step { min-width: 24px; justify-content: center; padding: 0 6px; }
 .dbs-btn:disabled { opacity: 0.35; cursor: default; }
 .dbs-depth-value {
   min-width: 46px;
@@ -91,10 +131,26 @@ export const TOOLBAR_CSS = `
 }
 /* 切到「全部」時，層數只是記住的值，不該看起來還在生效。 */
 .dbs-group.is-unlimited .dbs-depth-value { opacity: 0.4; }
+/* 聚焦某張表之後才出現的設定：深度、方向、不相關、取消聚焦——沒有聚焦時按了也沒效果。 */
+.dbs-focus-cluster {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  border-radius: 999px;
+  padding: 3px 6px 3px 10px;
+  background: color-mix(in srgb, var(--dbs-accent) 7%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--dbs-accent) 25%, transparent);
+}
+/* 元件都有自己的 display，要明確讓 hidden 屬性贏，不然隱藏的按鈕會變成空框露出來。 */
+.dbs-toolbar [hidden] { display: none !important; }
+.dbs-focus-hint { color: var(--vscode-descriptionForeground, #9d9d9d); }
 .dbs-select {
-  padding: 3px 6px;
-  border: 1px solid var(--vscode-dropdown-border, #3c3c3c);
-  border-radius: 3px;
+  min-height: 24px;
+  padding: 0 8px;
+  border: 1px solid var(--vscode-dropdown-border, var(--dbs-line));
+  border-radius: 999px;
   background: var(--vscode-dropdown-background, #3c3c3c);
   color: var(--vscode-dropdown-foreground, #ccc);
   font: inherit;
@@ -102,10 +158,11 @@ export const TOOLBAR_CSS = `
 }
 .dbs-column-focus {
   margin-left: auto;
-  border-color: var(--vscode-focusBorder, #007fd4);
-  color: var(--vscode-focusBorder, #007fd4);
+  border-color: color-mix(in srgb, var(--dbs-accent) 55%, transparent);
+  background: color-mix(in srgb, var(--dbs-accent) 16%, transparent);
+  color: var(--dbs-accent);
 }
-.dbs-metrics { margin-left: auto; color: var(--vscode-descriptionForeground, #9d9d9d); }
+.dbs-metrics { margin-left: auto; color: var(--vscode-descriptionForeground, #9d9d9d); font-variant-numeric: tabular-nums; }
 `;
 
 export interface ToolbarHandlers {
@@ -187,6 +244,7 @@ function depthStepper(
   const paint = (): void => {
     readout.textContent = strings.depthLevels(levels);
     all.classList.toggle("is-active", unlimited);
+    all.setAttribute("aria-pressed", String(unlimited));
     element.classList.toggle("is-unlimited", unlimited);
     minus.disabled = unlimited || levels <= 1;
     plus.disabled = unlimited || levels >= MAX_DEPTH;
@@ -228,6 +286,8 @@ function buttonGroup<T extends string | number | boolean | null>(
 ): ButtonGroup<T> {
   const group = document.createElement("div");
   group.className = "dbs-group";
+  group.setAttribute("role", "group");
+  if (label) group.setAttribute("aria-label", label);
   const caption = document.createElement("span");
   caption.className = "dbs-group-label";
   caption.textContent = label;
@@ -247,7 +307,10 @@ function buttonGroup<T extends string | number | boolean | null>(
   return {
     element: group,
     setActive(value: T) {
-      for (const [key, button] of buttons) button.classList.toggle("is-active", key === value);
+      for (const [key, button] of buttons) {
+        button.classList.toggle("is-active", key === value);
+        button.setAttribute("aria-pressed", String(key === value));
+      }
     },
   };
 }
@@ -276,6 +339,8 @@ export class Toolbar {
   private readonly groupWrap: HTMLElement;
   private readonly columnFocusChip: HTMLElement;
   private readonly localeGroup: ButtonGroup<Locale>;
+  private readonly focusCluster: HTMLElement;
+  private readonly focusHint: HTMLElement;
   private schema: Schema | null = null;
   private hits: SearchHit[] = [];
   private cursor = -1;
@@ -286,16 +351,24 @@ export class Toolbar {
   ) {
     this.element = document.createElement("div");
     this.element.className = "dbs-toolbar";
+    this.element.setAttribute("role", "toolbar");
 
     const searchWrap = document.createElement("div");
     searchWrap.className = "dbs-group dbs-search";
     this.input = document.createElement("input");
     this.input.type = "search";
     this.input.placeholder = this.strings.searchPlaceholder;
+    this.input.setAttribute("aria-label", this.strings.searchPlaceholder);
     this.results = document.createElement("div");
     this.results.className = "dbs-results";
     this.results.hidden = true;
-    searchWrap.append(this.input, this.results);
+    const searchBox = document.createElement("div");
+    searchBox.className = "dbs-search-box";
+    const kbd = document.createElement("kbd");
+    kbd.className = "dbs-kbd";
+    kbd.textContent = "Ctrl F";
+    searchBox.append(this.input, kbd);
+    searchWrap.append(searchBox, this.results);
 
     this.viewModeGroup = buttonGroup<ViewMode>(
       this.strings.viewModeGroup,
@@ -390,30 +463,45 @@ export class Toolbar {
     const actions = document.createElement("div");
     actions.className = "dbs-group";
     const reset = document.createElement("button");
-    reset.className = "dbs-btn";
+    reset.className = "dbs-btn dbs-action";
     reset.textContent = this.strings.resetFocus;
+    reset.title = "Esc";
     reset.addEventListener("click", () => handlers.onResetFocus());
     const fit = document.createElement("button");
-    fit.className = "dbs-btn";
+    fit.className = "dbs-btn dbs-action";
     fit.textContent = this.strings.fitView;
     fit.addEventListener("click", () => handlers.onFitView());
     this.exportButton = document.createElement("button");
-    this.exportButton.className = "dbs-btn";
+    this.exportButton.className = "dbs-btn dbs-action";
     this.exportButton.textContent = this.strings.exportAction;
     this.exportButton.addEventListener("click", () => handlers.onExport());
     const compare = document.createElement("button");
-    compare.className = "dbs-btn";
+    compare.className = "dbs-btn dbs-action";
     compare.textContent = this.strings.compareAction;
     compare.addEventListener("click", () => handlers.onCompare());
 
     // 只有真的拖曳過才出現，平常不佔用 Toolbar 空間。
     this.resetLayoutButton = document.createElement("button");
-    this.resetLayoutButton.className = "dbs-btn";
+    this.resetLayoutButton.className = "dbs-btn dbs-action";
     this.resetLayoutButton.textContent = this.strings.resetLayout;
     this.resetLayoutButton.hidden = true;
     this.resetLayoutButton.addEventListener("click", () => handlers.onResetLayout());
 
-    actions.append(reset, fit, this.exportButton, compare, this.resetLayoutButton);
+    actions.append(fit, this.exportButton, compare, this.resetLayoutButton);
+
+    // 聚焦某張表之後才有意義的設定收在一起；沒有聚焦時換成一行提示（跟網頁版一樣）。
+    this.focusCluster = document.createElement("div");
+    this.focusCluster.className = "dbs-focus-cluster";
+    this.focusCluster.append(
+      this.depthControl.element,
+      this.directionGroup.element,
+      this.unrelatedGroup.element,
+      reset,
+    );
+    this.focusCluster.hidden = true;
+    this.focusHint = document.createElement("span");
+    this.focusHint.className = "dbs-focus-hint";
+    this.focusHint.textContent = this.strings.focusHint;
 
     // 欄位聚焦的狀態要看得見，否則使用者會不知道畫面為什麼變暗。
     this.columnFocusChip = document.createElement("button");
@@ -428,9 +516,8 @@ export class Toolbar {
       searchWrap,
       this.viewModeGroup.element,
       this.detailGroup.element,
-      this.depthControl.element,
-      this.directionGroup.element,
-      this.unrelatedGroup.element,
+      this.focusCluster,
+      this.focusHint,
       this.layoutModeGroup.element,
       this.groupWrap,
       this.commentsGroup.element,
@@ -478,6 +565,12 @@ export class Toolbar {
   setColumnFocus(label: string | null): void {
     this.columnFocusChip.hidden = label === null;
     this.columnFocusChip.textContent = label ? `${this.strings.columnFocus}: ${label} ✕` : "";
+  }
+
+  /** 有聚焦某張表才顯示深度／方向／不相關／取消聚焦，沒有的話換成一行提示。 */
+  setHasFocus(hasFocus: boolean): void {
+    this.focusCluster.hidden = !hasFocus;
+    this.focusHint.hidden = hasFocus;
   }
 
   setLayoutDirty(dirty: boolean): void {

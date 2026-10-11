@@ -33,4 +33,5 @@ out/**/*.map
 #   out/webview.js           Preview 的 Webview bundle
 #   out/sql-import.cjs       匯入 SQL 用的解析器（node-sql-parser），執行匯入時才載入
 #   language/**              語言設定與 TextMate 文法
+#   images/icon.png          插件 icon（跟網頁版同一個標誌）
 #   package.json README.md LICENSE NOTICE
