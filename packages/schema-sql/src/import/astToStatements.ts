@@ -117,7 +117,8 @@ function toColumnDef(raw: RawColumnDefinition): SqlColumnDef {
 	const nullableType = raw.nullable?.type;
 	return {
 		name: columnRefName(raw.column),
-		typeName: raw.definition.dataType,
+		// 型別一律小寫，跟手寫的 DSL 一致（node-sql-parser 給的是大寫 BIGINT / TEXT）。
+		typeName: raw.definition.dataType.toLowerCase(),
 		length: raw.definition.scale === undefined ? raw.definition.length : undefined,
 		precision: raw.definition.scale === undefined ? undefined : raw.definition.length,
 		scale: raw.definition.scale,

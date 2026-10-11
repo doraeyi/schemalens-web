@@ -3,6 +3,7 @@
 	import { ArrowLeft, ArrowRight, Check, Copy, Moon, Sun } from '@lucide/svelte';
 	import { getTheme, initTheme, toggleTheme } from '$lib/stores/theme.svelte';
 	import Logo from '$lib/components/Logo.svelte';
+	import { highlight, type HighlightLang } from '$lib/docs/highlight';
 
 	/**
 	 * DSL 語法文件。內容以 docs/dsl-spec.md 為準（那份是 Parser 的契約），這裡是給使用者看的版本：
@@ -178,7 +179,7 @@ CREATE TABLE orders (
 	<meta name="description" content="SchemaLens DSL 語法：資料表、欄位、群組、索引、關聯，以及 SQL、JSON、Markdown 匯入。" />
 </svelte:head>
 
-{#snippet codeBlock(id: string, text: string, lang = 'dbschema')}
+{#snippet codeBlock(id: string, text: string, lang: HighlightLang = 'dbschema')}
 	<div class="sl-code">
 		<div class="sl-code-bar">
 			<span>{lang}</span>
@@ -186,7 +187,8 @@ CREATE TABLE orders (
 				{#if copiedId === id}<Check size={14} /> 已複製{:else}<Copy size={14} /> 複製{/if}
 			</button>
 		</div>
-		<pre><code>{text}</code></pre>
+		<!-- highlight() 先 escape 再包 span，這裡用 {@html} 是安全的 -->
+		<pre><code>{@html highlight(text, lang)}</code></pre>
 	</div>
 {/snippet}
 
@@ -209,7 +211,7 @@ CREATE TABLE orders (
 			<div class="flex items-center gap-3">
 				<a href="/" aria-label="SchemaLens 首頁"><Logo size={28} /></a>
 				<span class="text-[var(--sl-border)]" aria-hidden="true">/</span>
-				<span class="text-sm font-semibold">文件</span>
+				<span class="text-sm font-semibold whitespace-nowrap">文件</span>
 			</div>
 			<div class="flex items-center gap-2">
 				<button class="sl-icon-btn rounded-full border border-border text-muted" onclick={handleToggleTheme} aria-label="切換深色／淺色" title="切換深色／淺色">
@@ -237,6 +239,12 @@ CREATE TABLE orders (
 		</aside>
 
 		<main class="sl-prose min-w-0">
+			<!-- 手機沒有側邊目錄：改成一排可以左右滑的章節膠囊 -->
+			<nav class="sl-mobile-toc lg:hidden" aria-label="本頁目錄">
+				{#each toc as item (item.id)}
+					<a href="#{item.id}" class="sl-chip" aria-current={activeSection === item.id ? 'location' : undefined}>{item.label}</a>
+				{/each}
+			</nav>
 			<header class="mb-12">
 				<h1>DSL 語法</h1>
 				<p class="sl-lede">
@@ -346,6 +354,25 @@ CREATE TABLE orders (
 		background: color-mix(in oklab, var(--sl-page-bg) 85%, transparent);
 		backdrop-filter: blur(12px);
 	}
+	.sl-mobile-toc {
+		position: sticky;
+		top: 64px;
+		z-index: 10;
+		display: flex;
+		gap: 6px;
+		margin: -8px -16px 24px;
+		overflow-x: auto;
+		background: color-mix(in oklab, var(--sl-page-bg) 92%, transparent);
+		padding: 10px 16px;
+		scrollbar-width: none;
+		backdrop-filter: blur(10px);
+	}
+	.sl-mobile-toc a[aria-current] {
+		border-color: color-mix(in oklab, var(--sl-cyan) 55%, transparent);
+		background: color-mix(in oklab, var(--sl-cyan) 13%, transparent);
+		color: var(--sl-cyan);
+		font-weight: 600;
+	}
 	.sl-toc-link {
 		display: block;
 		border-left: 1px solid var(--sl-border);
@@ -450,6 +477,25 @@ CREATE TABLE orders (
 		padding: 14px 16px;
 		font-size: 13px;
 		line-height: 1.7;
+	}
+	.sl-code pre :global(.tk-kw) {
+		color: var(--sl-cyan);
+	}
+	.sl-code pre :global(.tk-flag) {
+		color: var(--sl-warning);
+		font-weight: 700;
+	}
+	.sl-code pre :global(.tk-str) {
+		color: color-mix(in oklab, #2fb69b 80%, var(--sl-fg));
+	}
+	.sl-code pre :global(.tk-com) {
+		color: var(--sl-muted);
+		font-style: italic;
+	}
+	.sl-code pre :global(.tk-num),
+	.sl-code pre :global(.tk-op) {
+		color: var(--sl-violet);
+		font-weight: 600;
 	}
 	.sl-code pre :global(code) {
 		border: 0;

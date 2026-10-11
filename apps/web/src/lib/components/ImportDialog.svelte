@@ -7,10 +7,15 @@
 	interface Props {
 		mode?: 'import' | 'compare';
 		onClose: () => void;
-		onImport: (source: string, fileName: string, sqlDialect?: SqlDialectId) => void;
+		onImport: (source: string, fileName: string, sqlDialect?: SqlDialectId, strategy?: 'replace' | 'merge') => void;
+		/** 目前畫布上有幾張表；有的話匯入前要讓使用者選「取代」還是「合併」，不能默默蓋掉。 */
+		existingTableCount?: number;
 	}
 
-	let { mode = 'import', onClose, onImport }: Props = $props();
+	let { mode = 'import', onClose, onImport, existingTableCount = 0 }: Props = $props();
+	/** 上傳的檔名（.schema.json / .schema.md 要靠副檔名判斷格式），貼上的文字沒有檔名。 */
+	let uploadedName = $state<string | null>(null);
+	const asksStrategy = $derived(mode === 'import' && existingTableCount > 0);
 
 	let text = $state('');
 	let fileInput: HTMLInputElement | undefined = $state();
@@ -46,7 +51,10 @@
 			text = source;
 			return;
 		}
-		onImport(source, file.name);
+		// 不直接匯入：先放進文字框，讓使用者看到內容、再決定取代或合併。
+		format = 'schema';
+		text = source;
+		uploadedName = file.name;
 	}
 
 	const canSubmit = $derived(text.trim().length > 0);
@@ -61,15 +69,15 @@
 		}
 	}
 
-	function handlePasteSubmit(): void {
+	function handleSubmit(strategy: 'replace' | 'merge' = 'replace'): void {
 		if (!canSubmit) return;
 		if (format === 'sql') {
-			onImport(text, `pasted.${sqlDialect}.sql`, sqlDialect);
+			onImport(text, `pasted.${sqlDialect}.sql`, sqlDialect, strategy);
 			return;
 		}
 		// Pasted text has no filename to sniff a format from — treat it as DSL,
 		// the same default the VS Code extension uses for `.dbschema` files.
-		onImport(text, 'pasted.dbschema');
+		onImport(text, uploadedName ?? 'pasted.dbschema', undefined, strategy);
 	}
 
 </script>
@@ -102,7 +110,7 @@
 			<p class="mb-3 text-xs text-muted">
 				支援 <code class="font-mono text-cyan">.dbschema</code> DSL、
 				<code class="font-mono text-cyan">.schema.json</code>，以及
-				<code class="font-mono text-cyan">.schema.md</code>（內嵌 ```dbschema 區塊的 Markdown）。
+				<code class="font-mono text-cyan">.schema.md</code>（內嵌 <code class="font-mono text-cyan">{'```dbschema'}</code> 區塊的 Markdown）。
 			</p>
 		{:else}
 			<p class="mb-2 text-xs text-muted">
@@ -153,17 +161,28 @@
 			placeholder={format === 'sql'
 				? 'CREATE TABLE users (\n  id bigint PRIMARY KEY,\n  email text NOT NULL\n);'
 				: 'table Users {\n  PK Id bigint not null\n}'}
-			class="w-full resize-y rounded-lg border border-border bg-bg/60 p-2 font-mono text-xs text-fg placeholder:text-muted focus:border-cyan focus:outline-none"
+			class="w-full resize-y rounded-lg border border-border bg-bg/60 p-2 font-mono text-xs text-fg placeholder:text-muted/55 focus:border-cyan focus:outline-none"
 		></textarea>
 
 		<div class="mt-3 flex items-center justify-end gap-2">
 			{#if !canSubmit}
 				<span class="mr-auto text-xs text-muted">貼上文字或上傳檔案後就能{mode === 'compare' ? '比較' : '匯入'}</span>
+			{:else if asksStrategy}
+				<span class="mr-auto text-xs text-muted">畫布上已經有 {existingTableCount} 張表，匯入後可以按「復原」</span>
 			{/if}
 			<button class="sl-button sl-button-secondary" onclick={onClose}>取消</button>
-			<button class="sl-button sl-button-primary" onclick={handlePasteSubmit} disabled={!canSubmit}>
-				{mode === 'compare' ? '開始比較' : '匯入貼上的文字'}
-			</button>
+			{#if asksStrategy}
+				<button class="sl-button sl-button-secondary" onclick={() => handleSubmit('merge')} disabled={!canSubmit}>
+					合併進來
+				</button>
+				<button class="sl-button sl-button-primary" onclick={() => handleSubmit('replace')} disabled={!canSubmit}>
+					取代目前內容
+				</button>
+			{:else}
+				<button class="sl-button sl-button-primary" onclick={() => handleSubmit()} disabled={!canSubmit}>
+					{mode === 'compare' ? '開始比較' : '匯入'}
+				</button>
+			{/if}
 		</div>
 	</div>
 </div>

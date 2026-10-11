@@ -1,6 +1,5 @@
 <script lang="ts">
 	import type { Column, Schema, TableId } from '@schemalens/schema-core';
-	import { search, type SearchHit } from '@schemalens/schema-graph';
 	import { signIn, signOut } from '@auth/sveltekit/client';
 	import { clearDraft } from '$lib/persistence/localDraft';
 	import type { Session } from '@auth/sveltekit';
@@ -11,11 +10,11 @@
 		HardDrive,
 		Github,
 		LogOut,
+		Menu,
 		PanelLeftClose,
 		PanelLeftOpen,
 		Pencil,
 		Plus,
-		Search as SearchIcon,
 		Trash2
 	} from '@lucide/svelte';
 	import TableInspector from './TableInspector.svelte';
@@ -35,8 +34,6 @@
 		activePageId: string | null;
 		focusedTableId: TableId | null;
 		hiddenGroups: ReadonlySet<string>;
-		onPickHit: (hit: SearchHit) => void;
-		onSearchResults: (hits: SearchHit[]) => void;
 		onSelectPage: (pageId: string) => void;
 		onCreatePage: (event: MouseEvent) => void;
 		/** 訪客按「存到雲端」：開說明登入好處的對話框，不是直接跳 GitHub。 */
@@ -61,8 +58,6 @@
 		activePageId,
 		focusedTableId,
 		hiddenGroups,
-		onPickHit,
-		onSearchResults,
 		onSelectPage,
 		onCreatePage,
 		onSaveToCloud,
@@ -116,59 +111,22 @@
 			isNarrow = event.matches;
 			if (event.matches) collapsed = true;
 		};
+		// 手機上展開的側欄是蓋在畫布上的抽屜，Esc 要能關掉它（跟對話框一樣）。
+		const handleKeydown = (event: KeyboardEvent) => {
+			if (event.key !== 'Escape' || !isNarrow || collapsed) return;
+			// 上面還開著對話框的話，Esc 先交給對話框。
+			if (document.querySelector('[aria-modal="true"]')) return;
+			event.stopImmediatePropagation();
+			collapsed = true;
+		};
 		query.addEventListener('change', handleChange);
-		return () => query.removeEventListener('change', handleChange);
+		window.addEventListener('keydown', handleKeydown, true);
+		return () => {
+			query.removeEventListener('change', handleChange);
+			window.removeEventListener('keydown', handleKeydown, true);
+		};
 	});
 
-	let query = $state('');
-	let hits = $state<SearchHit[]>([]);
-	let cursor = $state(-1);
-	let resultsOpen = $state(false);
-	let searchInput: HTMLInputElement | undefined = $state();
-	let debounceHandle: ReturnType<typeof setTimeout> | undefined;
-
-	export function focusSearch(): void {
-		collapsed = false;
-		searchInput?.focus();
-		searchInput?.select();
-	}
-
-	function runSearch(value: string): void {
-		if (!schema || !value.trim()) {
-			hits = [];
-			cursor = -1;
-			resultsOpen = false;
-			onSearchResults([]);
-			return;
-		}
-		hits = search(schema, value, 60);
-		cursor = hits.length ? 0 : -1;
-		resultsOpen = hits.length > 0;
-		onSearchResults(hits);
-	}
-
-	function handleInput(): void {
-		clearTimeout(debounceHandle);
-		debounceHandle = setTimeout(() => runSearch(query), 80);
-	}
-
-	function handleSearchKeydown(event: KeyboardEvent): void {
-		if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-			event.preventDefault();
-			if (hits.length === 0) return;
-			cursor = (cursor + (event.key === 'ArrowDown' ? 1 : -1) + hits.length) % hits.length;
-		} else if (event.key === 'Enter') {
-			const hit = hits[cursor >= 0 ? cursor : 0];
-			if (hit) pick(hit);
-		} else if (event.key === 'Escape') {
-			resultsOpen = false;
-		}
-	}
-
-	function pick(hit: SearchHit): void {
-		resultsOpen = false;
-		onPickHit(hit);
-	}
 </script>
 
 {#if isNarrow && !collapsed}
@@ -180,7 +138,19 @@
 	></button>
 {/if}
 
-<div class="relative h-full flex-none {collapsed ? 'w-14' : 'w-14 md:w-80'}">
+{#if isNarrow && collapsed}
+	<!-- 手機：不留 56px 的窄欄（佔掉 14% 寬度），改成左上角一顆選單鈕 -->
+	<button
+		class="sl-menu-fab"
+		onclick={() => (collapsed = false)}
+		aria-label="開啟側欄：分頁、資料表詳情、登入"
+		title="側欄"
+	>
+		<Menu size={18} />
+	</button>
+{/if}
+
+<div class="relative h-full flex-none {isNarrow ? 'w-0' : collapsed ? 'w-14' : 'w-80'}" class:hidden={isNarrow && collapsed}>
 <div
 	class="absolute inset-y-0 left-0 flex flex-col border-r border-border text-xs text-fg transition-[width] duration-150 {collapsed
 		? 'w-14 bg-surface/60'
@@ -203,44 +173,6 @@
 			{#if collapsed}<PanelLeftOpen size={15} />{:else}<PanelLeftClose size={15} />{/if}
 		</button>
 	</div>
-
-	{#if !collapsed}
-		<div class="relative border-b border-border p-2">
-			<div class="flex items-center gap-1.5 rounded-md border border-border bg-bg/60 px-2 py-1.5">
-				<SearchIcon size={13} class="text-muted" />
-				<input
-					bind:this={searchInput}
-					bind:value={query}
-					oninput={handleInput}
-					onkeydown={handleSearchKeydown}
-					type="search"
-					placeholder="表名 / 關鍵字…"
-					class="w-full bg-transparent text-xs text-fg placeholder:text-muted focus:outline-none"
-				/>
-			</div>
-			{#if resultsOpen}
-				<div
-					class="absolute top-full left-2 right-2 z-20 mt-1 max-h-72 overflow-auto rounded-lg border border-border bg-surface shadow-xl shadow-black/40"
-				>
-					{#each hits as hit, i (hit.kind + hit.tableId + ('column' in hit ? hit.column : ''))}
-						<button
-							class="flex w-full items-baseline gap-2 px-3 py-1.5 text-left hover:bg-surface-2 {i === cursor ? 'bg-surface-2' : ''}"
-							onmousedown={(e) => {
-								e.preventDefault();
-								pick(hit);
-							}}
-						>
-							<span class="font-mono">{hit.label}</span>
-							<span class="ml-auto text-[10px] text-muted">{hit.kind === 'column' ? hit.tableId : hit.matchedOn}</span>
-						</button>
-					{/each}
-					{#if hits.length === 0}
-						<div class="px-3 py-2 text-muted">沒有符合的結果</div>
-					{/if}
-				</div>
-			{/if}
-		</div>
-	{/if}
 
 	{#if !collapsed}
 		<div class="max-h-48 overflow-auto border-b border-border p-2">
@@ -379,6 +311,22 @@
 </div>
 
 <style>
+	.sl-menu-fab {
+		position: absolute;
+		top: 8px;
+		left: 8px;
+		z-index: 36;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 44px;
+		height: 44px;
+		border: 1px solid var(--sl-border);
+		border-radius: 9999px;
+		background: var(--sl-surface);
+		color: var(--sl-fg);
+		box-shadow: 0 8px 20px -12px rgb(0 0 0 / 0.5);
+	}
 	:global(.sl-dock-zone.sl-dock-hover) {
 		outline: 2px dashed var(--sl-cyan);
 		outline-offset: -2px;

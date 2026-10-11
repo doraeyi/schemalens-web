@@ -74,14 +74,51 @@
 	}
 
 	/**
-	 * 背景格線上「亮起來」的格子——資料表的格子。位置寫死，伺服器端跟瀏覽器端畫出來一樣，
-	 * 每格各自慢慢呼吸、延遲錯開，像有東西在格線上流動，但不搶標題。[欄, 列, 延遲秒]
+	 * 品牌母題：「聚焦一層，其他淡掉」。背景格線上的格子是一張小小的關聯圖——每隔幾秒聚焦其中一格，
+	 * 它直接連到的格子跟連線亮起來，其餘維持淡淡的，跟產品裡點一張表的效果是同一個語言。
+	 * 位置寫死，伺服器端跟瀏覽器端畫出來一樣。[欄, 列]
 	 */
-	const litCells: Array<[number, number, number]> = [
-		[2, 1, 0], [5, 3, 2.4], [8, 0, 4.1], [13, 2, 1.2], [15, 4, 3.3], [18, 1, 5.2],
-		[20, 3, 0.8], [3, 6, 4.6], [6, 8, 1.9], [16, 7, 3.8], [19, 6, 0.4], [21, 9, 2.9],
-		[1, 10, 5.6], [9, 11, 2.2], [14, 10, 4.9]
+	const GRID = 56;
+	const nodes: Array<[number, number]> = [
+		[2, 1], [5, 3], [3, 6], [6, 8], [1, 10], [17, 1], [20, 3], [18, 6], [21, 9], [15, 10], [9, 11], [13, 2]
 	];
+	const edges: Array<[number, number]> = [
+		[0, 1], [1, 2], [2, 3], [2, 4], [1, 11], [11, 5], [5, 6], [6, 7], [7, 8], [7, 9], [9, 10], [3, 10]
+	];
+	const tour = [1, 7, 2, 6, 9, 11, 3, 5];
+	let focusNode = $state(1);
+	const neighbours = $derived(
+		new Set(edges.flatMap(([a, b]) => (a === focusNode ? [b] : b === focusNode ? [a] : [])))
+	);
+	const edgePath = ([a, b]: [number, number]) => {
+		const [ax, ay] = nodes[a];
+		const [bx, by] = nodes[b];
+		const x1 = ax * GRID + GRID / 2;
+		const y1 = ay * GRID + GRID / 2;
+		const x2 = bx * GRID + GRID / 2;
+		const y2 = by * GRID + GRID / 2;
+		// 跟渲染引擎的關聯線一樣是水平出發的曲線，不是直線
+		const mid = (x1 + x2) / 2;
+		return `M${x1} ${y1} C ${mid} ${y1}, ${mid} ${y2}, ${x2} ${y2}`;
+	};
+
+	let heroEl: HTMLElement | undefined = $state();
+	onMount(() => {
+		if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+		let step = 0;
+		let visible = true;
+		const observer = new IntersectionObserver(([entry]) => (visible = entry.isIntersecting));
+		if (heroEl) observer.observe(heroEl);
+		const timer = setInterval(() => {
+			if (!visible || document.visibilityState !== 'visible') return;
+			step = (step + 1) % tour.length;
+			focusNode = tour[step];
+		}, 2800);
+		return () => {
+			clearInterval(timer);
+			observer.disconnect();
+		};
+	});
 </script>
 
 <svelte:head>
@@ -104,8 +141,19 @@
 
 <div class="sl-landing">
 	<div class="sl-grid-bg" aria-hidden="true">
-		{#each litCells as [col, row, delay] (`${col}-${row}`)}
-			<span class="sl-cell" style:--col={col} style:--row={row} style:animation-delay="{delay}s"></span>
+		<svg class="sl-motif-edges" width={23 * GRID} height={12 * GRID} viewBox="0 0 {23 * GRID} {12 * GRID}">
+			{#each edges as edge (edge.join('-'))}
+				<path d={edgePath(edge)} class:is-lit={edge.includes(focusNode)} />
+			{/each}
+		</svg>
+		{#each nodes as [col, row], i (i)}
+			<span
+				class="sl-cell"
+				class:is-focus={i === focusNode}
+				class:is-near={neighbours.has(i)}
+				style:--col={col}
+				style:--row={row}
+			></span>
 		{/each}
 	</div>
 
@@ -119,7 +167,7 @@
 				<a href={REPO_URL} target="_blank" rel="noopener noreferrer" class="sl-nav-link">{c.nav.source}</a>
 			</div>
 			<div class="flex items-center gap-2">
-				<a href={c.nav.otherLangHref} class="sl-nav-link px-1 text-sm" hreflang={lang === 'en' ? 'zh-Hant' : 'en'}>{c.nav.otherLang}</a>
+				<a href={c.nav.otherLangHref} class="sl-nav-link px-1 text-sm whitespace-nowrap" hreflang={lang === 'en' ? 'zh-Hant' : 'en'}>{c.nav.otherLang}</a>
 				<button class="sl-round-icon" onclick={handleToggleTheme} title={c.themeToggle} aria-label={c.themeToggle}>
 					{#if theme === 'dark'}<Sun size={15} />{:else}<Moon size={15} />{/if}
 				</button>
@@ -128,7 +176,7 @@
 		</div>
 	</nav>
 
-	<header class="relative mx-auto max-w-5xl px-4 pt-16 pb-12 text-center sm:px-6 sm:pt-24">
+	<header bind:this={heroEl} class="relative mx-auto max-w-5xl px-4 pt-16 pb-12 text-center sm:px-6 sm:pt-24">
 		<a href="#vscode" class="sl-announce sl-fade">
 			<span class="sl-announce-dot" aria-hidden="true"></span>
 			{c.announce}
@@ -156,7 +204,7 @@
 
 		<div class="sl-fade mt-9 flex flex-wrap items-center justify-center gap-3" style:animation-delay="380ms">
 			<a href="/app" class="sl-btn-primary">{c.ctaPrimary} <ArrowRight size={16} class="sl-arrow" /></a>
-			<a href="#vscode" class="sl-btn-accent">{c.ctaVscode}</a>
+			<a href="#vscode" class="sl-btn-ghost">{c.ctaVscode}</a>
 		</div>
 
 		<div class="sl-command sl-fade mx-auto mt-6" style:animation-delay="460ms">
@@ -179,7 +227,7 @@
 
 	<section class="relative mx-auto max-w-6xl px-4 pb-28 sm:px-6" aria-label={c.demoLabel}>
 		<div class="sl-demo-frame">
-			<HeroDemo copy={c.demo} />
+			<HeroDemo copy={c.demo} {lang} />
 		</div>
 		<p class="mt-4 text-center text-sm text-[var(--l-muted)]">
 			{c.demoCaption}
@@ -389,6 +437,25 @@
 		background-position: calc(50% + var(--size) / 2) 0;
 		mask-image: radial-gradient(ellipse 70% 60% at 50% 22%, #000 30%, transparent 100%);
 	}
+	.sl-motif-edges {
+		position: absolute;
+		top: 0;
+		left: calc(50% - 11.5 * var(--size));
+		overflow: visible;
+	}
+	.sl-motif-edges path {
+		fill: none;
+		stroke: var(--l-line-strong);
+		stroke-width: 1;
+		opacity: 0.35;
+		transition:
+			stroke 0.6s ease,
+			opacity 0.6s ease;
+	}
+	.sl-motif-edges path.is-lit {
+		stroke: var(--l-accent);
+		opacity: 0.75;
+	}
 	.sl-cell {
 		position: absolute;
 		top: calc(var(--row) * var(--size) + 1px);
@@ -396,18 +463,22 @@
 		width: calc(var(--size) - 1px);
 		height: calc(var(--size) - 1px);
 		background: var(--l-cell);
-		opacity: 0;
-		animation: sl-cell 7s ease-in-out infinite;
+		opacity: 0.35;
+		transition:
+			opacity 0.6s ease,
+			background-color 0.6s ease,
+			box-shadow 0.6s ease;
 	}
-	@keyframes sl-cell {
-		0%,
-		100% {
-			opacity: 0;
-		}
-		35%,
-		55% {
-			opacity: 1;
-		}
+	/* 跟產品裡的聚焦一樣：焦點最亮、直接相連的次之、其餘淡掉 */
+	.sl-cell.is-near {
+		opacity: 1;
+		background: color-mix(in oklab, var(--l-fg) 8%, transparent);
+		box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--l-accent) 30%, transparent);
+	}
+	.sl-cell.is-focus {
+		opacity: 1;
+		background: color-mix(in oklab, var(--l-accent) 20%, transparent);
+		box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--l-accent) 70%, transparent);
 	}
 
 	/* ── 導覽列 */
@@ -446,7 +517,6 @@
 
 	/* ── 按鈕：膠囊形，白底黑字是主要動作，主色是次要動作 */
 	.sl-btn-primary,
-	.sl-btn-accent,
 	.sl-btn-ghost {
 		display: inline-flex;
 		align-items: center;
@@ -458,6 +528,7 @@
 		padding: 0 24px;
 		font-size: 15px;
 		font-weight: 600;
+		white-space: nowrap;
 		transition:
 			transform 0.15s ease,
 			background-color 0.15s ease,
@@ -473,16 +544,6 @@
 	.sl-btn-primary:hover {
 		background: color-mix(in oklab, var(--l-primary-bg) 88%, var(--l-accent));
 	}
-	.sl-btn-accent {
-		background: var(--l-accent-strong);
-		color: var(--l-accent-fg);
-		box-shadow:
-			0 1px 0 rgb(255 255 255 / 0.25) inset,
-			0 10px 28px -14px var(--l-accent);
-	}
-	.sl-btn-accent:hover {
-		background: color-mix(in oklab, var(--l-accent-strong) 88%, #fff);
-	}
 	.sl-btn-ghost {
 		border: 1px solid var(--l-line-strong);
 		color: var(--l-fg);
@@ -491,7 +552,6 @@
 		border-color: var(--l-muted);
 	}
 	.sl-btn-primary:active,
-	.sl-btn-accent:active,
 	.sl-btn-ghost:active {
 		transform: translateY(1px);
 	}
@@ -653,7 +713,9 @@
 		border-radius: 22px;
 		background: color-mix(in oklab, var(--l-card-2) 60%, transparent);
 		padding: 8px;
-		box-shadow: 0 40px 90px -40px color-mix(in oklab, var(--l-accent) 40%, transparent);
+		box-shadow:
+			0 1px 0 color-mix(in oklab, var(--l-fg) 6%, transparent) inset,
+			0 40px 80px -48px rgb(0 0 0 / 0.65);
 	}
 	.sl-demo-frame :global(.sl-demo) {
 		border-radius: 15px;
@@ -716,6 +778,17 @@
 	}
 	.sl-tile:hover {
 		border-color: var(--l-line-strong);
+	}
+	/* 指到一張卡，其他卡淡掉——首頁上也用「聚焦」說話 */
+	.sl-tile {
+		transition:
+			border-color 0.2s ease,
+			opacity 0.3s ease;
+	}
+	@media (hover: hover) {
+		.sl-bento:has(.sl-tile:hover) .sl-tile:not(:hover) {
+			opacity: 0.45;
+		}
 	}
 	.sl-tile p {
 		margin-top: 8px;
@@ -1010,9 +1083,9 @@
 	}
 
 	@media (prefers-reduced-motion: reduce) {
-		.sl-cell {
-			animation: none;
-			opacity: 0.6;
+		.sl-cell,
+		.sl-motif-edges path {
+			transition: none;
 		}
 		.sl-line-inner,
 		.sl-fade {

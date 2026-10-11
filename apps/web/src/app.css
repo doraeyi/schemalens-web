@@ -288,6 +288,16 @@ input,
 textarea {
 	caret-color: var(--sl-cyan);
 }
+/* 程式碼一律不用連字：JetBrains Mono 會把 -> 畫成 →，照著抄就打錯了。 */
+code,
+pre,
+kbd,
+textarea,
+.font-mono,
+.dbs-root {
+	font-variant-ligatures: none;
+	font-feature-settings: 'calt' 0;
+}
 :focus-visible {
 	outline: 2px solid var(--sl-cyan);
 	outline-offset: 2px;
@@ -417,6 +427,41 @@ textarea {
 	border-radius: 9999px;
 }
 
+/* 手機：常用按鈕的觸控範圍至少 44px（之前 28px）。 */
+@media (max-width: 767px) {
+	.sl-icon-btn,
+	.sl-pill-btn {
+		min-width: 44px;
+		min-height: 44px;
+	}
+	.sl-chip {
+		min-height: 36px;
+		padding: 0 12px;
+	}
+	.sl-button {
+		min-height: 40px;
+	}
+}
+
+/* 「跳到關聯圖」：平常看不到，按 Tab 第一下才浮出來。 */
+.sl-skip-link {
+	position: fixed;
+	top: 8px;
+	left: 8px;
+	z-index: 100;
+	transform: translateY(-150%);
+	border-radius: 9999px;
+	background: var(--sl-primary-bg);
+	padding: 8px 14px;
+	font-size: 13px;
+	font-weight: 600;
+	color: var(--sl-primary-fg);
+	transition: transform 0.15s ease;
+}
+.sl-skip-link:focus-visible {
+	transform: none;
+}
+
 /* 對話框右上角的關閉鈕（各對話框共用；見 $lib/actions/modal.ts） */
 .sl-close-btn {
 	display: inline-flex;
@@ -444,6 +489,8 @@ textarea {
 	font-size: 10px;
 }
 .dbs-root .dbs-card-schema,
+.dbs-root .dbs-card-group,
+.dbs-root .dbs-group-box-desc,
 .dbs-root .dbs-card-comment,
 .dbs-root .dbs-row-flags,
 .dbs-root .dbs-row-comment {

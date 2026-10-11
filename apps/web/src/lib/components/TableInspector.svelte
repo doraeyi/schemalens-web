@@ -3,7 +3,7 @@
 	import { groupColor } from '@schemalens/schema-renderer';
 	import { relationsTouching } from '$lib/schema/mutations';
 	import ConfirmDeleteDialog from './ConfirmDeleteDialog.svelte';
-	import { ArrowLeft, ArrowRight, Copy, EyeOff, Eye, Plus, Trash2, X } from '@lucide/svelte';
+	import { ArrowLeft, ArrowRight, Check, Copy, EyeOff, Eye, KeyRound, Plus, Trash2, X } from '@lucide/svelte';
 
 	interface Props {
 		schema: Schema;
@@ -272,45 +272,66 @@
 
 			<div class="p-3">
 				<div class="mb-2 font-semibold">欄位</div>
+				<!-- 欄標題＋圖示開關：之前每一列都印著灰色「PK」「NULL」，看起來像標記而不是開關，
+				     連不是主鍵的欄位也寫著 PK，很容易誤會。 -->
+				<div class="sl-col-grid mb-1 px-0.5 text-[11px] text-muted" aria-hidden="true">
+					<span class="text-center">主鍵</span>
+					<span>名稱</span>
+					<span>型別</span>
+					<span class="text-center">可空</span>
+					<span></span>
+				</div>
 				<div class="flex flex-col gap-1.5">
 					{#each table.columns as column (column.name)}
-						<div class="group/col flex items-center gap-1">
+						<div class="group/col sl-col-grid items-center">
 							<button
-								class="sl-flag {column.primaryKey ? 'is-on sl-flag-pk' : ''}"
+								class="sl-toggle {column.primaryKey ? 'is-on is-key' : ''}"
 								onclick={() => onUpdateColumn(table.id, column.name, { primaryKey: !column.primaryKey })}
 								title={column.primaryKey ? '主鍵（按一下取消）' : '設為主鍵'}
-								aria-label="主鍵"
+								aria-label="{column.name} 是主鍵"
 								aria-pressed={column.primaryKey}
 							>
-								PK
+								<KeyRound size={13} />
 							</button>
-							<input
-								value={column.name}
-								onblur={(e) => commitColumnField(e, column.name, 'name')}
-								onkeydown={submitOnEnter}
-								class="w-0 min-w-0 flex-1 rounded border border-border bg-bg/60 px-1.5 py-1 font-mono focus:border-cyan focus:outline-none"
-							/>
+							<div class="relative min-w-0">
+								<input
+									value={column.name}
+									onblur={(e) => commitColumnField(e, column.name, 'name')}
+									onkeydown={submitOnEnter}
+									aria-label="欄位名稱"
+									class="w-full rounded border border-border bg-bg/60 py-1 pl-1.5 font-mono focus:border-cyan focus:outline-none"
+									style:padding-right="{(column.foreignKey ? 26 : 0) + (column.unique ? 26 : 0) + 6}px"
+								/>
+								{#if column.foreignKey || column.unique}
+									<span class="pointer-events-none absolute inset-y-0 right-1.5 flex items-center gap-1">
+										{#if column.foreignKey}<span class="sl-mini-badge is-fk" title="外鍵">FK</span>{/if}
+										{#if column.unique}<span class="sl-mini-badge is-uq" title="唯一">UQ</span>{/if}
+									</span>
+								{/if}
+							</div>
 							<input
 								value={column.type}
 								list="sl-inspector-column-types"
 								onblur={(e) => commitColumnField(e, column.name, 'type')}
 								onkeydown={submitOnEnter}
-								class="w-20 flex-none rounded border border-border bg-bg/60 px-1.5 py-1 font-mono focus:border-cyan focus:outline-none"
+								aria-label="型別"
+								title={column.type}
+								class="w-full min-w-0 rounded border border-border bg-bg/60 px-1.5 py-1 font-mono focus:border-cyan focus:outline-none"
 							/>
 							<button
-								class="sl-flag {column.nullable ? 'is-on' : ''}"
+								class="sl-toggle {column.nullable ? 'is-on' : ''}"
 								onclick={() => onUpdateColumn(table.id, column.name, { nullable: !column.nullable })}
 								title={column.nullable ? '允許 NULL（按一下改成 NOT NULL）' : 'NOT NULL（按一下改成允許 NULL）'}
-								aria-label="允許 NULL"
+								aria-label="{column.name} 允許 NULL"
 								aria-pressed={column.nullable}
 							>
-								NULL
+								{#if column.nullable}<Check size={13} />{/if}
 							</button>
 							<button
-								class="sl-icon-btn flex-none text-red-400 opacity-0 group-focus-within/col:opacity-100 group-hover/col:opacity-100 hover:text-red-300 max-md:opacity-100"
+								class="sl-icon-btn flex-none text-red-400 opacity-0 group-focus-within/col:opacity-100 group-hover/col:opacity-100 hover:text-red-300"
 								onclick={() => requestDeleteColumn(column.name)}
 								title="刪除欄位"
-								aria-label="刪除欄位"
+								aria-label="刪除欄位 {column.name}"
 							>
 								<Trash2 size={12} />
 							</button>
@@ -376,31 +397,50 @@
 </datalist>
 
 <style>
-	/* PK / NULL 直接寫字：之前是鑰匙圖示跟一個「?」，看不出是在切換什麼。 */
-	.sl-flag {
-		flex: none;
-		min-width: 34px;
-		height: 24px;
-		border: 1px solid var(--sl-border);
-		border-radius: 5px;
-		padding: 0 5px;
-		font-family: var(--font-mono);
-		font-size: 10px;
-		font-weight: 700;
-		color: var(--sl-muted);
+	/* 主鍵、可空、名稱、型別、刪除：每一列跟欄標題用同一組欄寬才對得齊。
+	   型別欄放得下 bigserial / datetime2 / nvarchar(255)（之前 80px 會切成 BIGSERI、nvarcha）。 */
+	.sl-col-grid {
+		display: grid;
+		grid-template-columns: 26px minmax(0, 1fr) 6rem 26px 24px;
+		gap: 3px;
 	}
-	.sl-flag:hover {
+	.sl-toggle {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 26px;
+		height: 26px;
+		border: 1px solid var(--sl-border);
+		border-radius: 6px;
+		color: color-mix(in oklab, var(--sl-muted) 55%, transparent);
+	}
+	.sl-toggle:hover {
 		border-color: var(--sl-cyan);
 		color: var(--sl-fg);
 	}
-	.sl-flag.is-on {
+	.sl-toggle.is-on {
 		border-color: color-mix(in oklab, var(--sl-cyan) 55%, transparent);
 		background: color-mix(in oklab, var(--sl-cyan) 14%, transparent);
 		color: var(--sl-cyan);
 	}
-	.sl-flag-pk.is-on {
+	.sl-toggle.is-key.is-on {
 		border-color: color-mix(in oklab, var(--sl-warning) 60%, transparent);
 		background: color-mix(in oklab, var(--sl-warning) 14%, transparent);
 		color: var(--sl-warning);
+	}
+	.sl-mini-badge {
+		border: 1px solid currentColor;
+		border-radius: 4px;
+		padding: 0 3px;
+		font-family: var(--font-mono);
+		font-size: 11px;
+		font-weight: 700;
+		line-height: 15px;
+	}
+	.sl-mini-badge.is-fk {
+		color: var(--sl-cyan);
+	}
+	.sl-mini-badge.is-uq {
+		color: var(--sl-violet);
 	}
 </style>

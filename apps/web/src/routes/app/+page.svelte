@@ -56,6 +56,8 @@
 	import ConfirmDeleteDialog from '$lib/components/ConfirmDeleteDialog.svelte';
 	import LoginPromptDialog from '$lib/components/LoginPromptDialog.svelte';
 	import EmptyCanvas from '$lib/components/EmptyCanvas.svelte';
+	import FocusBar from '$lib/components/FocusBar.svelte';
+	import type { DisplayMode } from '$lib/components/Toolbar.svelte';
 	import { SAMPLE_SCHEMA_DSL, SAMPLE_SCHEMA_FILENAME } from '$lib/schema/sampleSchema';
 	import AiSettingsDialog from '$lib/components/AiSettingsDialog.svelte';
 	import { clearAiSettings, loadAiSettings, saveAiSettings, type AiSettings } from '$lib/ai/settings';
@@ -141,7 +143,14 @@
 	let showAiSettings = $state(false);
 	let aiSettings = $state<AiSettings | null>(null);
 	let toast = $state<string | null>(null);
+	/** 提示上的動作按鈕（目前只有匯入後的「復原」）。 */
+	let toastAction = $state<{ label: string; run: () => void } | null>(null);
 	let toastTimer: ReturnType<typeof setTimeout> | undefined;
+	/** 給螢幕閱讀器的狀態播報（聚焦哪張表、取消聚焦）。 */
+	let liveMessage = $state('');
+	let announcedFocus: TableId | null = null;
+	/** 從畫布 Shift+Enter／雙擊進到程式碼對話框時，要捲到哪張表。 */
+	let viewSourceTable = $state<string | null>(null);
 
 	let deleteConfirm = $state<{ tableId: TableId } | null>(null);
 	let showLoginPrompt = $state(false);
@@ -156,10 +165,31 @@
 	let canvasReady = $state(false);
 	const hasTables = $derived((schema?.tables.length ?? 0) > 0);
 
-	function showToast(message: string, durationMs = 2500): void {
+	function showToast(message: string, durationMs = 2500, action: { label: string; run: () => void } | null = null): void {
 		toast = message;
+		toastAction = action;
 		clearTimeout(toastTimer);
-		toastTimer = setTimeout(() => (toast = null), durationMs);
+		toastTimer = setTimeout(() => {
+			toast = null;
+			toastAction = null;
+		}, durationMs);
+	}
+
+	/** 聚焦改變時播報一句，螢幕閱讀器使用者才知道畫面變了。 */
+	function announceFocus(tableId: TableId | null): void {
+		if (tableId === announcedFocus) return;
+		announcedFocus = tableId;
+		if (!tableId || !schema) {
+			liveMessage = tableId === null && schema ? '已取消聚焦' : '';
+			return;
+		}
+		const table = schema.tables.find((t) => t.id === tableId);
+		const related = new Set(
+			schema.relations
+				.filter((r) => r.sourceTable === tableId || r.targetTable === tableId)
+				.map((r) => (r.sourceTable === tableId ? r.targetTable : r.sourceTable))
+		);
+		liveMessage = `已聚焦 ${table?.name ?? tableId}，${related.size} 張直接相關的表，其餘淡化`;
 	}
 
 	function syncToolbarState(): void {
@@ -174,6 +204,7 @@
 			groupFilter: state.groupFilter
 		};
 		focusedTableId = state.focus.tableId;
+		announceFocus(focusedTableId);
 		syncSelectionHighlight();
 		syncCompactState();
 		scheduleDraftSave();
@@ -200,6 +231,17 @@
 		else next.add(name);
 		hiddenGroups = next;
 		syncCompactState();
+	}
+
+	/** 工具列「顯示」：分區總覽就是精簡模式，其餘三個是完整模式下的欄位密度。 */
+	function handleDisplay(display: DisplayMode): void {
+		if (display === 'compact') {
+			handleViewModeChange('compact');
+			return;
+		}
+		if (viewMode === 'compact') handleViewModeChange('full');
+		renderer?.setViewState({ detailLevel: display });
+		syncToolbarState();
 	}
 
 	function handleViewModeChange(mode: ViewMode): void {
@@ -339,6 +381,8 @@
 		// 匯入不管表有多少一律先給 100% 實際大小，使用者自己決定要不要縮小——
 		// 不像一般載入分頁那樣自動縮放塞進畫面，避免表一多整個被縮到看不清楚。
 		if (resetZoomTo100) renderer.centerAtScale(1);
+		// 手機上「縮放到全圖」常常縮到 30% 幾，欄位字剩 4px；至少保留 60%，其餘用手指拖。
+		if (window.matchMedia('(max-width: 767px)').matches && renderer.getScale() < 0.6) renderer.centerAtScale(0.6);
 		const elapsed = Math.round(performance.now() - start);
 		metricsText = t.metrics(result.schema.tables.length, result.schema.relations.length, elapsed);
 		syncToolbarState();
@@ -378,12 +422,6 @@
 		syncToolbarState();
 		saveLocalDraft(currentFileName, currentSource);
 		saveToCloud();
-	}
-
-	/** SQL 匯入是唯一 async 的載入路徑（要動態載入 node-sql-parser），其餘 loadSchema() 呼叫點不受影響。 */
-	async function loadSchemaFromSqlAndApply(source: string, fileName: string, dialect: SqlDialectId): Promise<void> {
-		const result = await loadSchemaFromSql(source, fileName, dialect);
-		applyLoadedSchema(result, source, fileName, undefined, true);
 	}
 
 	/**
@@ -470,6 +508,8 @@
 		renderer = instance;
 		canvasHost = host;
 		canvasReady = true;
+		// 手機用手指拖就是要平移；框選（選取模式）在觸控上用不到。
+		if (window.matchMedia('(max-width: 767px)').matches) interactionMode = 'move';
 		syncBottomInset();
 		renderer.setInteractionMode(interactionMode);
 		scalePercent = Math.round(renderer.getScale() * 100);
@@ -748,26 +788,46 @@
 		return items;
 	}
 
-	function handleImport(source: string, fileName: string, sqlDialect?: SqlDialectId): void {
+	/**
+	 * 匯入：畫布上已經有表時，對話框會讓使用者選「取代」或「合併」；不管哪種，匯入前都先記下
+	 * 原本的內容，提示上給一顆「復原」——之前匯入會直接蓋掉整份 schema，訪客的資料只在瀏覽器裡，
+	 * 蓋掉就沒了。
+	 */
+	async function handleImport(
+		source: string,
+		fileName: string,
+		sqlDialect?: SqlDialectId,
+		strategy: 'replace' | 'merge' = 'replace'
+	): Promise<void> {
 		showImportDialog = false;
-		if (sqlDialect) {
-			// 匯入是使用者明確的動作，才值得廣播給協作對象——跟 applyLoadedSchema 內部其他
-			// 「載入我自己原本狀態」的呼叫點不同，所以這裡呼叫端自己 push，不是共用函式無條件 push。
-			void loadSchemaFromSqlAndApply(source, fileName, sqlDialect).then(() => {
-				if (schema) collab?.pushLocalSchema(schema);
-				announceImport();
-			});
-			return;
+		const before = schema && schema.tables.length > 0 ? { source: currentSource, fileName: currentFileName } : null;
+		// 匯入是使用者明確的動作，才值得廣播給協作對象——跟 applyLoadedSchema 內部其他
+		// 「載入我自己原本狀態」的呼叫點不同，所以這裡呼叫端自己 push，不是共用函式無條件 push。
+		let result = sqlDialect ? await loadSchemaFromSql(source, fileName, sqlDialect) : loadSchemaFromText(source, fileName);
+		if (strategy === 'merge' && schema && result.schema.tables.length > 0) {
+			const merged = mutate.mergeSchemas(schema, result.schema);
+			result = { schema: merged, diagnostics: [...result.diagnostics, ...validateSchema(merged, { file: fileName })] };
+			fileName = currentFileName;
 		}
-		loadSchema(source, fileName, undefined, true);
+		applyLoadedSchema(result, source, fileName, undefined, strategy === 'replace');
 		if (schema) collab?.pushLocalSchema(schema);
-		announceImport();
+		announceImport(strategy, before);
+	}
+
+	function undoImport(before: { source: string; fileName: string }): void {
+		loadSchema(before.source, before.fileName);
+		if (schema) collab?.pushLocalSchema(schema);
+		showToast('已復原成匯入前的內容。');
 	}
 
 	/** 匯入完明確說結果：幾張表、幾條關聯；解析不到任何東西時直接講，不要只留一張空畫布。 */
-	function announceImport(): void {
+	function announceImport(
+		strategy: 'replace' | 'merge' = 'replace',
+		before: { source: string; fileName: string } | null = null
+	): void {
 		if (!schema) return;
 		const problems = diagnostics.length;
+		const undo = before ? { label: '復原', run: () => undoImport(before) } : null;
 		if (schema.tables.length === 0) {
 			showToast(
 				problems > 0
@@ -777,8 +837,16 @@
 			);
 			return;
 		}
-		const base = `已匯入 ${schema.tables.length} 張表、${schema.relations.length} 條關聯`;
-		showToast(problems > 0 ? `${base}，有 ${problems} 個解析問題，詳見左下角。` : `${base}。點任一張表的標題就能聚焦它的關聯。`, 4500);
+		// 只算真的畫得出來的關聯：指到不存在的表的那幾條會列在問題清單，不該算進「已匯入」。
+		const tableIds = new Set(schema.tables.map((t) => t.id));
+		const drawn = schema.relations.filter((r) => tableIds.has(r.sourceTable) && tableIds.has(r.targetTable)).length;
+		const verb = strategy === 'merge' ? '合併後共有' : '已匯入';
+		const base = `${verb} ${schema.tables.length} 張表、${drawn} 條關聯`;
+		showToast(
+			problems > 0 ? `${base}，有 ${problems} 個問題列在畫布下方。` : `${base}。點任一張表的標題就能聚焦它的關聯。`,
+			undo ? 9000 : 4500,
+			undo
+		);
 	}
 
 	function handleLoadSample(): void {
@@ -996,8 +1064,7 @@
 				resetFocus();
 			} else if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'f') {
 				event.preventDefault();
-				if (viewMode === 'compact') appSidebarRef?.focusSearch();
-				else toolbarRef?.focusSearch();
+				toolbarRef?.focusSearch();
 			} else if ((event.key === 'Delete' || event.key === 'Backspace') && selectedTables.size > 0) {
 				const target = event.target as HTMLElement | null;
 				const tag = target?.tagName;
@@ -1047,6 +1114,17 @@
 	<title>SchemaLens — 工作區</title>
 </svelte:head>
 
+<a
+	href="#sl-canvas"
+	class="sl-skip-link"
+	onclick={(event) => {
+		event.preventDefault();
+		canvasHost?.querySelector<HTMLElement>('.dbs-card')?.focus();
+	}}
+>
+	跳到關聯圖
+</a>
+<div class="sr-only" role="status" aria-live="polite">{liveMessage}</div>
 <div class="relative flex h-dvh overflow-hidden bg-bg text-fg">
 	<AppSidebar
 		bind:this={appSidebarRef}
@@ -1056,8 +1134,6 @@
 		{activePageId}
 		{focusedTableId}
 		{hiddenGroups}
-		onPickHit={handlePickHit}
-		onSearchResults={handleSearchResults}
 		onSelectPage={handleSelectPage}
 		onCreatePage={openCreatePageMenu}
 		onSaveToCloud={() => (showLoginPrompt = true)}
@@ -1075,34 +1151,19 @@
 	/>
 
 	<div class="flex min-w-0 flex-1 flex-col">
-		{#if viewMode === 'full' && hasTables}
+		{#if hasTables}
 			<Toolbar
 				bind:this={toolbarRef}
 				{schema}
-				{active}
+				display={viewMode === 'compact' ? 'compact' : active.detailLevel}
+				expandComments={active.expandComments}
+				groupFilter={active.groupFilter}
 				{columnFocusLabel}
 				selectedCount={selectedTables.size}
 				{layoutDirty}
 				{metricsText}
 				hasFocus={!!focusedTableId}
-				onDetailLevel={(level: DetailLevel) => {
-					renderer?.setViewState({ detailLevel: level });
-					syncToolbarState();
-				}}
-				onDepth={(depth: number | null) => {
-					if (!renderer) return;
-					renderer.setViewState({ focus: { ...renderer.getViewState().focus, depth } });
-					syncToolbarState();
-				}}
-				onDirection={(direction: TraversalDirection) => {
-					if (!renderer) return;
-					renderer.setViewState({ focus: { ...renderer.getViewState().focus, direction } });
-					syncToolbarState();
-				}}
-				onUnrelated={(mode: UnrelatedMode) => {
-					renderer?.setViewState({ unrelated: mode });
-					syncToolbarState();
-				}}
+				onDisplay={handleDisplay}
 				onComments={(expanded: boolean) => {
 					renderer?.setViewState({ expandComments: expanded });
 					syncToolbarState();
@@ -1116,8 +1177,6 @@
 					columnFocusLabel = null;
 				}}
 				onClearSelection={clearSelection}
-				onResetFocus={resetFocus}
-				onFitView={() => renderer?.fitView()}
 				onResetLayout={() => {
 					renderer?.resetLayout();
 					layoutDirty = false;
@@ -1127,7 +1186,7 @@
 			/>
 		{/if}
 
-		<div class="relative flex-1">
+		<div id="sl-canvas" class="relative flex-1">
 			<SchemaCanvas
 				mode={interactionMode}
 				onReady={handleReady}
@@ -1138,6 +1197,10 @@
 					scheduleDraftSave();
 				}}
 				onColumnSelected={handleColumnSelected}
+				onOpenSource={(target) => {
+					viewSourceTable = schema?.tables.find((t) => t.id === target.tableId)?.name ?? null;
+					showViewSourceDialog = true;
+				}}
 				onDiagnosticSelected={() => {}}
 				onViewportChanged={(scale) => (scalePercent = Math.round(scale * 100))}
 				onCardToggleSelect={toggleTableSelection}
@@ -1147,6 +1210,30 @@
 					syncSelectionHighlight();
 				}}
 			/>
+
+			{#if focusedTableId && schema && !diffMode && viewMode === 'full'}
+				<FocusBar
+					tableName={schema.tables.find((t) => t.id === focusedTableId)?.name ?? focusedTableId}
+					depth={active.depth}
+					direction={active.direction}
+					unrelated={active.unrelated}
+					onDepth={(depth) => {
+						if (!renderer) return;
+						renderer.setViewState({ focus: { ...renderer.getViewState().focus, depth } });
+						syncToolbarState();
+					}}
+					onDirection={(direction) => {
+						if (!renderer) return;
+						renderer.setViewState({ focus: { ...renderer.getViewState().focus, direction } });
+						syncToolbarState();
+					}}
+					onUnrelated={(mode) => {
+						renderer?.setViewState({ unrelated: mode });
+						syncToolbarState();
+					}}
+					onReset={resetFocus}
+				/>
+			{/if}
 
 			{#if canvasReady && schema && !hasTables && !diffMode}
 				<EmptyCanvas
@@ -1216,18 +1303,16 @@
 				{scalePercent}
 				mode={interactionMode}
 				{theme}
-				{viewMode}
 				onZoomIn={() => renderer?.zoomBy(1.2)}
 				onZoomOut={() => renderer?.zoomBy(1 / 1.2)}
 				onZoomReset={() => renderer?.fitView()}
 				onModeChange={handleModeChange}
-				onViewModeChange={handleViewModeChange}
 				onImportClick={() => (showImportDialog = true)}
 				onExportClick={() => (showExportDialog = true)}
 				onViewSourceClick={() => (showViewSourceDialog = true)}
 				onToggleTheme={handleToggleTheme}
 				onCompare={() => (showCompareDialog = true)}
-				compareDisabled={!!diffMode}
+				compareDisabled={!!diffMode || !hasTables}
 				onHistory={openVersionHistory}
 				historyDisabled={!activePageId}
 				onAiClick={() => (showAiSettings = true)}
@@ -1237,11 +1322,26 @@
 
 			{#if toast}
 				<div
-					class="absolute top-3 right-3 left-3 z-30 ml-auto max-w-sm rounded-lg border border-cyan bg-surface px-3 py-2 text-xs whitespace-pre-wrap text-fg shadow-lg sm:left-auto"
+					class="absolute right-3 bottom-20 left-3 z-30 ml-auto max-w-sm rounded-xl border border-cyan/50 bg-surface px-3 py-2.5 text-xs whitespace-pre-wrap text-fg shadow-[0_14px_30px_-16px_rgb(0_0_0/0.6)] sm:left-auto"
 					role="status"
 					aria-live="polite"
 				>
-					{toast}
+					<div class="flex items-start gap-3">
+						<span class="min-w-0 flex-1">{toast}</span>
+						{#if toastAction}
+							<button
+								class="sl-button sl-button-secondary sl-button-sm -my-1"
+								onclick={() => {
+									const action = toastAction;
+									toast = null;
+									toastAction = null;
+									action?.run();
+								}}
+							>
+								{toastAction.label}
+							</button>
+						{/if}
+					</div>
 				</div>
 			{/if}
 		</div>
@@ -1268,7 +1368,11 @@
 {/if}
 
 {#if showImportDialog}
-	<ImportDialog onClose={() => (showImportDialog = false)} onImport={handleImport} />
+	<ImportDialog
+		existingTableCount={diffMode ? 0 : (schema?.tables.length ?? 0)}
+		onClose={() => (showImportDialog = false)}
+		onImport={handleImport}
+	/>
 {/if}
 
 {#if showExportDialog}
@@ -1281,7 +1385,14 @@
 {/if}
 
 {#if showViewSourceDialog && schema}
-	<ViewSourceDialog source={toDsl(schema)} onClose={() => (showViewSourceDialog = false)} />
+	<ViewSourceDialog
+		source={toDsl(schema)}
+		focusTable={viewSourceTable}
+		onClose={() => {
+			showViewSourceDialog = false;
+			viewSourceTable = null;
+		}}
+	/>
 {/if}
 
 {#if showAiSettings}

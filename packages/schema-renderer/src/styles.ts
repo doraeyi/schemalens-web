@@ -166,7 +166,7 @@ export const RENDERER_CSS = `
 }
 .dbs-card-group {
   flex: none;
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 600;
   padding: 1px 5px;
   border-radius: 8px;

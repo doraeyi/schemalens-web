@@ -5,9 +5,28 @@
 	interface Props {
 		source: string;
 		onClose: () => void;
+		/** 從畫布 Shift+Enter／雙擊進來時：捲到這張表的定義並標出來。 */
+		focusTable?: string | null;
 	}
 
-	let { source, onClose }: Props = $props();
+	let { source, onClose, focusTable = null }: Props = $props();
+
+	const lines = $derived(source.split('\n'));
+	/** 這張表的定義在哪幾行：從 `table 名稱` 那行到它的 `}`。 */
+	const highlight = $derived.by(() => {
+		if (!focusTable) return null;
+		const name = focusTable.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+		const start = lines.findIndex((line) => new RegExp(`^table\\s+(?:\\w+\\.)?${name}\\b`).test(line));
+		if (start < 0) return null;
+		const end = lines.findIndex((line, i) => i > start && line.trim() === '}');
+		return { start, end: end < 0 ? start : end };
+	});
+
+	let preEl: HTMLPreElement | undefined = $state();
+	$effect(() => {
+		if (!highlight || !preEl) return;
+		preEl.querySelector<HTMLElement>(`[data-line="${highlight.start}"]`)?.scrollIntoView({ block: 'center' });
+	});
 
 	let copied = $state(false);
 	let copyTimer: ReturnType<typeof setTimeout> | undefined;
@@ -43,6 +62,21 @@
 			</div>
 		</div>
 		<p class="mb-2 text-xs text-muted">不用下載檔案——直接複製這段文字貼給 AI 或貼到別的地方。</p>
-		<pre class="flex-1 overflow-auto rounded-lg border border-border bg-bg/60 p-3 font-mono text-xs whitespace-pre-wrap select-text">{source}</pre>
+		<pre
+			bind:this={preEl}
+			class="flex-1 overflow-auto rounded-lg border border-border bg-bg/60 p-3 font-mono text-xs whitespace-pre-wrap select-text">{#each lines as line, i (i)}<span
+					data-line={i}
+					class={highlight && i >= highlight.start && i <= highlight.end ? 'sl-src-hit' : ''}>{line}{'\n'}</span
+				>{/each}</pre>
 	</div>
 </div>
+
+<style>
+	.sl-src-hit {
+		display: block;
+		margin: 0 -12px;
+		padding: 0 12px;
+		background: color-mix(in oklab, var(--sl-cyan) 14%, transparent);
+		box-shadow: inset 2px 0 0 var(--sl-cyan);
+	}
+</style>

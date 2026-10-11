@@ -132,16 +132,25 @@ export const TOOLBAR_CSS = `
 /* 切到「全部」時，層數只是記住的值，不該看起來還在生效。 */
 .dbs-group.is-unlimited .dbs-depth-value { opacity: 0.4; }
 /* 聚焦某張表之後才出現的設定：深度、方向、不相關、取消聚焦——沒有聚焦時按了也沒效果。 */
+/* 浮在畫布上（工具列正下方置中），不參與工具列的排版——聚焦時工具列不會變高、畫布不會跳。
+   跟網頁版的 FocusBar 同一個做法。 */
 .dbs-focus-cluster {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
-  flex: none;
-  flex-wrap: wrap;
+  max-width: calc(100vw - 24px);
+  overflow-x: auto;
   align-items: center;
   gap: 6px 12px;
   border-radius: 999px;
-  padding: 3px 6px 3px 10px;
-  background: color-mix(in srgb, var(--dbs-accent) 7%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--dbs-accent) 25%, transparent);
+  padding: 5px 6px 5px 12px;
+  white-space: nowrap;
+  background: var(--vscode-editorWidget-background, #252526);
+  border: 1px solid color-mix(in srgb, var(--dbs-accent) 40%, var(--dbs-line));
+  box-shadow: 0 12px 28px -16px rgba(0, 0, 0, 0.6);
+  scrollbar-width: none;
 }
 /* 元件都有自己的 display，要明確讓 hidden 屬性贏，不然隱藏的按鈕會變成空框露出來。 */
 .dbs-toolbar [hidden] { display: none !important; }
@@ -273,6 +282,8 @@ function depthStepper(
 }
 
 export type ViewMode = "full" | "compact";
+/** 工具列「顯示」的選項：compact 是分區總覽（精簡模式），其餘是完整模式下的欄位密度。 */
+type DisplayMode = "compact" | DetailLevel;
 
 interface ButtonGroup<T> {
   element: HTMLElement;
@@ -328,12 +339,11 @@ export class Toolbar {
   private readonly metrics: HTMLElement;
   private readonly resetLayoutButton: HTMLButtonElement;
   private readonly exportButton: HTMLButtonElement;
-  private readonly detailGroup: ButtonGroup<DetailLevel>;
+  private readonly displayGroup: ButtonGroup<DisplayMode>;
   private readonly depthControl: DepthStepper;
   private readonly directionGroup: ButtonGroup<TraversalDirection>;
   private readonly unrelatedGroup: ButtonGroup<UnrelatedMode>;
   private readonly layoutModeGroup: ButtonGroup<LayoutMode>;
-  private readonly viewModeGroup: ButtonGroup<ViewMode>;
   private readonly commentsGroup: ButtonGroup<boolean>;
   private readonly groupSelect: HTMLSelectElement;
   private readonly groupWrap: HTMLElement;
@@ -370,22 +380,17 @@ export class Toolbar {
     searchBox.append(this.input, kbd);
     searchWrap.append(searchBox, this.results);
 
-    this.viewModeGroup = buttonGroup<ViewMode>(
-      this.strings.viewModeGroup,
+    // 「顯示」一組：分區總覽（精簡模式）＋三種欄位密度。之前是「檢視：完整／精簡」跟「欄位：…」
+    // 兩組各管一半，意思重疊——跟網頁版一起併成一組。
+    this.displayGroup = buttonGroup<DisplayMode>(
+      this.strings.displayGroup,
       [
-        { label: this.strings.viewModeFull, value: "full" },
-        { label: this.strings.viewModeCompact, value: "compact" },
-      ],
-      handlers.onViewMode,
-    );
-    this.detailGroup = buttonGroup<DetailLevel>(
-      this.strings.viewGroup,
-      [
+        { label: this.strings.displayZones, value: "compact" },
         { label: this.strings.viewOverview, value: "overview", hint: this.strings.viewOverviewHint },
         { label: this.strings.viewKeys, value: "keys", hint: this.strings.viewKeysHint },
         { label: this.strings.viewFull, value: "full", hint: this.strings.viewFullHint },
       ],
-      handlers.onDetailLevel,
+      (value) => (value === "compact" ? handlers.onViewMode("compact") : handlers.onDetailLevel(value)),
     );
     this.depthControl = depthStepper(this.strings, handlers.onDepth);
     this.directionGroup = buttonGroup<TraversalDirection>(
@@ -514,8 +519,7 @@ export class Toolbar {
 
     this.element.append(
       searchWrap,
-      this.viewModeGroup.element,
-      this.detailGroup.element,
+      this.displayGroup.element,
       this.focusCluster,
       this.focusHint,
       this.layoutModeGroup.element,
@@ -588,10 +592,7 @@ export class Toolbar {
     locale: Locale;
     viewMode: ViewMode;
   }): void {
-    this.viewModeGroup.setActive(state.viewMode);
-    // 精簡模式下卡片固定只顯示表名，欄位顯示層級不適用。
-    this.detailGroup.element.hidden = state.viewMode === "compact";
-    this.detailGroup.setActive(state.detailLevel);
+    this.displayGroup.setActive(state.viewMode === "compact" ? "compact" : state.detailLevel);
     this.depthControl.setValue(state.depth);
     this.directionGroup.setActive(state.direction);
     this.unrelatedGroup.setActive(state.unrelated);

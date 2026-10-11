@@ -86,8 +86,8 @@
 					<li class="flex gap-2 leading-relaxed">
 						<span class="sl-diag-dot sl-diag-dot-{diagnostic.advisory ? 'advisory' : diagnostic.severity}" aria-hidden="true"></span>
 						<span class="min-w-0">
-							<span class="sl-diag-code">{diagnostic.code}{diagnostic.detail ? `:${diagnostic.detail}` : ''}</span>
-							<span class="text-fg"> — {diagnostic.message}</span>
+							<span class="text-fg">{diagnostic.message}</span>
+							<span class="sl-diag-code">{diagnostic.detail ? `${diagnostic.detail} · ` : ''}{diagnostic.code}</span>
 						</span>
 					</li>
 				{/each}
@@ -154,11 +154,12 @@
 		color: var(--sl-fg);
 		background: color-mix(in oklab, var(--sl-fg) 8%, transparent);
 	}
+	/* 白話說明在前，機器代碼縮小放後面（方便搜尋、回報），不再是第一眼看到的東西。 */
 	.sl-diag-code {
+		margin-left: 8px;
 		font-family: var(--font-mono);
 		font-size: 11px;
-		font-weight: 600;
-		color: var(--sl-fg);
+		color: var(--sl-muted);
 	}
 	.sl-diag-dot {
 		flex: none;

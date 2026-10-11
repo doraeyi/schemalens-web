@@ -1,19 +1,32 @@
 <script lang="ts">
-	import { CircleHelp, Code, Download, GitCompare, Hand, History, LayoutGrid, Minus, MousePointer2, Moon, Plus, Rows3, Sparkles, Sun, Upload } from '@lucide/svelte';
+	import { tick } from 'svelte';
+	import {
+		CircleHelp,
+		Code,
+		Download,
+		Ellipsis,
+		GitCompare,
+		Hand,
+		History,
+		Minus,
+		MousePointer2,
+		Moon,
+		Plus,
+		Sparkles,
+		Sun,
+		Upload
+	} from '@lucide/svelte';
 	import type { InteractionMode } from '@schemalens/schema-renderer';
 	import type { Theme } from '$lib/stores/theme.svelte';
-	import type { ViewMode } from '$lib/stores/viewMode';
 
 	interface Props {
 		scalePercent: number;
 		mode: InteractionMode;
 		theme: Theme;
-		viewMode: ViewMode;
 		onZoomIn: () => void;
 		onZoomOut: () => void;
 		onZoomReset: () => void;
 		onModeChange: (mode: InteractionMode) => void;
-		onViewModeChange: (mode: ViewMode) => void;
 		onImportClick: () => void;
 		onExportClick: () => void;
 		onViewSourceClick: () => void;
@@ -31,12 +44,10 @@
 		scalePercent,
 		mode,
 		theme,
-		viewMode,
 		onZoomIn,
 		onZoomOut,
 		onZoomReset,
 		onModeChange,
-		onViewModeChange,
 		onImportClick,
 		onExportClick,
 		onViewSourceClick,
@@ -50,11 +61,77 @@
 		signedIn = false
 	}: Props = $props();
 
-	/** disabled 的按鈕要說得出為什麼不能按，不然看起來像壞掉。 */
-	const historyTitle = $derived(
-		!historyDisabled ? '版本歷史' : signedIn ? '版本歷史：先存成雲端分頁才會有' : '版本歷史：登入並存到雲端後才會有'
+	/** disabled 的項目要說得出為什麼不能按，不然看起來像壞掉。 */
+	const historyHint = $derived(
+		!historyDisabled ? null : signedIn ? '先存成雲端分頁才會有' : '登入並存到雲端後才會有'
 	);
+
+	/**
+	 * 底部列只留每次都會用到的：縮放、選取／移動、匯入、匯出。
+	 * 程式碼、比較、歷史、AI、說明、主題收進「⋯」——之前 14 顆一字排開，手機上還被切掉。
+	 */
+	let menuOpen = $state(false);
+	let moreButton: HTMLButtonElement | undefined = $state();
+	let menuEl: HTMLDivElement | undefined = $state();
+	let menuPos = $state({ bottom: 0, right: 0 });
+
+	interface MoreItem {
+		label: string;
+		icon: typeof Code;
+		run: () => void;
+		disabled?: boolean;
+		hint?: string | null;
+		accent?: boolean;
+	}
+
+	const items = $derived<MoreItem[]>([
+		{ label: '程式碼', icon: Code, run: onViewSourceClick, hint: '檢視、複製目前的 DSL' },
+		{ label: '比較版本', icon: GitCompare, run: onCompare, disabled: compareDisabled, hint: compareDisabled ? '畫布上要先有資料表' : null },
+		{ label: '版本歷史', icon: History, run: onHistory, disabled: historyDisabled, hint: historyHint },
+		{ label: 'AI 助手', icon: Sparkles, run: onAiClick, accent: aiConfigured, hint: aiConfigured ? '已連接' : '連接 Claude／ChatGPT' },
+		{ label: '語法文件與快捷鍵', icon: CircleHelp, run: () => window.open('/docs', '_blank', 'noopener') },
+		{ label: theme === 'dark' ? '切換成淺色' : '切換成深色', icon: theme === 'dark' ? Sun : Moon, run: onToggleTheme }
+	]);
+
+	async function openMenu(): Promise<void> {
+		if (!moreButton) return;
+		const rect = moreButton.getBoundingClientRect();
+		menuPos = { bottom: window.innerHeight - rect.top + 8, right: Math.max(8, window.innerWidth - rect.right) };
+		menuOpen = true;
+		await tick();
+		menuEl?.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus();
+	}
+
+	function closeMenu(returnFocus = true): void {
+		menuOpen = false;
+		if (returnFocus) moreButton?.focus();
+	}
+
+	function handleMenuKeydown(event: KeyboardEvent): void {
+		const buttons = [...(menuEl?.querySelectorAll<HTMLButtonElement>('button:not(:disabled)') ?? [])];
+		const index = buttons.indexOf(document.activeElement as HTMLButtonElement);
+		if (event.key === 'Escape') {
+			event.preventDefault();
+			event.stopPropagation();
+			closeMenu();
+		} else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+			event.preventDefault();
+			const next = (index + (event.key === 'ArrowDown' ? 1 : -1) + buttons.length) % buttons.length;
+			buttons[next]?.focus();
+		} else if (event.key === 'Tab') {
+			closeMenu(false);
+		}
+	}
+
+	function handleWindowPointerDown(event: PointerEvent): void {
+		if (!menuOpen) return;
+		const target = event.target as Node;
+		if (menuEl?.contains(target) || moreButton?.contains(target)) return;
+		closeMenu(false);
+	}
 </script>
+
+<svelte:window onpointerdown={handleWindowPointerDown} />
 
 <div
 	class="sl-bottom-bar absolute bottom-4 left-1/2 z-40 flex max-w-[calc(100%-1rem)] -translate-x-1/2 items-center gap-1 overflow-x-auto rounded-full border border-border bg-surface/95 px-2 py-1.5 text-fg shadow-[0_10px_30px_-12px_rgb(0_0_0/0.45)]"
@@ -64,24 +141,24 @@
 	<div class="flex items-center gap-0.5 rounded-full bg-bg/60 px-1 py-0.5">
 		<button class="sl-icon-btn" onclick={onZoomOut} title="縮小" aria-label="縮小"><Minus size={15} /></button>
 		<button
-			class="min-w-12 rounded-full px-1.5 py-1 text-center text-xs text-muted hover:text-cyan"
+			class="min-w-12 rounded-full px-1.5 py-1 text-center text-xs text-muted tabular-nums hover:text-cyan"
 			onclick={onZoomReset}
-			title="縮放至符合畫面"
-			aria-label="目前縮放 {scalePercent}%，按一下縮放至符合畫面"
+			title="按一下縮放到全圖"
+			aria-label="目前縮放 {scalePercent}%，按一下縮放到全圖"
 		>
 			{scalePercent}%
 		</button>
 		<button class="sl-icon-btn" onclick={onZoomIn} title="放大" aria-label="放大"><Plus size={15} /></button>
 	</div>
 
-	<div class="mx-1 h-5 w-px bg-border"></div>
-
-	<div class="flex items-center gap-0.5 rounded-full bg-bg/60 p-0.5">
+	<!-- 手機上用手指拖就是平移，框選用不到，選取／移動切換只在桌面出現 -->
+	<div class="mx-1 h-5 w-px bg-border max-md:hidden"></div>
+	<div class="flex items-center gap-0.5 rounded-full bg-bg/60 p-0.5 max-md:hidden" role="group" aria-label="拖曳背景時">
 		<button
 			aria-pressed={mode === 'select'}
 			class="sl-icon-btn {mode === 'select' ? 'sl-icon-btn-active' : ''}"
 			onclick={() => onModeChange('select')}
-			title="選取模式：拖曳背景不會平移畫布"
+			title="選取模式：拖曳背景會框選資料表"
 			aria-label="選取模式"
 		>
 			<MousePointer2 size={15} />
@@ -100,91 +177,65 @@
 	<div class="mx-1 h-5 w-px bg-border"></div>
 
 	<button class="sl-pill-btn" onclick={onImportClick} title="匯入 Schema"
-		><Upload size={13} /> <span class="max-sm:sr-only">匯入</span></button
+		><Upload size={14} /> <span class="max-sm:sr-only">匯入</span></button
 	>
 	<button class="sl-pill-btn" onclick={onExportClick} title="匯出 Schema"
-		><Download size={13} /> <span class="max-sm:sr-only">匯出</span></button
-	>
-	<button class="sl-pill-btn" onclick={onViewSourceClick} title="檢視原始碼（不下載，直接複製）"
-		><Code size={13} /> <span class="max-sm:sr-only">程式碼</span></button
+		><Download size={14} /> <span class="max-sm:sr-only">匯出</span></button
 	>
 	<button
-		class="sl-pill-btn"
-		onclick={onCompare}
-		disabled={compareDisabled}
-		title="版本比較"
-		aria-label="版本比較"
-		style:opacity={compareDisabled ? 0.4 : 1}
+		bind:this={moreButton}
+		class="sl-icon-btn"
+		class:sl-icon-btn-active={menuOpen}
+		onclick={() => (menuOpen ? closeMenu() : void openMenu())}
+		aria-haspopup="menu"
+		aria-expanded={menuOpen}
+		aria-label="更多：程式碼、比較、歷史、AI、說明、主題"
+		title="更多"
 	>
-		<GitCompare size={13} /> <span class="max-sm:sr-only">比較</span>
-	</button>
-	<button
-		class="sl-pill-btn"
-		onclick={onHistory}
-		disabled={historyDisabled}
-		title={historyTitle}
-		aria-label={historyTitle}
-		style:opacity={historyDisabled ? 0.4 : 1}
-	>
-		<History size={13} /> <span class="max-sm:sr-only">歷史</span>
-	</button>
-	<button
-		class="sl-pill-btn {aiConfigured ? 'text-cyan' : ''}"
-		onclick={onAiClick}
-		title="AI 助手：連接 Claude／ChatGPT，或填入 API key"
-	>
-		<Sparkles size={13} /> <span class="max-sm:sr-only">AI</span>
-	</button>
-
-	<div class="mx-1 h-5 w-px bg-border"></div>
-
-	<div class="flex items-center gap-0.5 rounded-full bg-bg/60 p-0.5">
-		<button
-			aria-pressed={viewMode === 'full'}
-			class="sl-icon-btn {viewMode === 'full' ? 'sl-icon-btn-active' : ''}"
-			onclick={() => onViewModeChange('full')}
-			title="完整模式：卡片顯示完整欄位"
-			aria-label="完整模式"
-		>
-			<Rows3 size={15} />
-		</button>
-		<button
-			aria-pressed={viewMode === 'compact'}
-			class="sl-icon-btn {viewMode === 'compact' ? 'sl-icon-btn-active' : ''}"
-			onclick={() => onViewModeChange('compact')}
-			title="精簡模式：分區總覽 + 詳情面板"
-			aria-label="精簡模式"
-		>
-			<LayoutGrid size={15} />
-		</button>
-	</div>
-
-	<div class="mx-1 h-5 w-px bg-border"></div>
-
-	<a class="sl-icon-btn" href="/docs" target="_blank" rel="noopener" title="語法文件與快捷鍵" aria-label="語法文件與快捷鍵">
-		<CircleHelp size={15} />
-	</a>
-	<button class="sl-icon-btn" onclick={onToggleTheme} title="切換深色／淺色" aria-label="切換深色／淺色">
-		{#if theme === 'dark'}<Sun size={15} />{:else}<Moon size={15} />{/if}
+		<Ellipsis size={16} />
 	</button>
 </div>
+
+{#if menuOpen}
+	<div
+		bind:this={menuEl}
+		class="sl-more-menu"
+		role="menu"
+		aria-label="更多"
+		tabindex="-1"
+		style:bottom="{menuPos.bottom}px"
+		style:right="{menuPos.right}px"
+		onkeydown={handleMenuKeydown}
+	>
+		{#each items as item (item.label)}
+			<button
+				role="menuitem"
+				disabled={item.disabled}
+				class:text-cyan={item.accent}
+				onclick={() => {
+					closeMenu(false);
+					item.run();
+				}}
+			>
+				<item.icon size={15} />
+				<span class="flex min-w-0 flex-col items-start">
+					<span>{item.label}</span>
+					{#if item.hint}<span class="sl-more-hint">{item.hint}</span>{/if}
+				</span>
+			</button>
+		{/each}
+	</div>
+{/if}
 
 <style>
 	.sl-bottom-bar {
 		scrollbar-width: none;
 	}
-	/* 手機寬度放不下整排：可以左右滑，右緣淡出提示後面還有按鈕。 */
-	@media (max-width: 639px) {
-		.sl-bottom-bar {
-			mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
-			padding-right: 24px;
-		}
-	}
 	:global(.sl-pill-btn) {
 		display: flex;
 		align-items: center;
-		gap: 4px;
-		padding: 4px 10px;
+		gap: 5px;
+		padding: 4px 11px;
 		border-radius: 9999px;
 		border: none;
 		background: transparent;
@@ -200,5 +251,47 @@
 	:global(.sl-pill-btn:hover) {
 		background: color-mix(in oklab, var(--sl-cyan) 14%, transparent);
 		color: var(--sl-cyan);
+	}
+	.sl-more-menu {
+		position: fixed;
+		z-index: 60;
+		min-width: 236px;
+		border: 1px solid var(--sl-border);
+		border-radius: 14px;
+		background: var(--sl-surface);
+		padding: 6px;
+		box-shadow: 0 18px 40px -20px rgb(0 0 0 / 0.55);
+		animation: sl-menu-in 0.16s cubic-bezier(0.16, 1, 0.3, 1);
+	}
+	@keyframes sl-menu-in {
+		from {
+			opacity: 0;
+			transform: translateY(4px);
+		}
+	}
+	.sl-more-menu button {
+		display: flex;
+		width: 100%;
+		align-items: center;
+		gap: 10px;
+		min-height: 40px;
+		border-radius: 9px;
+		padding: 6px 10px;
+		text-align: left;
+		font-size: 13px;
+		color: var(--sl-fg);
+	}
+	.sl-more-menu button:hover:not(:disabled),
+	.sl-more-menu button:focus-visible {
+		background: color-mix(in oklab, var(--sl-fg) 7%, transparent);
+		outline: none;
+	}
+	.sl-more-menu button:disabled {
+		cursor: not-allowed;
+		opacity: 0.5;
+	}
+	.sl-more-hint {
+		font-size: 11.5px;
+		color: var(--sl-muted);
 	}
 </style>

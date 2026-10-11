@@ -146,3 +146,27 @@ export function deleteColumn(schema: Schema, tableId: TableId, columnName: strin
 	});
 	return withDerivedFlags(dropRelationsTouching(next, tableId, columnName));
 }
+
+/**
+ * 匯入時選「合併進來」：保留目前的表，同名（同 schema.name）的表以匯入的版本為準；
+ * 關聯以名稱去重、群組以名稱合併。純函式，不動傳進來的兩份。
+ */
+export function mergeSchemas(current: Schema, incoming: Schema): Schema {
+	const tables = new Map(current.tables.map((t) => [t.id, t]));
+	for (const table of incoming.tables) tables.set(table.id, table);
+	const relations = new Map(current.relations.map((r) => [r.name, r]));
+	for (const relation of incoming.relations) relations.set(relation.name, relation);
+	const groups = new Map((current.groups ?? []).map((g) => [g.name, g]));
+	for (const group of incoming.groups ?? []) groups.set(group.name, group);
+	// JSON 深複製而不是 structuredClone：current 在工作區裡是 Svelte 的 $state proxy，structuredClone 會丟
+	// DataCloneError。deriveColumnFlags 會原地改欄位，複製一份才不會改到畫布上目前的狀態。
+	const merged: Schema = JSON.parse(
+		JSON.stringify({
+			...current,
+			tables: [...tables.values()],
+			relations: [...relations.values()],
+			groups: [...groups.values()]
+		})
+	);
+	return withDerivedFlags(merged);
+}

@@ -596,7 +596,7 @@ export class SchemaRenderer {
 
       const label = document.createElement("div");
       label.className = "dbs-group-box-label";
-      label.style.color = groupColor(group);
+      label.style.color = `color-mix(in srgb, ${groupColor(group)} 60%, var(--vscode-editor-foreground, #d4d4d4))`;
       label.style.borderColor = groupBorderColor(group);
       label.textContent = group;
 

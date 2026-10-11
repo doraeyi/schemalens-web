@@ -66,6 +66,9 @@ export interface RendererStrings {
   compactZoneTitle: (group: string, tableCount: number) => string;
   /** VS Code 插件工具列的檢視模式切換：完整／精簡。 */
   viewModeGroup: string;
+  /** 「顯示」：分區總覽（精簡模式）跟三種欄位密度併成的一組。 */
+  displayGroup: string;
+  displayZones: string;
   viewModeFull: string;
   viewModeCompact: string;
   resetLayout: string;
@@ -129,6 +132,8 @@ const en: RendererStrings = {
   exitCompare: "Exit compare",
   compactZoneTitle: (group, count) => `${group} (${count} tables)`,
   viewModeGroup: "View",
+  displayGroup: "Display",
+  displayZones: "Zones",
   viewModeFull: "Full",
   viewModeCompact: "Compact",
   resetLayout: "Reset Layout",
@@ -191,6 +196,8 @@ const zhHant: RendererStrings = {
   exitCompare: "結束比較",
   compactZoneTitle: (group, count) => `${group}（${count} 張表）`,
   viewModeGroup: "檢視",
+  displayGroup: "顯示",
+  displayZones: "分區總覽",
   viewModeFull: "完整",
   viewModeCompact: "精簡",
   resetLayout: "還原版面",

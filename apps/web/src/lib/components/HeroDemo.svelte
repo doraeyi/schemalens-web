@@ -3,10 +3,10 @@
 	import { Pause, Play } from '@lucide/svelte';
 	import { SchemaRenderer, stringsFor } from '@schemalens/schema-renderer';
 	import { loadSchemaFromText } from '$lib/schema/documentSchema';
-	import { SAMPLE_SCHEMA_DSL, SAMPLE_SCHEMA_FILENAME } from '$lib/schema/sampleSchema';
+	import { SAMPLE_SCHEMA_DSL, SAMPLE_SCHEMA_DSL_EN, SAMPLE_SCHEMA_FILENAME } from '$lib/schema/sampleSchema';
 	import { LANDING_COPY, type LandingCopy } from '$lib/landing/copy';
 
-	let { copy = LANDING_COPY.zh.demo }: { copy?: LandingCopy['demo'] } = $props();
+	let { copy = LANDING_COPY.zh.demo, lang = 'zh' }: { copy?: LandingCopy['demo']; lang?: 'zh' | 'en' } = $props();
 
 	/**
 	 * 首頁的產品畫面：不是截圖，是跟工作區同一個渲染引擎跑起來的真圖，可以直接點。
@@ -16,7 +16,7 @@
 	 * 2. 接著自動導覽：每隔幾秒聚焦下一張表，示範「相關的亮起、其他淡掉」。
 	 * 滑鼠停在圖上就暫停；一點圖就把控制權交給使用者，不再自己跳。
 	 */
-	const t = $derived(stringsFor(copy === LANDING_COPY.en.demo ? 'en' : 'zh-hant'));
+	const t = $derived(stringsFor(lang === 'en' ? 'en' : 'zh-hant'));
 	const TOUR = ['dbo.Posts', 'dbo.Comments', 'dbo.Users', 'dbo.PostTags', 'dbo.Tags'];
 	const STEP_MS = 3200;
 	const EASE_OUT = 'cubic-bezier(0.16, 1, 0.3, 1)';
@@ -162,9 +162,9 @@
 		if (!host || !figureEl) return;
 		reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-		const { schema } = loadSchemaFromText(SAMPLE_SCHEMA_DSL, SAMPLE_SCHEMA_FILENAME);
+		const { schema } = loadSchemaFromText(lang === 'en' ? SAMPLE_SCHEMA_DSL_EN : SAMPLE_SCHEMA_DSL, SAMPLE_SCHEMA_FILENAME);
 		renderer = new SchemaRenderer(host, {
-			locale: 'zh-hant',
+			locale: lang === 'en' ? 'en' : 'zh-hant',
 			events: {
 				tableSelected: syncFocus,
 				viewStateChanged: syncFocus

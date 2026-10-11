@@ -73,7 +73,8 @@ export function renderCard(
   if (card.group) {
     const badge = el("span", "dbs-card-group", card.group);
     badge.style.backgroundColor = groupBadgeColor(card.group);
-    badge.style.color = groupColor(card.group);
+    // 群組色當文字直接用對比不夠（紫色在深底約 2.5:1），跟前景色混一半：深色主題變亮、淺色主題變深。
+    badge.style.color = `color-mix(in srgb, ${groupColor(card.group)} 55%, var(--vscode-editor-foreground, #d4d4d4))`;
     header.append(badge);
   }
   if (card.showComment && card.table.comment) {
