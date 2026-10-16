@@ -13,6 +13,16 @@ const DIALECT_DEFAULT_SCHEMA: Partial<Record<SqlDialectId, string>> = {
 	sqlite: 'main'
 };
 
+/** 拿掉註解、字串跟 $$ 本體後，還看得到 CREATE [TEMP] TABLE 嗎？ */
+function hasCreateTable(source: string): boolean {
+	const code = source
+		.replace(/\$([A-Za-z_][A-Za-z0-9_]*)?\$[\s\S]*?\$\1\$/g, ' ')
+		.replace(/\/\*[\s\S]*?\*\//g, ' ')
+		.replace(/--[^\n]*/g, ' ')
+		.replace(/'(?:[^']|'')*'/g, "''");
+	return /\bcreate\s+(?:or\s+replace\s+)?(?:(?:global|local)\s+)?(?:temp(?:orary)?\s+)?table\b/i.test(code);
+}
+
 export interface ParseSqlResult {
 	schema: Schema;
 	diagnostics: SchemaDiagnostic[];
@@ -34,6 +44,16 @@ export async function parseSql(source: string, dialectId: SqlDialectId, file?: s
 		message: issue.message,
 		location: issue.location ? { ...issue.location, file } : undefined
 	}));
+
+	// 整份裡根本沒有 CREATE TABLE（例如只有 FUNCTION／PROCEDURE）時，把這件事放在第一則講清楚——
+	// 匯入失敗的提示只會顯示第一則診斷，不然使用者看到的是一長串 parser 的 Expected "…"。
+	if (!hasCreateTable(source)) {
+		diagnostics.unshift({
+			code: 'SCHEMA_PARSE_ERROR',
+			severity: 'warning',
+			message: '這份 SQL 裡沒有 CREATE TABLE。關聯圖只讀資料表定義，FUNCTION、PROCEDURE、VIEW 之類的語句不會畫出來。'
+		});
+	}
 
 	if (nodes.length === 0) {
 		return { schema: emptySchema(file), diagnostics };

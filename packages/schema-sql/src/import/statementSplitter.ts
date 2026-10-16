@@ -66,6 +66,18 @@ export function splitSqlStatements(source: string): SplitStatement[] {
 			i = j;
 			continue;
 		}
+		// PostgreSQL 的 $$ … $$／$tag$ … $tag$ 字串（函式、DO 區塊的本體），裡面的分號不能拿來切。
+		// tag 不能以數字開頭，所以 $1 這種參數不會被誤認。
+		if (ch === '$') {
+			const tag = /^\$(?:[A-Za-z_][A-Za-z0-9_]*)?\$/.exec(source.slice(i, i + 64))?.[0];
+			if (tag) {
+				const end = source.indexOf(tag, i + tag.length);
+				const stop = end === -1 ? n : end + tag.length;
+				current += source.slice(i, stop);
+				i = stop;
+				continue;
+			}
+		}
 		if (ch === '[') {
 			let j = i + 1;
 			while (j < n && source[j] !== ']') j++;

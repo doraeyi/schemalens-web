@@ -54,7 +54,7 @@ const en: ExtensionStrings = {
   savedTo: (path) => `Saved ${path}`,
   sqlDialectPickerTitle: "Which SQL dialect?",
   importSqlPickFile: "Choose a .sql file to import",
-  importSqlNothingFound: (detail) => `No CREATE TABLE statements could be read: ${detail}`,
+  importSqlNothingFound: (detail) => `No tables were imported: ${detail}`,
   importSqlDone: (tables, skipped) =>
     `Imported ${tables} tables${skipped > 0 ? ` (${skipped} statements could not be parsed and were skipped)` : ""}`,
   definitionNotFound: (target) => `Could not find the definition of ${target}`,
@@ -91,7 +91,7 @@ const zhHant: ExtensionStrings = {
   savedTo: (path) => `已儲存 ${path}`,
   sqlDialectPickerTitle: "SQL 是哪一種方言？",
   importSqlPickFile: "選擇要匯入的 .sql 檔",
-  importSqlNothingFound: (detail) => `讀不到任何 CREATE TABLE：${detail}`,
+  importSqlNothingFound: (detail) => `沒有匯入任何資料表：${detail}`,
   importSqlDone: (tables, skipped) =>
     `已匯入 ${tables} 張表${skipped > 0 ? `（${skipped} 個敘述無法解析，已略過）` : ""}`,
   definitionNotFound: (target) => `找不到 ${target} 的定義位置`,
