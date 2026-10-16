@@ -161,6 +161,33 @@
 
 	let draftSaveTimer: ReturnType<typeof setTimeout> | undefined;
 
+	/**
+	 * Ctrl+Z／Ctrl+Y 用的編輯歷史：每次 commitSchema 改動前的 schema 快照。切分頁、載入草稿、
+	 * 收到協作對象的修改時清空——復原只退自己在這個分頁上做的事，不會把別人剛改的蓋回去。
+	 */
+	const HISTORY_LIMIT = 100;
+	let undoStack: Schema[] = [];
+	let redoStack: Schema[] = [];
+
+	function clearHistory(): void {
+		undoStack = [];
+		redoStack = [];
+	}
+
+	/** 有對話框或選單開著時，畫布快捷鍵不作用，免得在對話框後面偷偷改到資料。 */
+	const overlayOpen = $derived(
+		!!contextMenu ||
+			!!createPageMenu ||
+			!!deleteConfirm ||
+			showImportDialog ||
+			showExportDialog ||
+			showViewSourceDialog ||
+			showAiSettings ||
+			showLoginPrompt ||
+			showCompareDialog ||
+			showVersionHistory
+	);
+
 	/** renderer 還沒準備好、或雲端分頁還在載入時不要閃一下空狀態。 */
 	let canvasReady = $state(false);
 	const hasTables = $derived((schema?.tables.length ?? 0) > 0);
@@ -368,6 +395,7 @@
 		currentSource = toDsl(result.schema);
 		currentFileName = fileName.replace(/\.(dbschema|schema\.(json|md)|sql)$/i, '') + '.dbschema';
 		selectedTables = new Set();
+		clearHistory();
 
 		if (!renderer) return;
 		// 沒有明確帶入 viewState（例如匯入、範例載入）時，不能無條件套用 DEFAULT_VIEW_STATE——
@@ -414,6 +442,7 @@
 	 */
 	function applyRemoteCollabSchema(next: Schema): void {
 		schema = next;
+		clearHistory();
 		diagnostics = validateSchema(next, { file: currentFileName });
 		lintWarnings = lintSchema(next);
 		currentSource = toDsl(next);
@@ -430,13 +459,22 @@
 	 * view; `refit: false` (renaming/tweaking a column on an existing table)
 	 * uses the lighter updateSchema so the camera doesn't jump around while
 	 * someone is mid-edit.
+	 *
+	 * `record: false` is for undo/redo themselves, which manage the stacks.
 	 */
-	function commitSchema(next: Schema, options: { refit?: boolean } = {}): void {
+	function commitSchema(next: Schema, options: { refit?: boolean; record?: boolean } = {}): void {
 		if (diffMode) return;
+		const nextSource = toDsl(next);
+		// 失焦時就算沒改字也會送一次修改，內容沒變就不記，免得要按好幾次 Ctrl+Z 才退得動。
+		if ((options.record ?? true) && schema && nextSource !== currentSource) {
+			undoStack.push($state.snapshot(schema) as Schema);
+			if (undoStack.length > HISTORY_LIMIT) undoStack.shift();
+			redoStack = [];
+		}
 		schema = next;
 		diagnostics = validateSchema(next, { file: currentFileName });
 		lintWarnings = lintSchema(next);
-		currentSource = toDsl(next);
+		currentSource = nextSource;
 		if (!renderer) return;
 		if (options.refit) renderer.setSchema(next);
 		else renderer.updateSchema(next);
@@ -477,11 +515,89 @@
 		deleteConfirm = null;
 	}
 
+	/** Delete 鍵：有多選刪多選，沒有就刪目前點選（聚焦）的那張。不跳確認，靠提示上的「復原」反悔。 */
 	function handleDeleteSelected(): void {
-		if (!schema || selectedTables.size === 0) return;
-		const next = [...selectedTables].reduce((acc, id) => mutate.deleteTable(acc, id), schema);
+		const ids = shortcutTargets();
+		if (!schema || diffMode || ids.length === 0) return;
+		const label = ids.length === 1 ? (schema.tables.find((t) => t.id === ids[0])?.name ?? ids[0]) : null;
+		const deletingFocused = !!focusedTableId && ids.includes(focusedTableId);
+		const next = ids.reduce((acc, id) => mutate.deleteTable(acc, id), schema);
+		if (deletingFocused) resetFocus();
 		commitSchema(next, { refit: true });
 		clearSelection();
+		showToast(label ? `已刪除 ${label}。` : `已刪除 ${ids.length} 張表。`, 5000, { label: '復原', run: undo });
+	}
+
+	/** 復原／重做共用：換成另一份快照，表數有變才重新 fit，選取裡已經不存在的表一併拿掉。 */
+	function restoreSnapshot(target: Schema): void {
+		if (!schema) return;
+		commitSchema(target, { refit: target.tables.length !== schema.tables.length, record: false });
+		const ids = new Set(target.tables.map((t) => t.id));
+		const kept = [...selectedTables].filter((id) => ids.has(id));
+		if (kept.length !== selectedTables.size) {
+			selectedTables = new Set(kept);
+			syncSelectionHighlight();
+		}
+	}
+
+	function undo(): void {
+		if (diffMode || !schema) return;
+		const previous = undoStack.pop();
+		if (!previous) {
+			showToast('沒有可以復原的動作。', 1500);
+			return;
+		}
+		redoStack.push($state.snapshot(schema) as Schema);
+		restoreSnapshot(previous);
+		showToast('已復原。', 1500);
+	}
+
+	function redo(): void {
+		if (diffMode || !schema) return;
+		const next = redoStack.pop();
+		if (!next) {
+			showToast('沒有可以重做的動作。', 1500);
+			return;
+		}
+		undoStack.push($state.snapshot(schema) as Schema);
+		restoreSnapshot(next);
+		showToast('已重做。', 1500);
+	}
+
+	/** Ctrl+A：選取畫面上看得到的所有表（被「主題區域」藏起來的群組不算）。 */
+	function selectAllTables(): void {
+		if (!canvasHost) return;
+		const ids = [...canvasHost.querySelectorAll<HTMLElement>('.dbs-card')]
+			.filter((card) => card.getClientRects().length > 0)
+			.map((card) => card.dataset.tableId)
+			.filter((id): id is TableId => !!id);
+		if (ids.length === 0) return;
+		selectedTables = new Set(ids);
+		syncSelectionHighlight();
+		showToast(`已選取 ${ids.length} 張表。`, 1500);
+	}
+
+	/** 快捷鍵要作用的表：有多選就用多選，沒有就用目前聚焦的那張。 */
+	function shortcutTargets(): TableId[] {
+		if (selectedTables.size > 0) return [...selectedTables];
+		return focusedTableId ? [focusedTableId] : [];
+	}
+
+	function duplicateTargets(): void {
+		const ids = shortcutTargets();
+		if (!schema || ids.length === 0) return;
+		commitSchema(
+			ids.reduce((acc, id) => mutate.duplicateTable(acc, id), schema),
+			{ refit: true }
+		);
+		showToast(`已複製出 ${ids.length} 張表。`, 2000);
+	}
+
+	async function copyTargetsAsText(): Promise<void> {
+		const ids = shortcutTargets();
+		if (!schema || ids.length === 0) return;
+		await copyTablesAsText(schema, ids);
+		showToast(`已複製 ${ids.length} 張表的定義。`, 2000);
 	}
 
 	function handleRenameTable(tableId: TableId, name: string): void {
@@ -809,7 +925,10 @@
 			result = { schema: merged, diagnostics: [...result.diagnostics, ...validateSchema(merged, { file: fileName })] };
 			fileName = currentFileName;
 		}
+		const previous = schema && schema.tables.length > 0 ? ($state.snapshot(schema) as Schema) : null;
 		applyLoadedSchema(result, source, fileName, undefined, strategy === 'replace');
+		// applyLoadedSchema 會清空歷史；匯入是使用者的動作，留一步讓 Ctrl+Z 退回匯入前。
+		if (previous) undoStack = [previous];
 		if (schema) collab?.pushLocalSchema(schema);
 		announceImport(strategy, before);
 	}
@@ -1051,7 +1170,58 @@
 		document.addEventListener('visibilitychange', handleExternalCheck);
 		const externalCheckTimer = setInterval(handleExternalCheck, 10_000);
 
+		const isTyping = (target: EventTarget | null) => {
+			const el = target as HTMLElement | null;
+			const tag = el?.tagName;
+			return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || !!el?.isContentEditable;
+		};
+
 		const handleKeydown = (event: KeyboardEvent) => {
+			const mod = event.ctrlKey || event.metaKey;
+			const key = event.key.toLowerCase();
+			// 輸入框裡的 Ctrl+Z／Ctrl+A／Ctrl+C 留給瀏覽器原本的文字編輯行為。
+			const canvasShortcut = !isTyping(event.target) && !overlayOpen && !event.altKey;
+			if (canvasShortcut && mod && key === 'z') {
+				event.preventDefault();
+				if (event.shiftKey) redo();
+				else undo();
+				return;
+			}
+			if (canvasShortcut && mod && key === 'y') {
+				event.preventDefault();
+				redo();
+				return;
+			}
+			if (canvasShortcut && mod && key === 'a' && hasTables && !diffMode) {
+				event.preventDefault();
+				selectAllTables();
+				return;
+			}
+			if (canvasShortcut && mod && key === 'd' && !diffMode && shortcutTargets().length > 0) {
+				event.preventDefault();
+				duplicateTargets();
+				return;
+			}
+			// 有選取網頁文字時讓瀏覽器照常複製文字。
+			if (canvasShortcut && mod && key === 'c' && !window.getSelection()?.toString() && shortcutTargets().length > 0) {
+				event.preventDefault();
+				void copyTargetsAsText();
+				return;
+			}
+			if (canvasShortcut && !mod && hasTables) {
+				if (event.key === '+' || event.key === '=') {
+					renderer?.zoomBy(1.2);
+					return;
+				}
+				if (event.key === '-' || event.key === '_') {
+					renderer?.zoomBy(1 / 1.2);
+					return;
+				}
+				if (event.shiftKey && event.code === 'Digit1') {
+					renderer?.fitView();
+					return;
+				}
+			}
 			if (event.key === 'Escape') {
 				if (contextMenu) {
 					contextMenu = null;
@@ -1065,10 +1235,8 @@
 			} else if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'f') {
 				event.preventDefault();
 				toolbarRef?.focusSearch();
-			} else if ((event.key === 'Delete' || event.key === 'Backspace') && selectedTables.size > 0) {
-				const target = event.target as HTMLElement | null;
-				const tag = target?.tagName;
-				if (tag === 'INPUT' || tag === 'TEXTAREA' || target?.isContentEditable) return;
+			} else if ((event.key === 'Delete' || event.key === 'Backspace') && shortcutTargets().length > 0) {
+				if (isTyping(event.target) || overlayOpen) return;
 				event.preventDefault();
 				handleDeleteSelected();
 			}
