@@ -16,17 +16,17 @@ export function groupHue(group: string): number {
 
 /** 卡片左緣的群組色條。 */
 export function groupColor(group: string): string {
-  return `hsl(${groupHue(group)}, 62%, 58%)`;
+  return `hsl(${groupHue(group)}, 72%, 56%)`;
 }
 
 /** 群組標籤的底色，比色條淡，不與文字搶注意力。 */
 export function groupBadgeColor(group: string): string {
-  return `hsla(${groupHue(group)}, 62%, 58%, 0.18)`;
+  return `hsla(${groupHue(group)}, 72%, 56%, 0.18)`;
 }
 
 /** 群組外框的邊線顏色。 */
 export function groupBorderColor(group: string): string {
-  return `hsla(${groupHue(group)}, 62%, 60%, 0.75)`;
+  return `hsla(${groupHue(group)}, 72%, 58%, 0.75)`;
 }
 
 /**
@@ -37,5 +37,5 @@ export function groupBorderColor(group: string): string {
  * 10 個群組同時出現時，點陣會讓整片畫面變得很吵。
  */
 export function groupTintColor(group: string): string {
-  return `hsla(${groupHue(group)}, 62%, 58%, 0.08)`;
+  return `hsla(${groupHue(group)}, 72%, 56%, 0.08)`;
 }
