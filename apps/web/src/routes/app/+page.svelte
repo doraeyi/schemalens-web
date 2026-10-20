@@ -13,13 +13,18 @@
 		type UnrelatedMode
 	} from '@schemalens/schema-renderer';
 
-	const t = stringsFor('zh-hant');
+	const locale = $derived(currentLocale());
+	const t = $derived(stringsFor(locale));
+	const m = $derived(APP_MESSAGES[locale]);
 	import { validateSchema, type Column, type Schema, type SchemaDiagnostic, type TableId } from '@schemalens/schema-core';
 	import type { SearchHit, TraversalDirection } from '@schemalens/schema-graph';
 	import { loadSchemaFromText, loadSchemaFromSql, type LoadedSchema } from '$lib/schema/documentSchema';
 	import type { SqlDialectId } from '@schemalens/schema-sql';
 	import { signIn } from '@auth/sveltekit/client';
 	import { page } from '$app/state';
+	import { currentLocale } from '$lib/i18n/current';
+	import type { Locale } from '$lib/i18n/locale';
+	import { APP_MESSAGES } from './messages';
 	import { createSchemaCollab, type SchemaCollabSession } from '$lib/collab/schemaCollab';
 	import {
 		clearDraft,
@@ -58,7 +63,7 @@
 	import EmptyCanvas from '$lib/components/EmptyCanvas.svelte';
 	import FocusBar from '$lib/components/FocusBar.svelte';
 	import type { DisplayMode } from '$lib/components/Toolbar.svelte';
-	import { SAMPLE_SCHEMA_DSL, SAMPLE_SCHEMA_FILENAME } from '$lib/schema/sampleSchema';
+	import { SAMPLE_SCHEMA_DSL, SAMPLE_SCHEMA_DSL_EN, SAMPLE_SCHEMA_FILENAME } from '$lib/schema/sampleSchema';
 	import AiSettingsDialog from '$lib/components/AiSettingsDialog.svelte';
 	import { clearAiSettings, loadAiSettings, saveAiSettings, type AiSettings } from '$lib/ai/settings';
 	import VersionHistoryDialog, { type VersionSummary } from '$lib/components/VersionHistoryDialog.svelte';
@@ -207,7 +212,7 @@
 		if (tableId === announcedFocus) return;
 		announcedFocus = tableId;
 		if (!tableId || !schema) {
-			liveMessage = tableId === null && schema ? '已取消聚焦' : '';
+			liveMessage = tableId === null && schema ? m.focusCleared : '';
 			return;
 		}
 		const table = schema.tables.find((t) => t.id === tableId);
@@ -216,7 +221,7 @@
 				.filter((r) => r.sourceTable === tableId || r.targetTable === tableId)
 				.map((r) => (r.sourceTable === tableId ? r.targetTable : r.sourceTable))
 		);
-		liveMessage = `已聚焦 ${table?.name ?? tableId}，${related.size} 張直接相關的表，其餘淡化`;
+		liveMessage = m.focused(table?.name ?? tableId, related.size);
 	}
 
 	function syncToolbarState(): void {
@@ -375,7 +380,7 @@
 		if (lastCloudSource === null || pageRow.source === lastCloudSource) return;
 		lastCloudSource = pageRow.source;
 		applyRemoteCollabSchema(loadSchemaFromText(pageRow.source, pageRow.fileName).schema);
-		showToast('這個分頁剛被外部修改（例如 AI 助手），畫面已更新。改壞了可以從「歷史」還原。', 5000);
+		showToast(m.externalChange, 5000);
 	}
 
 	function applyLoadedSchema(
@@ -525,7 +530,7 @@
 		if (deletingFocused) resetFocus();
 		commitSchema(next, { refit: true });
 		clearSelection();
-		showToast(label ? `已刪除 ${label}。` : `已刪除 ${ids.length} 張表。`, 5000, { label: '復原', run: undo });
+		showToast(label ? m.deletedOne(label) : m.deletedMany(ids.length), 5000, { label: m.undo, run: undo });
 	}
 
 	/** 復原／重做共用：換成另一份快照，表數有變才重新 fit，選取裡已經不存在的表一併拿掉。 */
@@ -544,24 +549,24 @@
 		if (diffMode || !schema) return;
 		const previous = undoStack.pop();
 		if (!previous) {
-			showToast('沒有可以復原的動作。', 1500);
+			showToast(m.nothingToUndo, 1500);
 			return;
 		}
 		redoStack.push($state.snapshot(schema) as Schema);
 		restoreSnapshot(previous);
-		showToast('已復原。', 1500);
+		showToast(m.undone, 1500);
 	}
 
 	function redo(): void {
 		if (diffMode || !schema) return;
 		const next = redoStack.pop();
 		if (!next) {
-			showToast('沒有可以重做的動作。', 1500);
+			showToast(m.nothingToRedo, 1500);
 			return;
 		}
 		undoStack.push($state.snapshot(schema) as Schema);
 		restoreSnapshot(next);
-		showToast('已重做。', 1500);
+		showToast(m.redone, 1500);
 	}
 
 	/** Ctrl+A：選取畫面上看得到的所有表（被「主題區域」藏起來的群組不算）。 */
@@ -574,7 +579,7 @@
 		if (ids.length === 0) return;
 		selectedTables = new Set(ids);
 		syncSelectionHighlight();
-		showToast(`已選取 ${ids.length} 張表。`, 1500);
+		showToast(m.selectedAll(ids.length), 1500);
 	}
 
 	/** 快捷鍵要作用的表：有多選就用多選，沒有就用目前聚焦的那張。 */
@@ -590,14 +595,14 @@
 			ids.reduce((acc, id) => mutate.duplicateTable(acc, id), schema),
 			{ refit: true }
 		);
-		showToast(`已複製出 ${ids.length} 張表。`, 2000);
+		showToast(m.duplicated(ids.length), 2000);
 	}
 
 	async function copyTargetsAsText(): Promise<void> {
 		const ids = shortcutTargets();
 		if (!schema || ids.length === 0) return;
 		await copyTablesAsText(schema, ids);
-		showToast(`已複製 ${ids.length} 張表的定義。`, 2000);
+		showToast(m.copiedDefinitions(ids.length), 2000);
 	}
 
 	function handleRenameTable(tableId: TableId, name: string): void {
@@ -703,7 +708,7 @@
 			body
 		});
 		if (!res.ok) {
-			showToast(`新增分頁失敗：${res.status} ${await res.text()}`, 6000);
+			showToast(m.createPageFailed(`${res.status} ${await res.text()}`), 6000);
 			return;
 		}
 		const pageRow = await res.json();
@@ -782,8 +787,8 @@
 
 	function createPageMenuItems(): ContextMenuItem[] {
 		return [
-			{ label: '新增分頁', onSelect: () => void handleCreatePage('normal') },
-			{ label: '新增即時協作分頁', onSelect: () => void handleCreatePage('realtime') }
+			{ label: m.newPage, onSelect: () => void handleCreatePage('normal') },
+			{ label: m.newRealtimePage, onSelect: () => void handleCreatePage('realtime') }
 		];
 	}
 
@@ -794,7 +799,7 @@
 		try {
 			const res = await fetch(`/api/pages/${activePageId}/invite`, { method: 'POST' });
 			if (!res.ok) {
-				showToast(`產生邀請連結失敗：${res.status} ${await res.text()}`, 6000);
+				showToast(m.inviteFailed(`${res.status} ${await res.text()}`), 6000);
 				return;
 			}
 			const { token } = await res.json();
@@ -808,9 +813,9 @@
 		if (!inviteLink) return;
 		try {
 			await navigator.clipboard.writeText(inviteLink);
-			showToast('已複製邀請連結到剪貼簿');
+			showToast(m.inviteCopied);
 		} catch {
-			showToast('複製失敗 — 剪貼簿存取被瀏覽器擋下');
+			showToast(m.clipboardBlocked);
 		}
 	}
 
@@ -834,22 +839,22 @@
 
 		// 側欄拿掉之後，右鍵空白畫布是唯一的「新增資料表」入口。
 		if (!tableId && effectiveIds.length === 0) {
-			items.push({ label: '新增資料表', onSelect: handleCreateTable });
+			items.push({ label: m.newTable, onSelect: handleCreateTable });
 		}
 
 		// 編輯/建立副本/刪除只在單一表格（非多選）時有意義。
 		if (tableId && !isMulti) {
 			items.push(
 				{
-					label: '編輯',
+					label: m.edit,
 					onSelect: () => handleFocusTable(tableId)
 				},
 				{
-					label: '建立副本',
+					label: m.duplicate,
 					onSelect: () => handleDuplicateTable(tableId)
 				},
 				{
-					label: '刪除',
+					label: m.delete,
 					onSelect: () => requestDeleteTable(tableId)
 				}
 			);
@@ -857,46 +862,44 @@
 
 		items.push(
 			{
-				label: isMulti ? `以 PNG 格式儲存選取的 ${effectiveIds.length} 張表到剪貼簿` : '以 PNG 格式儲存到剪貼簿',
+				label: m.copyPng(isMulti ? effectiveIds.length : null),
 				onSelect: async () => {
 					if (!canvasHost || !schema) return;
 					try {
 						const selection = isMulti ? { schema, tableIds: new Set(effectiveIds) } : undefined;
 						await copyDiagramAsPng(canvasHost, selection);
-						showToast('已複製 PNG 圖片到剪貼簿');
+						showToast(m.copiedPng);
 					} catch {
-						showToast('複製失敗 — 剪貼簿存取被瀏覽器擋下');
+						showToast(m.clipboardBlocked);
 					}
 				}
 			},
 			{
-				label: isMulti ? `以 SVG 格式複製選取的 ${effectiveIds.length} 張表到剪貼簿` : '以 SVG 格式複製到剪貼簿',
+				label: m.copySvg(isMulti ? effectiveIds.length : null),
 				onSelect: async () => {
 					if (!canvasHost || !schema) return;
 					try {
 						const selection = isMulti ? { schema, tableIds: new Set(effectiveIds) } : undefined;
 						const result = await copyDiagramAsSvg(canvasHost, selection);
 						showToast(
-							result === 'image'
-								? '已複製 SVG 圖片到剪貼簿'
-								: '此瀏覽器不支援直接複製 SVG 圖片，已改為複製 SVG 原始碼文字'
+							result === 'image' ? m.copiedSvg : m.copiedSvgText
 						);
 					} catch {
-						showToast('複製失敗 — 剪貼簿存取被瀏覽器擋下');
+						showToast(m.clipboardBlocked);
 					}
 				}
 			},
 			{
-				label: isMulti ? `以文字格式複製選取的 ${effectiveIds.length} 張表` : '以文字格式複製至剪貼簿',
+				label: m.copyText(isMulti ? effectiveIds.length : null),
 				onSelect: async () => {
 					if (!schema) return;
 					try {
 						if (effectiveIds.length > 1) await copyTablesAsText(schema, effectiveIds);
 						else if (effectiveIds.length === 1) await copyTableAsText(schema, effectiveIds[0]);
 						else await copySchemaAsText(schema);
-						showToast('已複製 DSL 文字到剪貼簿');
+						showToast(m.copiedText);
 					} catch {
-						showToast('複製失敗 — 剪貼簿存取被瀏覽器擋下');
+						showToast(m.clipboardBlocked);
 					}
 				}
 			}
@@ -936,7 +939,7 @@
 	function undoImport(before: { source: string; fileName: string }): void {
 		loadSchema(before.source, before.fileName);
 		if (schema) collab?.pushLocalSchema(schema);
-		showToast('已復原成匯入前的內容。');
+		showToast(m.importUndone);
 	}
 
 	/** 匯入完明確說結果：幾張表、幾條關聯；解析不到任何東西時直接講，不要只留一張空畫布。 */
@@ -946,12 +949,10 @@
 	): void {
 		if (!schema) return;
 		const problems = diagnostics.length;
-		const undo = before ? { label: '復原', run: () => undoImport(before) } : null;
+		const undo = before ? { label: m.undo, run: () => undoImport(before) } : null;
 		if (schema.tables.length === 0) {
 			showToast(
-				problems > 0
-					? `沒有匯入任何資料表：${diagnostics[0].message}`
-					: '沒有匯入任何資料表——確認一下格式或 SQL 方言有沒有選對。',
+				m.importedNothing(problems > 0 ? diagnostics[0].message : null),
 				6000
 			);
 			return;
@@ -959,19 +960,18 @@
 		// 只算真的畫得出來的關聯：指到不存在的表的那幾條會列在問題清單，不該算進「已匯入」。
 		const tableIds = new Set(schema.tables.map((t) => t.id));
 		const drawn = schema.relations.filter((r) => tableIds.has(r.sourceTable) && tableIds.has(r.targetTable)).length;
-		const verb = strategy === 'merge' ? '合併後共有' : '已匯入';
-		const base = `${verb} ${schema.tables.length} 張表、${drawn} 條關聯`;
+		const base = m.imported(strategy === 'merge', schema.tables.length, drawn);
 		showToast(
-			problems > 0 ? `${base}，有 ${problems} 個問題列在畫布下方。` : `${base}。點任一張表的標題就能聚焦它的關聯。`,
+			problems > 0 ? m.importedProblems(base, problems) : m.importedOk(base),
 			undo ? 9000 : 4500,
 			undo
 		);
 	}
 
 	function handleLoadSample(): void {
-		loadSchema(SAMPLE_SCHEMA_DSL, SAMPLE_SCHEMA_FILENAME);
+		loadSchema(locale === 'en' ? SAMPLE_SCHEMA_DSL_EN : SAMPLE_SCHEMA_DSL, SAMPLE_SCHEMA_FILENAME);
 		if (schema) collab?.pushLocalSchema(schema);
-		showToast('已載入範例：點「Posts」的標題，看看它跟哪些表有關。', 5000);
+		showToast(m.sampleLoaded, 5000);
 	}
 
 	function handleStartBlank(): void {
@@ -995,12 +995,12 @@
 		// 解析失敗都標成 'warning'（因為部分敘述失敗、其餘照樣成功是常態，見那邊的註解），
 		// 只篩 'error' 會永遠篩不到東西，訊息就會一直退回到毫無資訊量的預設文字。
 		if (result.schema.tables.length === 0) {
-			const detail = result.diagnostics[0]?.message ?? '沒有解析出任何內容，可能是格式/方言選錯了';
-			showToast(`比較失敗：${detail}`, 6000);
+			const detail = result.diagnostics[0]?.message ?? m.compareNothing;
+			showToast(m.compareFailed(detail), 6000);
 			return;
 		}
 		if (result.diagnostics.length > 0) {
-			showToast(`比較來源有 ${result.diagnostics.length} 個解析問題（例如：${result.diagnostics[0].message}），diff 結果僅供參考`, 6000);
+			showToast(m.compareProblems(result.diagnostics.length, result.diagnostics[0].message), 6000);
 		}
 		enterDiffMode(result.schema, fileName);
 	}
@@ -1010,7 +1010,7 @@
 	 * 版本歷史的「跟基準比較」會明確帶兩份都是過去快照的 Schema 進來，這時候兩邊都不是
 	 * 「目前」，退出時一樣換回 `schema`（活的可編輯狀態），跟原本行為一致。
 	 */
-	function enterDiffMode(compared: Schema, sourceLabel: string, next: Schema | null = null, nextLabel = '目前'): void {
+	function enterDiffMode(compared: Schema, sourceLabel: string, next: Schema | null = null, nextLabel = m.current): void {
 		if (!schema || !renderer) return;
 		const target = next ?? schema;
 		resetFocus();
@@ -1025,7 +1025,7 @@
 		// 看不出欄位層級的差異，所以提醒一下而不是默默顯示一個可能誤導的結果。
 		const totalTables = compared.tables.length + target.tables.length;
 		if (compared !== target && totalTables >= 3 && tableOverlapRatio(compared, target) < 0.2) {
-			showToast('這兩份 schema 的表名幾乎沒有重疊，可能不是同一份 schema 的版本 —— diff 只會顯示整表新增/刪除，看不出欄位層級的差異', 6000);
+			showToast(m.unrelatedSchemas, 6000);
 		}
 	}
 
@@ -1052,7 +1052,7 @@
 			body: JSON.stringify({ label, source: currentSource, fileName: currentFileName })
 		});
 		if (!res.ok) {
-			showToast(`儲存版本失敗：${res.status} ${await res.text()}`, 6000);
+			showToast(m.saveVersionFailed(`${res.status} ${await res.text()}`), 6000);
 			return;
 		}
 		versions = [await res.json(), ...versions];
@@ -1132,6 +1132,16 @@
 		if (!renderer) return;
 		const narrow = window.matchMedia('(max-width: 767px)').matches;
 		renderer.setBottomInset(narrow ? Math.round(window.innerHeight * 0.42) + 88 : 0);
+	}
+
+	/**
+	 * 切換介面語言要整頁重新載入（renderer 的文字是建立時給的）。編輯內容每次改動都已經存了，
+	 * 這裡只是把還在 400ms 防抖裡的畫面狀態（縮放、聚焦）先寫進草稿，回來時還在原位。
+	 */
+	function handleToggleLanguage(target: Locale): void {
+		clearTimeout(draftSaveTimer);
+		if (currentSource) saveLocalDraft(currentFileName, currentSource);
+		window.location.assign(`/app?lang=${target}`);
 	}
 
 	function handleToggleTheme(): void {
@@ -1279,7 +1289,7 @@
 </script>
 
 <svelte:head>
-	<title>SchemaLens — 工作區</title>
+	<title>{m.pageTitle}</title>
 </svelte:head>
 
 <a
@@ -1290,7 +1300,7 @@
 		canvasHost?.querySelector<HTMLElement>('.dbs-card')?.focus();
 	}}
 >
-	跳到關聯圖
+	{m.skipToCanvas}
 </a>
 <div class="sr-only" role="status" aria-live="polite">{liveMessage}</div>
 <div class="relative flex h-dvh overflow-hidden bg-bg text-fg">
@@ -1414,7 +1424,7 @@
 			{#if collabRoom}
 				<div class="absolute top-3 left-3 z-10 flex items-center gap-2 text-xs">
 					<div class="flex items-center gap-1.5 rounded-full border border-cyan/40 bg-surface/90 px-3 py-1 text-cyan shadow">
-						🔗 即時協作中
+						{m.live}
 					</div>
 					{#if activePageIsOwner}
 						<button
@@ -1425,7 +1435,7 @@
 							}}
 							disabled={inviteLoading}
 						>
-							{inviteLoading ? '產生中…' : '邀請協作者'}
+							{inviteLoading ? m.inviting : m.invite}
 						</button>
 					{/if}
 				</div>
@@ -1434,7 +1444,7 @@
 						class="absolute top-12 left-3 z-10 flex items-center gap-2 rounded-lg border border-border bg-surface/95 px-3 py-2 text-xs shadow-2xl"
 					>
 						<span class="max-w-64 truncate font-mono text-muted">{inviteLink}</span>
-						<button class="text-cyan hover:opacity-80" onclick={copyInviteLink}>複製</button>
+						<button class="text-cyan hover:opacity-80" onclick={copyInviteLink}>{m.copy}</button>
 						<button class="text-muted hover:text-fg" onclick={() => (inviteLink = null)}>×</button>
 					</div>
 				{/if}
@@ -1454,15 +1464,15 @@
 					class="absolute top-3 left-1/2 z-30 flex -translate-x-1/2 items-center gap-2 rounded-full border border-cyan bg-surface px-3 py-1.5 text-xs text-fg shadow-lg"
 				>
 					{#if diffMode.sourceLabel === diffMode.nextLabel}
-						正在檢視版本（{diffMode.sourceLabel}）· 唯讀
+						{m.viewingVersion(diffMode.sourceLabel)}
 					{:else}
-						正在比較版本（{diffMode.sourceLabel} vs {diffMode.nextLabel}）· 唯讀
+						{m.comparingVersions(diffMode.sourceLabel, diffMode.nextLabel)}
 						<span class="text-muted">
 							+{diffMode.diff.addedTables.length} / -{diffMode.diff.removedTables.length} / ~{diffMode.diff.changedTables.length}
 						</span>
 					{/if}
 					<button class="ml-1 rounded-full bg-cyan px-2 py-0.5 text-bg" onclick={exitDiffMode}>
-						{diffMode.sourceLabel === diffMode.nextLabel ? '返回編輯' : '結束比較'}
+						{diffMode.sourceLabel === diffMode.nextLabel ? m.backToEdit : m.endCompare}
 					</button>
 				</div>
 			{/if}
@@ -1486,6 +1496,7 @@
 				onAiClick={() => (showAiSettings = true)}
 				aiConfigured={!!aiSettings}
 				signedIn={!!session?.user}
+				onToggleLanguage={handleToggleLanguage}
 			/>
 
 			{#if toast}
@@ -1571,7 +1582,7 @@
 			saveAiSettings(next);
 			aiSettings = next;
 			showAiSettings = false;
-			showToast('AI 助手已設定完成');
+			showToast(m.aiSaved);
 		}}
 		onClear={() => {
 			clearAiSettings();
@@ -1599,7 +1610,7 @@
 
 {#if deleteConfirm && schema}
 	<ConfirmDeleteDialog
-		title={`確定要刪除資料表「${schema.tables.find((t) => t.id === deleteConfirm?.tableId)?.name ?? ''}」嗎？`}
+		title={m.confirmDeleteTable(schema.tables.find((t) => t.id === deleteConfirm?.tableId)?.name ?? '')}
 		relations={mutate.relationsTouching(schema, deleteConfirm.tableId)}
 		onConfirm={confirmDeleteTable}
 		onCancel={cancelDeleteTable}

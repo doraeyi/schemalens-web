@@ -4,6 +4,74 @@
 	import { relationsTouching } from '$lib/schema/mutations';
 	import ConfirmDeleteDialog from './ConfirmDeleteDialog.svelte';
 	import { ArrowLeft, ArrowRight, Check, Copy, EyeOff, Eye, KeyRound, Plus, Trash2, X } from '@lucide/svelte';
+	import { pick } from '$lib/i18n/current';
+
+	const m = $derived(
+		pick({
+			'zh-hant': {
+				showGroup: '顯示此主題區域',
+				hideGroup: '隱藏此主題區域',
+				toggleGroup: '切換主題區域顯示',
+				duplicate: '建立副本',
+				deleteTable: '刪除資料表',
+				close: '關閉',
+				columns: '欄位',
+				pk: '主鍵',
+				name: '名稱',
+				type: '型別',
+				nullable: '可空',
+				unsetPk: '主鍵（按一下取消）',
+				setPk: '設為主鍵',
+				isPk: (col: string) => `${col} 是主鍵`,
+				columnName: '欄位名稱',
+				fk: '外鍵',
+				unique: '唯一',
+				allowsNull: '允許 NULL（按一下改成 NOT NULL）',
+				notNull: 'NOT NULL（按一下改成允許 NULL）',
+				isNullable: (col: string) => `${col} 允許 NULL`,
+				deleteColumn: '刪除欄位',
+				deleteColumnNamed: (col: string) => `刪除欄位 ${col}`,
+				addColumn: '新增屬性',
+				relations: (n: number) => `關聯 (${n})`,
+				references: '參照',
+				referencedBy: '被參照',
+				noRelations: '沒有關聯',
+				confirmDeleteTable: (name: string) => `確定要刪除資料表「${name}」嗎？`,
+				confirmDeleteColumn: (name: string) => `確定要刪除欄位「${name}」嗎？`
+			},
+			en: {
+				showGroup: 'Show this group',
+				hideGroup: 'Hide this group',
+				toggleGroup: 'Toggle group visibility',
+				duplicate: 'Duplicate',
+				deleteTable: 'Delete table',
+				close: 'Close',
+				columns: 'Columns',
+				pk: 'PK',
+				name: 'Name',
+				type: 'Type',
+				nullable: 'Null',
+				unsetPk: 'Primary key (click to unset)',
+				setPk: 'Make primary key',
+				isPk: (col: string) => `${col} is the primary key`,
+				columnName: 'Column name',
+				fk: 'Foreign key',
+				unique: 'Unique',
+				allowsNull: 'Allows NULL (click for NOT NULL)',
+				notNull: 'NOT NULL (click to allow NULL)',
+				isNullable: (col: string) => `${col} allows NULL`,
+				deleteColumn: 'Delete column',
+				deleteColumnNamed: (col: string) => `Delete column ${col}`,
+				addColumn: 'Add column',
+				relations: (n: number) => `Relations (${n})`,
+				references: 'references',
+				referencedBy: 'referenced by',
+				noRelations: 'No relations',
+				confirmDeleteTable: (name: string) => `Delete the table "${name}"?`,
+				confirmDeleteColumn: (name: string) => `Delete the column "${name}"?`
+			}
+		})
+	);
 
 	interface Props {
 		schema: Schema;
@@ -234,8 +302,8 @@
 						<button
 							class="sl-icon-btn flex-none"
 							onclick={() => table && onToggleGroup(table.group as string)}
-							title={table.group && hiddenGroups.has(table.group) ? '顯示此主題區域' : '隱藏此主題區域'}
-							aria-label="切換主題區域顯示"
+							title={table.group && hiddenGroups.has(table.group) ? m.showGroup : m.hideGroup}
+							aria-label={m.toggleGroup}
 						>
 							{#if table.group && hiddenGroups.has(table.group)}<EyeOff size={12} />{:else}<Eye size={12} />{/if}
 						</button>
@@ -250,18 +318,18 @@
 				<div class="mt-1 text-muted">Schema: {table.schema}</div>
 			</div>
 			<div class="flex flex-none items-center gap-0.5">
-				<button class="sl-icon-btn" onclick={() => onDuplicateTable(table.id)} title="建立副本" aria-label="建立副本">
+				<button class="sl-icon-btn" onclick={() => onDuplicateTable(table.id)} title={m.duplicate} aria-label={m.duplicate}>
 					<Copy size={13} />
 				</button>
 				<button
 					class="sl-icon-btn text-red-400 hover:text-red-300"
 					onclick={handleDeleteTableClick}
-					title="刪除資料表"
-					aria-label="刪除資料表"
+					title={m.deleteTable}
+					aria-label={m.deleteTable}
 				>
 					<Trash2 size={13} />
 				</button>
-				<button class="sl-icon-btn" onclick={onClose} title="關閉" aria-label="關閉"><X size={14} /></button>
+				<button class="sl-icon-btn" onclick={onClose} title={m.close} aria-label={m.close}><X size={14} /></button>
 			</div>
 		</div>
 
@@ -271,14 +339,14 @@
 			{/if}
 
 			<div class="p-3">
-				<div class="mb-2 font-semibold">欄位</div>
+				<div class="mb-2 font-semibold">{m.columns}</div>
 				<!-- 欄標題＋圖示開關：之前每一列都印著灰色「PK」「NULL」，看起來像標記而不是開關，
 				     連不是主鍵的欄位也寫著 PK，很容易誤會。 -->
 				<div class="sl-col-grid mb-1 px-0.5 text-[11px] text-muted" aria-hidden="true">
-					<span class="text-center">主鍵</span>
-					<span>名稱</span>
-					<span>型別</span>
-					<span class="text-center">可空</span>
+					<span class="text-center">{m.pk}</span>
+					<span>{m.name}</span>
+					<span>{m.type}</span>
+					<span class="text-center">{m.nullable}</span>
 					<span></span>
 				</div>
 				<div class="flex flex-col gap-1.5">
@@ -287,8 +355,8 @@
 							<button
 								class="sl-toggle {column.primaryKey ? 'is-on is-key' : ''}"
 								onclick={() => onUpdateColumn(table.id, column.name, { primaryKey: !column.primaryKey })}
-								title={column.primaryKey ? '主鍵（按一下取消）' : '設為主鍵'}
-								aria-label="{column.name} 是主鍵"
+								title={column.primaryKey ? m.unsetPk : m.setPk}
+								aria-label={m.isPk(column.name)}
 								aria-pressed={column.primaryKey}
 							>
 								<KeyRound size={13} />
@@ -298,14 +366,14 @@
 									value={column.name}
 									onblur={(e) => commitColumnField(e, column.name, 'name')}
 									onkeydown={submitOnEnter}
-									aria-label="欄位名稱"
+									aria-label={m.columnName}
 									class="w-full rounded border border-border bg-bg/60 py-1 pl-1.5 font-mono focus:border-cyan focus:outline-none"
 									style:padding-right="{(column.foreignKey ? 26 : 0) + (column.unique ? 26 : 0) + 6}px"
 								/>
 								{#if column.foreignKey || column.unique}
 									<span class="pointer-events-none absolute inset-y-0 right-1.5 flex items-center gap-1">
-										{#if column.foreignKey}<span class="sl-mini-badge is-fk" title="外鍵">FK</span>{/if}
-										{#if column.unique}<span class="sl-mini-badge is-uq" title="唯一">UQ</span>{/if}
+										{#if column.foreignKey}<span class="sl-mini-badge is-fk" title={m.fk}>FK</span>{/if}
+										{#if column.unique}<span class="sl-mini-badge is-uq" title={m.unique}>UQ</span>{/if}
 									</span>
 								{/if}
 							</div>
@@ -314,15 +382,15 @@
 								list="sl-inspector-column-types"
 								onblur={(e) => commitColumnField(e, column.name, 'type')}
 								onkeydown={submitOnEnter}
-								aria-label="型別"
+								aria-label={m.type}
 								title={column.type}
 								class="w-full min-w-0 rounded border border-border bg-bg/60 px-1.5 py-1 font-mono focus:border-cyan focus:outline-none"
 							/>
 							<button
 								class="sl-toggle {column.nullable ? 'is-on' : ''}"
 								onclick={() => onUpdateColumn(table.id, column.name, { nullable: !column.nullable })}
-								title={column.nullable ? '允許 NULL（按一下改成 NOT NULL）' : 'NOT NULL（按一下改成允許 NULL）'}
-								aria-label="{column.name} 允許 NULL"
+								title={column.nullable ? m.allowsNull : m.notNull}
+								aria-label={m.isNullable(column.name)}
 								aria-pressed={column.nullable}
 							>
 								{#if column.nullable}<Check size={13} />{/if}
@@ -330,8 +398,8 @@
 							<button
 								class="sl-icon-btn flex-none text-red-400 opacity-0 group-focus-within/col:opacity-100 group-hover/col:opacity-100 hover:text-red-300"
 								onclick={() => requestDeleteColumn(column.name)}
-								title="刪除欄位"
-								aria-label="刪除欄位 {column.name}"
+								title={m.deleteColumn}
+								aria-label={m.deleteColumnNamed(column.name)}
 							>
 								<Trash2 size={12} />
 							</button>
@@ -342,12 +410,12 @@
 					class="mt-2 flex w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-border py-1 text-muted hover:border-cyan hover:text-cyan"
 					onclick={() => onAddColumn(table.id)}
 				>
-					<Plus size={12} /> 新增屬性
+					<Plus size={12} /> {m.addColumn}
 				</button>
 			</div>
 
 			<div class="border-t border-border p-3">
-				<div class="mb-2 font-semibold">關聯 ({relations.length})</div>
+				<div class="mb-2 font-semibold">{m.relations(relations.length)}</div>
 				<div class="flex flex-col gap-1.5">
 					{#each relations as item (item.relation.name)}
 						<button
@@ -357,7 +425,7 @@
 							<div class="flex items-center gap-1.5">
 								{#if item.outgoing}<ArrowRight size={12} class="flex-none" />{:else}<ArrowLeft size={12} class="flex-none" />{/if}
 								<span class="font-mono font-semibold">{shortName(item.otherTable)}</span>
-								<span class="ml-auto text-muted">{item.outgoing ? '參照' : '被參照'}</span>
+								<span class="ml-auto text-muted">{item.outgoing ? m.references : m.referencedBy}</span>
 							</div>
 							<div class="mt-0.5 pl-[18px] font-mono text-muted">
 								{#if item.outgoing}
@@ -369,7 +437,7 @@
 						</button>
 					{/each}
 					{#if relations.length === 0}
-						<div class="text-muted">沒有關聯</div>
+						<div class="text-muted">{m.noRelations}</div>
 					{/if}
 				</div>
 			</div>
@@ -380,8 +448,8 @@
 {#if table && pendingDelete}
 	<ConfirmDeleteDialog
 		title={pendingDelete.kind === 'table'
-			? `確定要刪除資料表「${table.name}」嗎？`
-			: `確定要刪除欄位「${pendingDelete.columnName}」嗎？`}
+			? m.confirmDeleteTable(table.name)
+			: m.confirmDeleteColumn(pendingDelete.columnName)}
 		relations={pendingDelete.kind === 'table'
 			? relationsTouching(schema, table.id)
 			: relationsTouching(schema, table.id, pendingDelete.columnName)}

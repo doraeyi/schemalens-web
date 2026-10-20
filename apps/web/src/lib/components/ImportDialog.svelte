@@ -3,6 +3,58 @@
 	import { FileUp, X } from '@lucide/svelte';
 	import { SQL_DIALECTS, type SqlDialectId } from '@schemalens/schema-sql';
 	import { SNIPPET_DSL, SNIPPET_SQL } from '$lib/schema/sampleSchema';
+	import { currentLocale, pick } from '$lib/i18n/current';
+	import { COMMON } from '$lib/i18n/common';
+
+	const common = $derived(pick(COMMON));
+	const m = $derived(
+		pick({
+			'zh-hant': {
+				compareTitle: '選擇要比較的版本',
+				importTitle: '匯入 Schema',
+				formatGroup: '來源格式',
+				schemaHintBefore: '支援',
+				schemaHintAnd: '，以及',
+				schemaHintMd: '（內嵌',
+				schemaHintMdAfter: '區塊的 Markdown）。',
+				sqlHintBefore: '貼上或上傳任意',
+				sqlHintAfter: '為主的 SQL DDL，先確認一下方言：',
+				dialectGroup: 'SQL 方言',
+				upload: '點擊上傳檔案',
+				pasteLabel: (kind: string) => `…或直接貼上 ${kind} 文字`,
+				fillSample: '不知道怎麼寫？填入語法範例',
+				fullSyntax: '完整語法',
+				needInput: (compare: boolean) => (compare ? '貼上文字或上傳檔案後就能比較' : '貼上文字或上傳檔案後就能匯入'),
+				existing: (n: number) => `畫布上已經有 ${n} 張表，匯入後可以按「復原」`,
+				merge: '合併進來',
+				replace: '取代目前內容',
+				startCompare: '開始比較',
+				import: '匯入'
+			},
+			en: {
+				compareTitle: 'Choose a version to compare',
+				importTitle: 'Import schema',
+				formatGroup: 'Source format',
+				schemaHintBefore: 'Accepts',
+				schemaHintAnd: ', and',
+				schemaHintMd: '(Markdown with',
+				schemaHintMdAfter: 'blocks).',
+				sqlHintBefore: 'Paste or upload SQL DDL made mostly of',
+				sqlHintAfter: '. Check the dialect first:',
+				dialectGroup: 'SQL dialect',
+				upload: 'Click to upload a file',
+				pasteLabel: (kind: string) => `…or paste ${kind} text`,
+				fillSample: 'Not sure how? Fill in an example',
+				fullSyntax: 'Full syntax',
+				needInput: (compare: boolean) => (compare ? 'Paste text or upload a file to compare' : 'Paste text or upload a file to import'),
+				existing: (n: number) => `The canvas already has ${n} table${n === 1 ? '' : 's'}; you can undo after importing`,
+				merge: 'Merge in',
+				replace: 'Replace current',
+				startCompare: 'Compare',
+				import: 'Import'
+			}
+		})
+	);
 
 	interface Props {
 		mode?: 'import' | 'compare';
@@ -85,11 +137,11 @@
 <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm" use:modal={onClose}>
 	<div class="w-full max-w-xl rounded-xl border border-border bg-surface p-5 text-fg shadow-2xl">
 		<div class="mb-3 flex items-center justify-between">
-			<h2 class="text-sm font-semibold">{mode === 'compare' ? '選擇要比較的版本' : '匯入 Schema'}</h2>
-			<button class="sl-close-btn" onclick={onClose} aria-label="關閉" title="關閉（Esc）"><X size={16} /></button>
+			<h2 class="text-sm font-semibold">{mode === 'compare' ? m.compareTitle : m.importTitle}</h2>
+			<button class="sl-close-btn" onclick={onClose} aria-label={common.close} title={common.closeEsc}><X size={16} /></button>
 		</div>
 
-		<div class="mb-3 flex items-center gap-1 rounded-lg border border-border bg-bg/40 p-1 text-xs" role="group" aria-label="來源格式">
+		<div class="mb-3 flex items-center gap-1 rounded-lg border border-border bg-bg/40 p-1 text-xs" role="group" aria-label={m.formatGroup}>
 			<button
 				class="flex-1 rounded-md py-1.5 {format === 'schema' ? 'bg-cyan text-bg' : 'text-muted hover:text-fg'}"
 				aria-pressed={format === 'schema'}
@@ -108,15 +160,15 @@
 
 		{#if format === 'schema'}
 			<p class="mb-3 text-xs text-muted">
-				支援 <code class="font-mono text-cyan">.dbschema</code> DSL、
-				<code class="font-mono text-cyan">.schema.json</code>，以及
-				<code class="font-mono text-cyan">.schema.md</code>（內嵌 <code class="font-mono text-cyan">{'```dbschema'}</code> 區塊的 Markdown）。
+				{m.schemaHintBefore} <code class="font-mono text-cyan">.dbschema</code> DSL,
+				<code class="font-mono text-cyan">.schema.json</code>{m.schemaHintAnd}
+				<code class="font-mono text-cyan">.schema.md</code> {m.schemaHintMd} <code class="font-mono text-cyan">{'```dbschema'}</code> {m.schemaHintMdAfter}
 			</p>
 		{:else}
 			<p class="mb-2 text-xs text-muted">
-				貼上或上傳任意 <code class="font-mono text-cyan">CREATE TABLE</code> 為主的 SQL DDL，先確認一下方言：
+				{m.sqlHintBefore} <code class="font-mono text-cyan">CREATE TABLE</code>{m.sqlHintAfter}
 			</p>
-			<div class="mb-3 flex flex-wrap items-center gap-1" role="group" aria-label="SQL 方言">
+			<div class="mb-3 flex flex-wrap items-center gap-1" role="group" aria-label={m.dialectGroup}>
 				{#each SQL_DIALECTS as dialect (dialect.id)}
 					<button
 						aria-pressed={sqlDialect === dialect.id}
@@ -136,7 +188,7 @@
 			onclick={() => fileInput?.click()}
 		>
 			<FileUp size={16} />
-			點擊上傳檔案
+			{m.upload}
 		</button>
 		<input
 			bind:this={fileInput}
@@ -147,11 +199,11 @@
 		/>
 
 		<div class="mb-2 flex items-baseline justify-between gap-2 text-xs text-muted">
-			<label for="sl-import-text">…或直接貼上{format === 'sql' ? ' SQL' : ' DSL'}文字</label>
+			<label for="sl-import-text">{m.pasteLabel(format === 'sql' ? 'SQL' : 'DSL')}</label>
 			<button class="text-cyan underline-offset-2 hover:underline" onclick={fillSnippet}>
-				不知道怎麼寫？填入語法範例
+				{m.fillSample}
 			</button>
-			<a href="/docs" target="_blank" rel="noopener" class="text-muted underline-offset-2 hover:text-fg hover:underline">完整語法</a>
+			<a href="/docs" target="_blank" rel="noopener" class="text-muted underline-offset-2 hover:text-fg hover:underline">{m.fullSyntax}</a>
 		</div>
 		<textarea
 			id="sl-import-text"
@@ -166,21 +218,21 @@
 
 		<div class="mt-3 flex items-center justify-end gap-2">
 			{#if !canSubmit}
-				<span class="mr-auto text-xs text-muted">貼上文字或上傳檔案後就能{mode === 'compare' ? '比較' : '匯入'}</span>
+				<span class="mr-auto text-xs text-muted">{m.needInput(mode === 'compare')}</span>
 			{:else if asksStrategy}
-				<span class="mr-auto text-xs text-muted">畫布上已經有 {existingTableCount} 張表，匯入後可以按「復原」</span>
+				<span class="mr-auto text-xs text-muted">{m.existing(existingTableCount)}</span>
 			{/if}
-			<button class="sl-button sl-button-secondary" onclick={onClose}>取消</button>
+			<button class="sl-button sl-button-secondary" onclick={onClose}>{common.cancel}</button>
 			{#if asksStrategy}
 				<button class="sl-button sl-button-secondary" onclick={() => handleSubmit('merge')} disabled={!canSubmit}>
-					合併進來
+					{m.merge}
 				</button>
 				<button class="sl-button sl-button-primary" onclick={() => handleSubmit('replace')} disabled={!canSubmit}>
-					取代目前內容
+					{m.replace}
 				</button>
 			{:else}
 				<button class="sl-button sl-button-primary" onclick={() => handleSubmit()} disabled={!canSubmit}>
-					{mode === 'compare' ? '開始比較' : '匯入'}
+					{mode === 'compare' ? m.startCompare : m.import}
 				</button>
 			{/if}
 		</div>

@@ -1,5 +1,27 @@
 <script lang="ts">
 	import { ChevronDown, CircleAlert, Code, Lightbulb, TriangleAlert, X } from '@lucide/svelte';
+	import { pick } from '$lib/i18n/current';
+
+	const m = $derived(
+		pick({
+			'zh-hant': {
+				errors: (n: number) => `${n} 個錯誤`,
+				warnings: (n: number) => `${n} 個警告`,
+				advisories: (n: number) => `${n} 個建議`,
+				viewSourceTitle: '檢視/複製目前的原始碼——不用下載，直接貼給 AI 改',
+				viewSource: '檢視程式碼',
+				dismiss: '關閉問題清單'
+			},
+			en: {
+				errors: (n: number) => `${n} error${n === 1 ? '' : 's'}`,
+				warnings: (n: number) => `${n} warning${n === 1 ? '' : 's'}`,
+				advisories: (n: number) => `${n} hint${n === 1 ? '' : 's'}`,
+				viewSourceTitle: 'View or copy the current source — no download, paste it straight into an AI',
+				viewSource: 'View source',
+				dismiss: 'Close the problem list'
+			}
+		})
+	);
 
 	/**
 	 * 刻意不用 @schemalens/schema-core 的 SchemaDiagnostic（那個 code 欄位是 vendor package
@@ -42,10 +64,10 @@
 
 	const summary = $derived.by(() => {
 		const parts: string[] = [];
-		if (errorCount > 0) parts.push(`${errorCount} 個錯誤`);
+		if (errorCount > 0) parts.push(m.errors(errorCount));
 		const warnings = problems.length - errorCount;
-		if (warnings > 0) parts.push(`${warnings} 個警告`);
-		if (advisories.length > 0) parts.push(`${advisories.length} 個建議`);
+		if (warnings > 0) parts.push(m.warnings(warnings));
+		if (advisories.length > 0) parts.push(m.advisories(advisories.length));
 		return parts.join(' · ');
 	});
 
@@ -72,10 +94,10 @@
 				<ChevronDown size={13} class="transition-transform {expanded ? 'rotate-180' : ''}" />
 			</button>
 			{#if expanded}
-				<button class="sl-diag-action ml-auto" onclick={onViewSource} title="檢視/複製目前的原始碼——不用下載，直接貼給 AI 改">
-					<Code size={12} /> 檢視程式碼
+				<button class="sl-diag-action ml-auto" onclick={onViewSource} title={m.viewSourceTitle}>
+					<Code size={12} /> {m.viewSource}
 				</button>
-				<button class="sl-diag-action" onclick={onDismiss} aria-label="關閉問題清單" title="關閉問題清單">
+				<button class="sl-diag-action" onclick={onDismiss} aria-label={m.dismiss} title={m.dismiss}>
 					<X size={13} />
 				</button>
 			{/if}

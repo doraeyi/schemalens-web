@@ -1,6 +1,42 @@
 <script lang="ts">
 	import { modal } from '$lib/actions/modal';
 	import { Eye, GitCompare, History, Trash2, X } from '@lucide/svelte';
+	import { currentLocale, pick } from '$lib/i18n/current';
+	import { COMMON } from '$lib/i18n/common';
+
+	const common = $derived(pick(COMMON));
+	const m = $derived(
+		pick({
+			'zh-hant': {
+				confirmDelete: (label: string) => `確定要刪除版本「${label}」嗎？這個動作無法復原。`,
+				title: '版本歷史',
+				labelPlaceholder: '這個版本的說明（可留空）',
+				save: '儲存目前版本',
+				picked: (label: string) => `已選「${label}」——再點另一筆的「比較」完成比對，或點同一筆取消。`,
+				view: '檢視這個版本當時的內容',
+				unpick: '取消選取',
+				compareWithPicked: '跟已選的那筆比較',
+				pickToCompare: '選這筆，再點另一筆來比較',
+				compare: '比較',
+				delete: '刪除版本',
+				empty: '還沒有存過版本，上面填個說明按「儲存目前版本」開始記錄。'
+			},
+			en: {
+				confirmDelete: (label: string) => `Delete the version "${label}"? This cannot be undone.`,
+				title: 'Version history',
+				labelPlaceholder: 'Describe this version (optional)',
+				save: 'Save current version',
+				picked: (label: string) => `"${label}" picked — click Compare on another version to compare, or on the same one to cancel.`,
+				view: 'View this version as it was',
+				unpick: 'Cancel selection',
+				compareWithPicked: 'Compare with the picked version',
+				pickToCompare: 'Pick this, then click another to compare',
+				compare: 'Compare',
+				delete: 'Delete version',
+				empty: 'No versions yet. Add a description above and click "Save current version" to start.'
+			}
+		})
+	);
 
 	export interface VersionSummary {
 		id: string;
@@ -47,12 +83,12 @@
 	}
 
 	function handleDelete(version: VersionSummary): void {
-		if (!confirm(`確定要刪除版本「${version.label}」嗎？這個動作無法復原。`)) return;
+		if (!confirm(m.confirmDelete(version.label))) return;
 		onDeleteVersion(version.id);
 	}
 
 	function formatTime(iso: string): string {
-		return new Date(iso).toLocaleString('zh-TW', { dateStyle: 'medium', timeStyle: 'short' });
+		return new Date(iso).toLocaleString(currentLocale() === 'en' ? 'en' : 'zh-TW', { dateStyle: 'medium', timeStyle: 'short' });
 	}
 </script>
 
@@ -61,16 +97,16 @@
 		<div class="mb-3 flex items-center justify-between">
 			<h2 class="flex items-center gap-1.5 text-sm font-semibold">
 				<History size={15} class="text-cyan" />
-				版本歷史
+				{m.title}
 			</h2>
-			<button class="sl-close-btn" onclick={onClose} aria-label="關閉" title="關閉（Esc）"><X size={16} /></button>
+			<button class="sl-close-btn" onclick={onClose} aria-label={common.close} title={common.closeEsc}><X size={16} /></button>
 		</div>
 
 		<div class="mb-3 flex items-center gap-2">
 			<input
 				bind:value={label}
 				type="text"
-				placeholder="這個版本的說明（可留空）"
+				placeholder={m.labelPlaceholder}
 				onkeydown={(e) => e.key === 'Enter' && handleSave()}
 				class="w-full rounded-md border border-border bg-bg/60 px-2.5 py-1.5 text-xs text-fg placeholder:text-muted focus:border-cyan focus:outline-none"
 			/>
@@ -78,13 +114,13 @@
 				class="flex-none rounded-md border border-cyan bg-cyan/15 px-3 py-1.5 text-xs text-cyan hover:bg-cyan/25"
 				onclick={handleSave}
 			>
-				儲存目前版本
+				{m.save}
 			</button>
 		</div>
 
 		{#if pickedVersionId}
 			<p class="mb-2 text-[11px] text-muted">
-				已選「{versions.find((v) => v.id === pickedVersionId)?.label}」——再點另一筆的「比較」完成比對，或點同一筆取消。
+				{m.picked(versions.find((v) => v.id === pickedVersionId)?.label ?? '')}
 			</p>
 		{/if}
 
@@ -103,31 +139,31 @@
 					<button
 						class="sl-icon-btn flex-none opacity-0 group-hover:opacity-100"
 						onclick={() => onViewVersion(version.id)}
-						title="檢視這個版本當時的內容"
-						aria-label="檢視這個版本當時的內容"
+						title={m.view}
+						aria-label={m.view}
 					>
 						<Eye size={13} />
 					</button>
 					<button
 						class="sl-icon-btn flex-none {isPicked ? 'text-cyan' : 'opacity-0 group-hover:opacity-100'}"
 						onclick={() => handleCompareClick(version.id)}
-						title={isPicked ? '取消選取' : pickedVersionId ? '跟已選的那筆比較' : '選這筆，再點另一筆來比較'}
-						aria-label="比較"
+						title={isPicked ? m.unpick : pickedVersionId ? m.compareWithPicked : m.pickToCompare}
+						aria-label={m.compare}
 					>
 						<GitCompare size={13} />
 					</button>
 					<button
 						class="sl-icon-btn flex-none text-red-400 opacity-0 hover:text-red-300 group-hover:opacity-100"
 						onclick={() => handleDelete(version)}
-						title="刪除版本"
-						aria-label="刪除版本"
+						title={m.delete}
+						aria-label={m.delete}
 					>
 						<Trash2 size={13} />
 					</button>
 				</div>
 			{/each}
 			{#if versions.length === 0}
-				<p class="px-3 py-6 text-center text-xs text-muted">還沒有存過版本，上面填個說明按「儲存目前版本」開始記錄。</p>
+				<p class="px-3 py-6 text-center text-xs text-muted">{m.empty}</p>
 			{/if}
 		</div>
 	</div>

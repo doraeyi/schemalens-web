@@ -167,7 +167,7 @@
 				<a href={REPO_URL} target="_blank" rel="noopener noreferrer" class="sl-nav-link">{c.nav.source}</a>
 			</div>
 			<div class="flex items-center gap-2">
-				<a href={c.nav.otherLangHref} class="sl-nav-link px-1 text-sm whitespace-nowrap" hreflang={lang === 'en' ? 'zh-Hant' : 'en'}>{c.nav.otherLang}</a>
+				<a href={c.nav.otherLangHref} data-sveltekit-reload class="sl-nav-link px-1 text-sm whitespace-nowrap" hreflang={lang === 'en' ? 'zh-Hant' : 'en'}>{c.nav.otherLang}</a>
 				<button class="sl-round-icon" onclick={handleToggleTheme} title={c.themeToggle} aria-label={c.themeToggle}>
 					{#if theme === 'dark'}<Sun size={15} />{:else}<Moon size={15} />{/if}
 				</button>

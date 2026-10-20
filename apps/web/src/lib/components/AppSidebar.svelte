@@ -4,6 +4,55 @@
 	import { clearDraft } from '$lib/persistence/localDraft';
 	import type { Session } from '@auth/sveltekit';
 	import { onMount } from 'svelte';
+	import { currentLocale, pick } from '$lib/i18n/current';
+
+	const m = $derived(
+		pick({
+			'zh-hant': {
+				confirmDeletePage: (title: string) => `確定要刪除分頁「${title}」嗎？這個動作無法復原。`,
+				collapse: '收合側欄',
+				expand: '展開側欄',
+				openSidebar: '開啟側欄：分頁、資料表詳情、登入',
+				sidebar: '側欄',
+				home: '回首頁',
+				pages: '分頁',
+				newPageTitle: '新增分頁（一般或即時協作）',
+				newPage: '新增分頁',
+				localDraft: '本機草稿',
+				browserOnly: '只存在這個瀏覽器',
+				saveToCloud: '存到雲端、建立更多分頁…',
+				realtime: '即時協作分頁',
+				rename: '重新命名',
+				deletePage: '刪除分頁',
+				firstPage: '新增第一個分頁',
+				dockHere: '拖回這裡停靠',
+				signOut: '登出',
+				signIn: '使用 GitHub 登入'
+			},
+			en: {
+				confirmDeletePage: (title: string) => `Delete the page "${title}"? This cannot be undone.`,
+				collapse: 'Collapse sidebar',
+				expand: 'Expand sidebar',
+				openSidebar: 'Open sidebar: pages, table details, sign-in',
+				sidebar: 'Sidebar',
+				home: 'Back to home',
+				pages: 'Pages',
+				newPageTitle: 'New page (normal or live collaboration)',
+				newPage: 'New page',
+				localDraft: 'Local draft',
+				browserOnly: 'This browser only',
+				saveToCloud: 'Save to the cloud, add more pages…',
+				realtime: 'Live collaboration page',
+				rename: 'Rename',
+				deletePage: 'Delete page',
+				firstPage: 'Create your first page',
+				dockHere: 'Drag back here to dock',
+				signOut: 'Sign out',
+				signIn: 'Sign in with GitHub'
+			}
+		})
+	);
+	const homeHref = $derived(currentLocale() === 'en' ? '/en' : '/');
 	import {
 		Cloud,
 		FileText,
@@ -91,7 +140,7 @@
 	}
 
 	function handleDeletePage(pageId: string, title: string): void {
-		if (!confirm(`確定要刪除分頁「${title}」嗎？這個動作無法復原。`)) return;
+		if (!confirm(m.confirmDeletePage(title))) return;
 		onDeletePage(pageId);
 	}
 
@@ -132,7 +181,7 @@
 {#if isNarrow && !collapsed}
 	<button
 		class="absolute inset-0 z-40 bg-black/40"
-		aria-label="收合側欄"
+		aria-label={m.collapse}
 		tabindex="-1"
 		onclick={() => (collapsed = true)}
 	></button>
@@ -143,8 +192,8 @@
 	<button
 		class="sl-menu-fab"
 		onclick={() => (collapsed = false)}
-		aria-label="開啟側欄：分頁、資料表詳情、登入"
-		title="側欄"
+		aria-label={m.openSidebar}
+		title={m.sidebar}
 	>
 		<Menu size={18} />
 	</button>
@@ -157,7 +206,7 @@
 		: 'z-50 w-[min(20rem,calc(100vw-3rem))] bg-surface shadow-2xl md:w-80 md:bg-surface/60 md:shadow-none'}"
 >
 	<div class="flex items-center gap-2 border-b border-border p-3 {collapsed ? 'flex-col' : 'flex-row'}">
-		<a href="/" title="回首頁" class="{collapsed ? 'flex-none' : 'flex-1'} min-w-0">
+		<a href={homeHref} title={m.home} class="{collapsed ? 'flex-none' : 'flex-1'} min-w-0">
 			{#if collapsed}
 				<Logo size={30} wordmark={false} />
 			{:else}
@@ -167,8 +216,8 @@
 		<button
 			class="sl-icon-btn flex-none"
 			onclick={() => (collapsed = !collapsed)}
-			title={collapsed ? '展開側欄' : '收合側欄'}
-			aria-label={collapsed ? '展開側欄' : '收合側欄'}
+			title={collapsed ? m.expand : m.collapse}
+			aria-label={collapsed ? m.expand : m.collapse}
 		>
 			{#if collapsed}<PanelLeftOpen size={15} />{:else}<PanelLeftClose size={15} />{/if}
 		</button>
@@ -177,9 +226,9 @@
 	{#if !collapsed}
 		<div class="max-h-48 overflow-auto border-b border-border p-2">
 			<div class="mb-1 flex items-center justify-between px-1">
-				<span class="text-muted">分頁</span>
+				<span class="text-muted">{m.pages}</span>
 				{#if session?.user}
-					<button class="sl-icon-btn" onclick={onCreatePage} title="新增分頁（一般或即時協作）" aria-label="新增分頁">
+					<button class="sl-icon-btn" onclick={onCreatePage} title={m.newPageTitle} aria-label={m.newPage}>
 						<Plus size={13} />
 					</button>
 				{/if}
@@ -187,14 +236,14 @@
 			{#if !session?.user}
 				<div class="flex items-center gap-1.5 rounded-md bg-surface-2 px-1.5 py-1.5 text-cyan">
 					<HardDrive size={13} class="flex-none" />
-					<span class="min-w-0 flex-1 truncate">本機草稿</span>
-					<span class="flex-none text-[11px] text-muted">只存在這個瀏覽器</span>
+					<span class="min-w-0 flex-1 truncate">{m.localDraft}</span>
+					<span class="flex-none text-[11px] text-muted">{m.browserOnly}</span>
 				</div>
 				<button
 					class="mt-1.5 flex w-full items-center justify-center gap-1.5 rounded-md border border-border py-1.5 text-muted hover:border-cyan hover:text-cyan"
 					onclick={onSaveToCloud}
 				>
-					<Cloud size={12} /> 存到雲端、建立更多分頁…
+					<Cloud size={12} /> {m.saveToCloud}
 				</button>
 			{/if}
 			{#each pages as p (p.id)}
@@ -216,22 +265,22 @@
 						<button class="flex min-w-0 flex-1 items-center gap-1 truncate text-left" onclick={() => onSelectPage(p.id)}>
 							<span class="min-w-0 truncate">{p.title}</span>
 							{#if p.mode === 'realtime'}
-								<span class="flex-none text-[10px]" title="即時協作分頁">🔗</span>
+								<span class="flex-none text-[10px]" title={m.realtime}>🔗</span>
 							{/if}
 						</button>
 						<button
 							class="sl-icon-btn flex-none opacity-0 group-focus-within:opacity-100 group-hover:opacity-100"
 							onclick={() => (renamingPageId = p.id)}
-							title="重新命名"
-							aria-label="重新命名"
+							title={m.rename}
+							aria-label={m.rename}
 						>
 							<Pencil size={11} />
 						</button>
 						<button
 							class="sl-icon-btn flex-none text-red-400 opacity-0 hover:text-red-300 group-hover:opacity-100"
 							onclick={() => handleDeletePage(p.id, p.title)}
-							title="刪除分頁"
-							aria-label="刪除分頁"
+							title={m.deletePage}
+							aria-label={m.deletePage}
 						>
 							<Trash2 size={11} />
 						</button>
@@ -243,7 +292,7 @@
 					class="flex w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-border py-1.5 text-muted hover:border-cyan hover:text-cyan"
 					onclick={onCreatePage}
 				>
-					<Plus size={12} /> 新增第一個分頁
+					<Plus size={12} /> {m.firstPage}
 				</button>
 			{/if}
 		</div>
@@ -271,7 +320,7 @@
 			/>
 			{#if !collapsed && !panelDocked}
 				<div class="m-2 flex flex-1 items-center justify-center rounded-lg border border-dashed border-border text-center text-muted">
-					拖回這裡停靠
+					{m.dockHere}
 				</div>
 			{/if}
 		{/if}
@@ -291,8 +340,8 @@
 							clearDraft();
 							signOut();
 						}}
-						title="登出"
-						aria-label="登出"
+						title={m.signOut}
+						aria-label={m.signOut}
 					>
 						<LogOut size={14} />
 					</button>
@@ -302,7 +351,7 @@
 					class="flex w-full items-center justify-center gap-2 rounded-md border border-border py-2 hover:border-cyan hover:text-cyan"
 					onclick={() => signIn('github')}
 				>
-					<Github size={14} /> 使用 GitHub 登入
+					<Github size={14} /> {m.signIn}
 				</button>
 			{/if}
 		</div>

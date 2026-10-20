@@ -1,6 +1,9 @@
 <script lang="ts">
 	import { tick } from 'svelte';
+	import { currentLocale, pick } from '$lib/i18n/current';
+	import type { Locale } from '$lib/i18n/locale';
 	import {
+		Languages,
 		CircleHelp,
 		Code,
 		Download,
@@ -38,6 +41,8 @@
 		onAiClick: () => void;
 		aiConfigured?: boolean;
 		signedIn?: boolean;
+		/** 切換介面語言。交給頁面處理，換頁前要先把還沒存的草稿寫出去。 */
+		onToggleLanguage: (target: Locale) => void;
 	}
 
 	let {
@@ -58,12 +63,84 @@
 		historyDisabled = false,
 		onAiClick,
 		aiConfigured = false,
-		signedIn = false
+		signedIn = false,
+		onToggleLanguage
 	}: Props = $props();
+
+	const m = $derived(
+		pick({
+			'zh-hant': {
+				historyNeedsCloud: '先存成雲端分頁才會有',
+				historyNeedsSignIn: '登入並存到雲端後才會有',
+				source: '程式碼',
+				sourceHint: '檢視、複製目前的 DSL',
+				compare: '比較版本',
+				compareNeedsTables: '畫布上要先有資料表',
+				history: '版本歷史',
+				ai: 'AI 助手',
+				aiConnected: '已連接',
+				aiConnect: '連接 Claude／ChatGPT',
+				docs: '語法文件與快捷鍵',
+				light: '切換成淺色',
+				dark: '切換成深色',
+				language: 'English',
+				languageHint: 'Switch to English',
+				toolbar: '畫布工具',
+				zoomOut: '縮小',
+				zoomIn: '放大',
+				fit: '按一下縮放到全圖',
+				zoomLabel: (n: number) => `目前縮放 ${n}%，按一下縮放到全圖`,
+				dragGroup: '拖曳背景時',
+				selectTitle: '選取模式：拖曳背景會框選資料表',
+				select: '選取模式',
+				moveTitle: '移動模式：拖曳背景可以平移畫布',
+				move: '移動模式',
+				importTitle: '匯入 Schema',
+				import: '匯入',
+				exportTitle: '匯出 Schema',
+				export: '匯出',
+				moreLabel: '更多：程式碼、比較、歷史、AI、說明、主題、語言',
+				more: '更多'
+			},
+			en: {
+				historyNeedsCloud: 'Save this as a cloud page first',
+				historyNeedsSignIn: 'Sign in and save to the cloud first',
+				source: 'Source',
+				sourceHint: 'View and copy the current DSL',
+				compare: 'Compare versions',
+				compareNeedsTables: 'Add some tables to the canvas first',
+				history: 'Version history',
+				ai: 'AI assistant',
+				aiConnected: 'Connected',
+				aiConnect: 'Connect Claude / ChatGPT',
+				docs: 'Syntax docs and shortcuts',
+				light: 'Switch to light',
+				dark: 'Switch to dark',
+				language: '中文',
+				languageHint: '切換成中文',
+				toolbar: 'Canvas tools',
+				zoomOut: 'Zoom out',
+				zoomIn: 'Zoom in',
+				fit: 'Click to zoom to fit',
+				zoomLabel: (n: number) => `Zoom ${n}%, click to zoom to fit`,
+				dragGroup: 'When dragging the background',
+				selectTitle: 'Select mode: drag the background to box-select tables',
+				select: 'Select mode',
+				moveTitle: 'Move mode: drag the background to pan',
+				move: 'Move mode',
+				importTitle: 'Import schema',
+				import: 'Import',
+				exportTitle: 'Export schema',
+				export: 'Export',
+				moreLabel: 'More: source, compare, history, AI, help, theme, language',
+				more: 'More'
+			}
+		})
+	);
 
 	/** disabled 的項目要說得出為什麼不能按，不然看起來像壞掉。 */
 	const historyHint = $derived(
-		!historyDisabled ? null : signedIn ? '先存成雲端分頁才會有' : '登入並存到雲端後才會有'
+		!historyDisabled ? null : signedIn ? m.historyNeedsCloud : m.historyNeedsSignIn
 	);
 
 	/**
@@ -85,12 +162,13 @@
 	}
 
 	const items = $derived<MoreItem[]>([
-		{ label: '程式碼', icon: Code, run: onViewSourceClick, hint: '檢視、複製目前的 DSL' },
-		{ label: '比較版本', icon: GitCompare, run: onCompare, disabled: compareDisabled, hint: compareDisabled ? '畫布上要先有資料表' : null },
-		{ label: '版本歷史', icon: History, run: onHistory, disabled: historyDisabled, hint: historyHint },
-		{ label: 'AI 助手', icon: Sparkles, run: onAiClick, accent: aiConfigured, hint: aiConfigured ? '已連接' : '連接 Claude／ChatGPT' },
-		{ label: '語法文件與快捷鍵', icon: CircleHelp, run: () => window.open('/docs', '_blank', 'noopener') },
-		{ label: theme === 'dark' ? '切換成淺色' : '切換成深色', icon: theme === 'dark' ? Sun : Moon, run: onToggleTheme }
+		{ label: m.source, icon: Code, run: onViewSourceClick, hint: m.sourceHint },
+		{ label: m.compare, icon: GitCompare, run: onCompare, disabled: compareDisabled, hint: compareDisabled ? m.compareNeedsTables : null },
+		{ label: m.history, icon: History, run: onHistory, disabled: historyDisabled, hint: historyHint },
+		{ label: m.ai, icon: Sparkles, run: onAiClick, accent: aiConfigured, hint: aiConfigured ? m.aiConnected : m.aiConnect },
+		{ label: m.docs, icon: CircleHelp, run: () => window.open('/docs', '_blank', 'noopener') },
+		{ label: theme === 'dark' ? m.light : m.dark, icon: theme === 'dark' ? Sun : Moon, run: onToggleTheme },
+		{ label: m.language, icon: Languages, run: () => onToggleLanguage(currentLocale() === 'en' ? 'zh-hant' : 'en'), hint: m.languageHint }
 	]);
 
 	async function openMenu(): Promise<void> {
@@ -136,30 +214,30 @@
 <div
 	class="sl-bottom-bar absolute bottom-4 left-1/2 z-40 flex max-w-[calc(100%-1rem)] -translate-x-1/2 items-center gap-1 overflow-x-auto rounded-full border border-border bg-surface/95 px-2 py-1.5 text-fg shadow-[0_10px_30px_-12px_rgb(0_0_0/0.45)]"
 	role="toolbar"
-	aria-label="畫布工具"
+	aria-label={m.toolbar}
 >
 	<div class="flex items-center gap-0.5 rounded-full bg-bg/60 px-1 py-0.5">
-		<button class="sl-icon-btn" onclick={onZoomOut} title="縮小" aria-label="縮小"><Minus size={15} /></button>
+		<button class="sl-icon-btn" onclick={onZoomOut} title={m.zoomOut} aria-label={m.zoomOut}><Minus size={15} /></button>
 		<button
 			class="min-w-12 rounded-full px-1.5 py-1 text-center text-xs text-muted tabular-nums hover:text-cyan"
 			onclick={onZoomReset}
-			title="按一下縮放到全圖"
-			aria-label="目前縮放 {scalePercent}%，按一下縮放到全圖"
+			title={m.fit}
+			aria-label={m.zoomLabel(scalePercent)}
 		>
 			{scalePercent}%
 		</button>
-		<button class="sl-icon-btn" onclick={onZoomIn} title="放大" aria-label="放大"><Plus size={15} /></button>
+		<button class="sl-icon-btn" onclick={onZoomIn} title={m.zoomIn} aria-label={m.zoomIn}><Plus size={15} /></button>
 	</div>
 
 	<!-- 手機上用手指拖就是平移，框選用不到，選取／移動切換只在桌面出現 -->
 	<div class="mx-1 h-5 w-px bg-border max-md:hidden"></div>
-	<div class="flex items-center gap-0.5 rounded-full bg-bg/60 p-0.5 max-md:hidden" role="group" aria-label="拖曳背景時">
+	<div class="flex items-center gap-0.5 rounded-full bg-bg/60 p-0.5 max-md:hidden" role="group" aria-label={m.dragGroup}>
 		<button
 			aria-pressed={mode === 'select'}
 			class="sl-icon-btn {mode === 'select' ? 'sl-icon-btn-active' : ''}"
 			onclick={() => onModeChange('select')}
-			title="選取模式：拖曳背景會框選資料表"
-			aria-label="選取模式"
+			title={m.selectTitle}
+			aria-label={m.select}
 		>
 			<MousePointer2 size={15} />
 		</button>
@@ -167,8 +245,8 @@
 			aria-pressed={mode === 'move'}
 			class="sl-icon-btn {mode === 'move' ? 'sl-icon-btn-active' : ''}"
 			onclick={() => onModeChange('move')}
-			title="移動模式：拖曳背景可以平移畫布"
-			aria-label="移動模式"
+			title={m.moveTitle}
+			aria-label={m.move}
 		>
 			<Hand size={15} />
 		</button>
@@ -176,11 +254,11 @@
 
 	<div class="mx-1 h-5 w-px bg-border"></div>
 
-	<button class="sl-pill-btn" onclick={onImportClick} title="匯入 Schema"
-		><Upload size={14} /> <span class="max-sm:sr-only">匯入</span></button
+	<button class="sl-pill-btn" onclick={onImportClick} title={m.importTitle}
+		><Upload size={14} /> <span class="max-sm:sr-only">{m.import}</span></button
 	>
-	<button class="sl-pill-btn" onclick={onExportClick} title="匯出 Schema"
-		><Download size={14} /> <span class="max-sm:sr-only">匯出</span></button
+	<button class="sl-pill-btn" onclick={onExportClick} title={m.exportTitle}
+		><Download size={14} /> <span class="max-sm:sr-only">{m.export}</span></button
 	>
 	<button
 		bind:this={moreButton}
@@ -189,8 +267,8 @@
 		onclick={() => (menuOpen ? closeMenu() : void openMenu())}
 		aria-haspopup="menu"
 		aria-expanded={menuOpen}
-		aria-label="更多：程式碼、比較、歷史、AI、說明、主題"
-		title="更多"
+		aria-label={m.moreLabel}
+		title={m.more}
 	>
 		<Ellipsis size={16} />
 	</button>
@@ -201,7 +279,7 @@
 		bind:this={menuEl}
 		class="sl-more-menu"
 		role="menu"
-		aria-label="更多"
+		aria-label={m.more}
 		tabindex="-1"
 		style:bottom="{menuPos.bottom}px"
 		style:right="{menuPos.right}px"

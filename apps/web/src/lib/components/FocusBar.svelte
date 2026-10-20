@@ -2,13 +2,15 @@
 	import { X } from '@lucide/svelte';
 	import type { TraversalDirection } from '@schemalens/schema-graph';
 	import { stringsFor, type UnrelatedMode } from '@schemalens/schema-renderer';
+	import { currentLocale, pick } from '$lib/i18n/current';
 
 	/**
 	 * 聚焦某張表之後才出現的設定（深度／方向／不相關），浮在畫布上方。
 	 * 之前是塞進頂部工具列，一聚焦工具列就從一行變兩行，整個畫布往下跳；浮著就不會推動版面。
 	 * VS Code 插件用同一個做法（apps/vscode-extension/src/webview/toolbar.ts 的 .dbs-focus-cluster）。
 	 */
-	const t = stringsFor('zh-hant');
+	const t = $derived(stringsFor(currentLocale()));
+	const m = $derived(pick({ 'zh-hant': { bar: '聚焦設定', reset: '取消聚焦（Esc）' }, en: { bar: 'Focus settings', reset: 'Clear focus (Esc)' } }));
 
 	interface Props {
 		tableName: string;
@@ -56,7 +58,7 @@
 	]);
 </script>
 
-<div class="sl-focus-bar" role="toolbar" aria-label="聚焦設定：{tableName}">
+<div class="sl-focus-bar" role="toolbar" aria-label="{m.bar}: {tableName}">
 	<span class="sl-focus-name" title={tableName}><span class="sl-focus-dot" aria-hidden="true"></span>{tableName}</span>
 	{#each groups as group (group.label)}
 		<div class="flex flex-none items-center gap-1" role="group" aria-label={group.label}>
@@ -73,7 +75,7 @@
 			{/each}
 		</div>
 	{/each}
-	<button class="sl-button sl-button-secondary sl-button-sm" onclick={onReset} title="取消聚焦（Esc）">
+	<button class="sl-button sl-button-secondary sl-button-sm" onclick={onReset} title={m.reset}>
 		<X size={13} />{t.resetFocus}
 	</button>
 </div>

@@ -1,6 +1,16 @@
 <script lang="ts">
 	import { modal } from '$lib/actions/modal';
 	import { Check, Copy, X } from '@lucide/svelte';
+	import { pick } from '$lib/i18n/current';
+	import { COMMON } from '$lib/i18n/common';
+
+	const common = $derived(pick(COMMON));
+	const m = $derived(
+		pick({
+			'zh-hant': { title: '目前的 DSL 原始碼', hint: '不用下載檔案——直接複製這段文字貼給 AI 或貼到別的地方。' },
+			en: { title: 'Current DSL source', hint: 'No download needed — copy this text straight into an AI chat or anywhere else.' }
+		})
+	);
 
 	interface Props {
 		source: string;
@@ -46,22 +56,22 @@
 <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm" use:modal={onClose}>
 	<div class="flex max-h-[80vh] w-full max-w-2xl flex-col rounded-xl border border-border bg-surface p-5 text-fg shadow-2xl">
 		<div class="mb-3 flex items-center justify-between">
-			<h2 class="text-sm font-semibold">目前的 DSL 原始碼</h2>
+			<h2 class="text-sm font-semibold">{m.title}</h2>
 			<div class="flex items-center gap-2">
 				<button
 					class="flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-xs hover:border-cyan hover:text-cyan"
 					onclick={handleCopy}
 				>
 					{#if copied}
-						<Check size={12} class="text-cyan" /> 已複製
+						<Check size={12} class="text-cyan" /> {common.copied}
 					{:else}
-						<Copy size={12} /> 複製到剪貼簿
+						<Copy size={12} /> {common.copyToClipboard}
 					{/if}
 				</button>
-				<button class="sl-close-btn" onclick={onClose} aria-label="關閉" title="關閉（Esc）"><X size={16} /></button>
+				<button class="sl-close-btn" onclick={onClose} aria-label={common.close} title={common.closeEsc}><X size={16} /></button>
 			</div>
 		</div>
-		<p class="mb-2 text-xs text-muted">不用下載檔案——直接複製這段文字貼給 AI 或貼到別的地方。</p>
+		<p class="mb-2 text-xs text-muted">{m.hint}</p>
 		<pre
 			bind:this={preEl}
 			class="flex-1 overflow-auto rounded-lg border border-border bg-bg/60 p-3 font-mono text-xs whitespace-pre-wrap select-text">{#each lines as line, i (i)}<span

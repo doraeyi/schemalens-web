@@ -3,9 +3,36 @@
 	import { search, type SearchHit } from '@schemalens/schema-graph';
 	import { stringsFor, type DetailLevel } from '@schemalens/schema-renderer';
 	import { RotateCcw, Search as SearchIcon, SlidersHorizontal, X } from '@lucide/svelte';
+	import { currentLocale, pick as pickLocale } from '$lib/i18n/current';
 
-	// 沿用 VS Code 插件的中文字串，兩邊操作邏輯與用詞一致。
-	const t = stringsFor('zh-hant');
+	// 沿用 VS Code 插件的字串，兩邊操作邏輯與用詞一致。
+	const t = $derived(stringsFor(currentLocale()));
+	const m = $derived(
+		pickLocale({
+			'zh-hant': {
+				compact: '分區總覽',
+				compactHint: '依群組分區、只顯示表名，點表看詳情',
+				viewSettings: '檢視設定',
+				noMatch: (q: string) => `沒有符合「${q}」的表或欄位`,
+				view: '檢視',
+				display: '顯示',
+				comments: '欄位備註',
+				focusHint: '點任一張表的標題，就能調整關聯深度與方向',
+				selected: (n: number) => `已選取 ${n} 張表`
+			},
+			en: {
+				compact: 'Zones',
+				compactHint: 'Grouped into zones with table names only; click a table for details',
+				viewSettings: 'View settings',
+				noMatch: (q: string) => `No table or column matches "${q}"`,
+				view: 'View',
+				display: 'Display',
+				comments: 'Column comments',
+				focusHint: 'Click any table title to adjust relation depth and direction',
+				selected: (n: number) => `${n} table${n === 1 ? '' : 's'} selected`
+			}
+		})
+	);
 
 	/** 「顯示」：分區總覽（原本的精簡模式）跟三種欄位密度併成同一組——之前是兩組各管一半，意思重疊。 */
 	export type DisplayMode = 'compact' | DetailLevel;
@@ -110,18 +137,18 @@
 		onGroupFilter(value === '' ? null : value);
 	}
 
-	const displayOptions: Array<{ label: string; value: DisplayMode; hint: string }> = [
-		{ label: '分區總覽', value: 'compact', hint: '依群組分區、只顯示表名，點表看詳情' },
+	const displayOptions: Array<{ label: string; value: DisplayMode; hint: string }> = $derived([
+		{ label: m.compact, value: 'compact', hint: m.compactHint },
 		{ label: t.viewOverview, value: 'overview', hint: t.viewOverviewHint },
 		{ label: t.viewKeys, value: 'keys', hint: t.viewKeysHint },
 		{ label: t.viewFull, value: 'full', hint: t.viewFullHint }
-	];
+	]);
 </script>
 
 <div
 	class="sl-toolbar relative flex items-center gap-x-3 gap-y-2 border-b border-border bg-surface px-3 py-2 text-xs text-fg max-md:pl-14"
 	role="toolbar"
-	aria-label="檢視設定"
+	aria-label={m.viewSettings}
 >
 	<div class="relative min-w-0 max-md:flex-1">
 		<div class="flex items-center gap-1.5 rounded-full border border-border bg-bg/60 px-3 py-1 max-md:min-h-10">
@@ -158,7 +185,7 @@
 					</button>
 				{/each}
 				{#if hits.length === 0}
-					<div class="px-3 py-2 text-muted">沒有符合「{query}」的表或欄位</div>
+					<div class="px-3 py-2 text-muted">{m.noMatch(query)}</div>
 				{/if}
 			</div>
 		{/if}
@@ -170,15 +197,15 @@
 		aria-controls="sl-toolbar-options"
 		onclick={() => (optionsOpen = !optionsOpen)}
 	>
-		<SlidersHorizontal size={13} /> 檢視
+		<SlidersHorizontal size={13} /> {m.view}
 	</button>
 
 	<div
 		id="sl-toolbar-options"
 		class="sl-toolbar-options {optionsOpen ? 'is-open' : ''} flex min-w-0 flex-1 items-center gap-x-3 gap-y-2"
 	>
-		<div class="flex flex-none flex-wrap items-center gap-1" role="group" aria-label="顯示">
-			<span class="mr-0.5 text-muted">顯示</span>
+		<div class="flex flex-none flex-wrap items-center gap-1" role="group" aria-label={m.display}>
+			<span class="mr-0.5 text-muted">{m.display}</span>
 			{#each displayOptions as option (option.value)}
 				<button
 					class="sl-chip"
@@ -208,8 +235,8 @@
 			</div>
 		{/if}
 
-		<div class="flex flex-none items-center gap-1" role="group" aria-label="欄位備註">
-			<span class="mr-0.5 text-muted">欄位備註</span>
+		<div class="flex flex-none items-center gap-1" role="group" aria-label={m.comments}>
+			<span class="mr-0.5 text-muted">{m.comments}</span>
 			<button class="sl-chip" aria-pressed={!expandComments} title={t.commentsTruncateHint} onclick={() => onComments(false)}>
 				{t.commentsTruncate}
 			</button>
@@ -228,13 +255,13 @@
 		</div>
 
 		{#if !hasFocus}
-			<span class="hidden flex-none text-muted xl:inline">點任一張表的標題，就能調整關聯深度與方向</span>
+			<span class="hidden flex-none text-muted xl:inline">{m.focusHint}</span>
 		{/if}
 	</div>
 
 	{#if selectedCount > 0}
 		<button class="sl-chip flex-none border-violet text-violet" onclick={onClearSelection}>
-			已選取 {selectedCount} 張表 <X size={11} />
+			{m.selected(selectedCount)} <X size={11} />
 		</button>
 	{/if}
 

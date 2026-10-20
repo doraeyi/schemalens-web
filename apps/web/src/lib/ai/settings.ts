@@ -1,3 +1,5 @@
+import type { Locale } from '$lib/i18n/locale';
+
 export type AiProviderId = 'anthropic' | 'openai';
 
 export interface AiSettings {
@@ -12,8 +14,8 @@ export interface AiProviderInfo {
 	/** 申請 API key 的頁面。 */
 	keyUrl: string;
 	keyPlaceholder: string;
-	/** 設定畫面顯示的申請步驟。 */
-	steps: string[];
+	/** 設定畫面顯示的申請步驟，依介面語言。 */
+	steps: Record<Locale, string[]>;
 }
 
 export const AI_PROVIDERS: Record<AiProviderId, AiProviderInfo> = {
@@ -22,24 +24,40 @@ export const AI_PROVIDERS: Record<AiProviderId, AiProviderInfo> = {
 		label: 'Claude（Anthropic）',
 		keyUrl: 'https://console.anthropic.com/settings/keys',
 		keyPlaceholder: 'sk-ant-...',
-		steps: [
-			'登入 Anthropic Console（跟 claude.ai 的訂閱是分開的帳號／計費）',
-			'到 Settings → Billing 儲值',
-			'到 Settings → API Keys 按「Create Key」，複製產生的 key',
-			'貼到下面的欄位'
-		]
+		steps: {
+			'zh-hant': [
+				'登入 Anthropic Console（跟 claude.ai 的訂閱是分開的帳號／計費）',
+				'到 Settings → Billing 儲值',
+				'到 Settings → API Keys 按「Create Key」，複製產生的 key',
+				'貼到下面的欄位'
+			],
+			en: [
+				'Sign in to the Anthropic Console (separate account and billing from your claude.ai subscription)',
+				'Add credit under Settings → Billing',
+				'Under Settings → API Keys, click "Create Key" and copy the key',
+				'Paste it in the field below'
+			]
+		}
 	},
 	openai: {
 		id: 'openai',
 		label: 'GPT（OpenAI）',
 		keyUrl: 'https://platform.openai.com/api-keys',
 		keyPlaceholder: 'sk-...',
-		steps: [
-			'登入 OpenAI Platform（跟 ChatGPT Plus 的訂閱是分開計費的）',
-			'到 Settings → Billing 儲值',
-			'到 API keys 按「Create new secret key」，複製產生的 key',
-			'貼到下面的欄位'
-		]
+		steps: {
+			'zh-hant': [
+				'登入 OpenAI Platform（跟 ChatGPT Plus 的訂閱是分開計費的）',
+				'到 Settings → Billing 儲值',
+				'到 API keys 按「Create new secret key」，複製產生的 key',
+				'貼到下面的欄位'
+			],
+			en: [
+				'Sign in to the OpenAI Platform (billed separately from ChatGPT Plus)',
+				'Add credit under Settings → Billing',
+				'Under API keys, click "Create new secret key" and copy the key',
+				'Paste it in the field below'
+			]
+		}
 	}
 };
 

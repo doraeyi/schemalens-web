@@ -5,7 +5,15 @@ export interface AiModelOption {
 	label: string;
 }
 
-export class AiKeyError extends Error {}
+/** 驗證 key 時可以預期的失敗，畫面依 kind 用使用者的語言說明（見 AiSettingsDialog）。 */
+export class AiKeyError extends Error {
+	constructor(
+		readonly kind: 'invalid' | 'permission' | 'network',
+		readonly provider: 'Anthropic' | 'OpenAI'
+	) {
+		super(`${provider} API key check failed: ${kind}`);
+	}
+}
 
 /** Claude 這邊的預設選擇；key 的清單裡沒有這個模型時退回清單第一個（API 回傳的順序本來就是新到舊）。 */
 const PREFERRED_ANTHROPIC_MODEL = 'claude-opus-5';
@@ -34,9 +42,9 @@ export async function listModels(provider: AiProviderId, apiKey: string): Promis
 			if (preferred > 0) models.unshift(...models.splice(preferred, 1));
 			return models;
 		} catch (error) {
-			if (error instanceof Anthropic.AuthenticationError) throw new AiKeyError('API key 無效，請確認有完整複製');
-			if (error instanceof Anthropic.PermissionDeniedError) throw new AiKeyError('這把 key 沒有權限，請確認帳號已儲值');
-			if (error instanceof Anthropic.APIConnectionError) throw new AiKeyError('連不到 Anthropic，請檢查網路');
+			if (error instanceof Anthropic.AuthenticationError) throw new AiKeyError('invalid', 'Anthropic');
+			if (error instanceof Anthropic.PermissionDeniedError) throw new AiKeyError('permission', 'Anthropic');
+			if (error instanceof Anthropic.APIConnectionError) throw new AiKeyError('network', 'Anthropic');
 			throw error;
 		}
 	}
@@ -50,9 +58,9 @@ export async function listModels(provider: AiProviderId, apiKey: string): Promis
 		}
 		return models.sort((a, b) => b.created - a.created).map((m) => ({ id: m.id, label: m.id }));
 	} catch (error) {
-		if (error instanceof OpenAI.AuthenticationError) throw new AiKeyError('API key 無效，請確認有完整複製');
-		if (error instanceof OpenAI.PermissionDeniedError) throw new AiKeyError('這把 key 沒有權限，請確認帳號已儲值');
-		if (error instanceof OpenAI.APIConnectionError) throw new AiKeyError('連不到 OpenAI，請檢查網路');
+		if (error instanceof OpenAI.AuthenticationError) throw new AiKeyError('invalid', 'OpenAI');
+		if (error instanceof OpenAI.PermissionDeniedError) throw new AiKeyError('permission', 'OpenAI');
+		if (error instanceof OpenAI.APIConnectionError) throw new AiKeyError('network', 'OpenAI');
 		throw error;
 	}
 }

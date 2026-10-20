@@ -32,7 +32,9 @@ export const actions: Actions = {
 			throw error;
 		}
 		const session = await event.locals.auth();
-		if (!session?.user?.id) return fail(401, { error: '登入狀態已失效，請重新登入' });
+		if (!session?.user?.id) return fail(401, {
+			error: event.locals.locale === 'en' ? 'Your sign-in has expired. Please sign in again.' : '登入狀態已失效，請重新登入'
+		});
 
 		const target = new URL(request.redirectUri);
 		const form = await event.request.formData();
